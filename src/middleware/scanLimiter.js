@@ -2,7 +2,7 @@
  * Daily Scan Rate Limiter
  * - Free users: 1 scan/day
  * - Pro users: 25 scans/day
- * Uses IP-based tracking (no auth required for MVP)
+ * Uses userId-based tracking (not IP) to allow multiple users on same network
  */
 
 // In-memory store (replace with Redis for production at scale)
@@ -23,9 +23,17 @@ setInterval(() => {
     }
 }, 60 * 60 * 1000);
 
-export function getScanCount(ip) {
+// Get tracking key - prefer userId over IP for accurate per-user tracking
+function getTrackingKey(userId, ip) {
+    // If userId provided, use that (unique per browser)
+    // Otherwise fall back to IP (less accurate but still works)
+    return userId || ip || 'unknown';
+}
+
+export function getScanCount(userId, ip) {
+    const key = getTrackingKey(userId, ip);
     const today = new Date().toDateString();
-    const data = scanStore.get(ip);
+    const data = scanStore.get(key);
 
     if (!data || data.date !== today) {
         return 0;
@@ -33,29 +41,32 @@ export function getScanCount(ip) {
     return data.count;
 }
 
-export function incrementScanCount(ip) {
+export function incrementScanCount(userId, ip) {
+    const key = getTrackingKey(userId, ip);
     const today = new Date().toDateString();
-    const data = scanStore.get(ip);
+    const data = scanStore.get(key);
 
     if (!data || data.date !== today) {
-        scanStore.set(ip, { date: today, count: 1, isPro: false });
+        scanStore.set(key, { date: today, count: 1, isPro: false });
         return 1;
     }
 
     data.count += 1;
-    scanStore.set(ip, data);
+    scanStore.set(key, data);
     return data.count;
 }
 
-export function setProStatus(ip, isPro) {
+export function setProStatus(userId, ip, isPro) {
+    const key = getTrackingKey(userId, ip);
     const today = new Date().toDateString();
-    const data = scanStore.get(ip) || { date: today, count: 0 };
+    const data = scanStore.get(key) || { date: today, count: 0 };
     data.isPro = isPro;
-    scanStore.set(ip, data);
+    scanStore.set(key, data);
 }
 
-export function getProStatus(ip) {
-    const data = scanStore.get(ip);
+export function getProStatus(userId, ip) {
+    const key = getTrackingKey(userId, ip);
+    const data = scanStore.get(key);
     return data?.isPro || false;
 }
 
@@ -63,19 +74,18 @@ import { consumeBonusScan } from './referralStore.js';
 
 export function scanLimiter(req, res, next) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-    const isPro = getProStatus(ip);
-    const limit = isPro ? LIMITS.pro : LIMITS.free;
-    const currentCount = getScanCount(ip);
+    // Get userId from body or query - this is the unique browser fingerprint
+    const userId = req.body?.userId || req.query?.userId;
 
-    // Check for userId to use bonus scans
-    // Passed in body for POST or query for GET
-    const userId = req.body.userId || req.query.userId;
+    const isPro = getProStatus(userId, ip);
+    const limit = isPro ? LIMITS.pro : LIMITS.free;
+    const currentCount = getScanCount(userId, ip);
 
     if (currentCount >= limit) {
         // Try to use a bonus scan if available
         if (consumeBonusScan(userId)) {
             // Attach info and allow
-            req.scanInfo = { ip, currentCount, limit, isPro, usedBonus: true };
+            req.scanInfo = { userId, ip, currentCount, limit, isPro, usedBonus: true };
             return next();
         }
 
@@ -95,7 +105,7 @@ export function scanLimiter(req, res, next) {
     }
 
     // Attach info to request for use after successful scan
-    req.scanInfo = { ip, currentCount, limit, isPro };
+    req.scanInfo = { userId, ip, currentCount, limit, isPro };
     next();
 }
 
@@ -108,3 +118,4 @@ function getResetTime() {
 }
 
 export { LIMITS };
+

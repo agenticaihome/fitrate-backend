@@ -7,9 +7,10 @@ const router = express.Router();
 // Check remaining scans
 router.get('/status', (req, res) => {
   const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-  const isPro = getProStatus(ip);
+  const userId = req.query.userId;
+  const isPro = getProStatus(userId, ip);
   const limit = isPro ? LIMITS.pro : LIMITS.free;
-  const used = getScanCount(ip);
+  const used = getScanCount(userId, ip);
 
   res.json({
     scansUsed: used,
@@ -21,17 +22,16 @@ router.get('/status', (req, res) => {
 
 import { getReferralStats } from '../middleware/referralStore.js';
 
-// Consume a scan (for free users - no AI call, just tracks usage by IP)
-// This prevents localStorage bypass - server tracks by IP
+// Consume a scan (for free users - no AI call, just tracks usage by userId)
+// This prevents localStorage bypass - server tracks by userId (unique per browser)
 router.post('/consume', scanLimiter, (req, res) => {
-  const { ip, limit, isPro, usedBonus } = req.scanInfo;
-  const { userId } = req.body;
+  const { userId, ip, limit, isPro, usedBonus } = req.scanInfo;
 
   let newCount;
   if (usedBonus) {
-    newCount = getScanCount(ip); // Don't increment IP count if using bonus
+    newCount = getScanCount(userId, ip); // Don't increment if using bonus
   } else {
-    newCount = incrementScanCount(ip);
+    newCount = incrementScanCount(userId, ip);
   }
 
   let bonusRemaining = 0;
@@ -89,10 +89,10 @@ router.post('/', scanLimiter, async (req, res) => {
 
     // Only increment count on successful analysis
     if (result.success) {
-      const { ip, limit, isPro } = req.scanInfo;
-      const newCount = incrementScanCount(ip);
+      const { userId, ip, limit, isPro } = req.scanInfo;
+      const newCount = incrementScanCount(userId, ip);
 
-      console.log(`[${requestId}] Success - Scan count: ${newCount}/${limit} (isPro: ${isPro})`);
+      console.log(`[${requestId}] Success - Scan count: ${newCount}/${limit} (isPro: ${isPro}, userId: ${userId || 'none'})`);
 
       // Add scan info to response
       result.scanInfo = {
