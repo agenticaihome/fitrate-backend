@@ -1,0 +1,70 @@
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
+
+import { config } from './config/index.js';
+import analyzeRoutes from './routes/analyze.js';
+import battleRoutes from './routes/battle.js';
+import webhookRoutes from './routes/webhook.js';
+
+const app = express();
+
+// Security middleware
+app.use(helmet());
+app.use(morgan('combined'));
+
+// CORS
+app.use(cors({
+  origin: config.allowedOrigins,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  credentials: true
+}));
+
+// Body parsing (exclude webhook route - needs raw body)
+app.use('/api/webhook', express.raw({ type: 'application/json' }));
+app.use(express.json({ limit: '10mb' }));
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: config.rateLimit.windowMs,
+  max: config.rateLimit.maxRequests,
+  message: { error: 'Too many requests, please try again later.' }
+});
+app.use('/api/', limiter);
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    service: 'fitrate-api',
+    version: '1.0.0',
+    timestamp: new Date().toISOString() 
+  });
+});
+
+// Routes
+app.use('/api/analyze', analyzeRoutes);
+app.use('/api/battle', battleRoutes);
+app.use('/api/webhook', webhookRoutes);
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'Not found' });
+});
+
+// Error handler
+app.use((err, req, res, next) => {
+  console.error('Server error:', err);
+  res.status(500).json({ error: 'Internal server error' });
+});
+
+// Start server
+app.listen(config.port, () => {
+  console.log(`🚀 FitRate API running on port ${config.port}`);
+  console.log(`📍 Environment: ${config.nodeEnv}`);
+});
+
+export default app;
