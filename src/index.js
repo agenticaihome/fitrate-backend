@@ -10,6 +10,8 @@ import analyzeRoutes from './routes/analyze.js';
 import battleRoutes from './routes/battle.js';
 import webhookRoutes from './routes/webhook.js';
 
+import diagRoutes from './routes/diag.js';
+
 const app = express();
 
 // CORS - MUST be before other middleware
@@ -49,6 +51,7 @@ app.get('/health', (req, res) => {
 });
 
 // Routes
+app.use('/api/diag', diagRoutes);
 app.use('/api/analyze', analyzeRoutes);
 app.use('/api/battle', battleRoutes);
 app.use('/api/webhook', webhookRoutes);
