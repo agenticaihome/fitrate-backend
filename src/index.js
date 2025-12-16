@@ -68,9 +68,13 @@ app.use((err, req, res, next) => {
 });
 
 // Start server
-app.listen(config.port, () => {
+const server = app.listen(config.port, () => {
   console.log(`🚀 FitRate API running on port ${config.port}`);
   console.log(`📍 Environment: ${config.nodeEnv}`);
+  console.log(`⏱️  Request timeout: 30s`);
 });
+
+// Set server timeout to 30 seconds
+server.timeout = 30000;
 
 export default app;

@@ -79,57 +79,78 @@ If the image doesn't show an outfit, respond with:
 
 export async function analyzeOutfit(imageBase64, options = {}) {
   const { roastMode = false, occasion = null } = options;
-  
+  const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
   try {
+    console.log(`[${requestId}] Starting outfit analysis (roastMode: ${roastMode}, occasion: ${occasion || 'none'})`);
+
     // Clean base64 data
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-    
-    const response = await openai.chat.completions.create({
-      model: config.openai.model,
-      max_tokens: 600,
-      messages: [
-        {
-          role: 'system',
-          content: roastMode ? ROAST_SYSTEM_PROMPT : NICE_SYSTEM_PROMPT
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:image/jpeg;base64,${base64Data}`,
-                detail: 'low' // Use 'low' for faster/cheaper, 'high' for better accuracy
-              }
-            },
-            {
-              type: 'text',
-              text: createAnalysisPrompt(occasion, roastMode)
-            }
-          ]
-        }
-      ]
+    const imageSizeKB = Math.round((base64Data.length * 3) / 4 / 1024);
+    console.log(`[${requestId}] Image size: ${imageSizeKB}KB`);
+
+    // Create a timeout promise
+    const timeoutMs = 25000; // 25 seconds timeout
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('OpenAI request timeout')), timeoutMs);
     });
+
+    // Race between OpenAI call and timeout
+    const response = await Promise.race([
+      openai.chat.completions.create({
+        model: config.openai.model,
+        max_tokens: 600,
+        messages: [
+          {
+            role: 'system',
+            content: roastMode ? ROAST_SYSTEM_PROMPT : NICE_SYSTEM_PROMPT
+          },
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: {
+                  url: `data:image/jpeg;base64,${base64Data}`,
+                  detail: 'low' // Use 'low' for faster/cheaper, 'high' for better accuracy
+                }
+              },
+              {
+                type: 'text',
+                text: createAnalysisPrompt(occasion, roastMode)
+              }
+            ]
+          }
+        ]
+      }),
+      timeoutPromise
+    ]);
 
     const content = response.choices[0]?.message?.content;
     if (!content) {
+      console.error(`[${requestId}] No content in OpenAI response`);
       throw new Error('No response from GPT-4o');
     }
+
+    console.log(`[${requestId}] Received response from OpenAI (${content.length} chars)`);
 
     // Parse JSON response (handle potential markdown wrapping)
     let jsonStr = content.trim();
     if (jsonStr.startsWith('```')) {
       jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
     }
-    
+
     const result = JSON.parse(jsonStr);
-    
+
     if (!result.isValidOutfit) {
+      console.log(`[${requestId}] Invalid outfit detected: ${result.error}`);
       return {
         success: false,
         error: result.error || 'Could not analyze this image'
       };
     }
+
+    console.log(`[${requestId}] Analysis successful - Overall score: ${result.overall}`);
 
     return {
       success: true,
@@ -148,10 +169,30 @@ export async function analyzeOutfit(imageBase64, options = {}) {
       }
     };
   } catch (error) {
-    console.error('GPT-4o analysis error:', error);
+    console.error(`[${requestId}] Analysis error:`, {
+      message: error.message,
+      type: error.constructor.name,
+      status: error.status,
+      code: error.code
+    });
+
+    // Return more specific error messages
+    let errorMessage = 'Failed to analyze outfit. Please try again.';
+
+    if (error.message === 'OpenAI request timeout') {
+      errorMessage = 'Analysis is taking too long. Please try again with a smaller image.';
+    } else if (error.status === 401 || error.code === 'invalid_api_key') {
+      errorMessage = 'Service configuration error. Please contact support.';
+      console.error(`[${requestId}] CRITICAL: Invalid OpenAI API key`);
+    } else if (error.status === 429) {
+      errorMessage = 'OpenAI service is busy. Please try again in a moment.';
+    } else if (error.message?.includes('JSON')) {
+      errorMessage = 'Failed to parse analysis results. Please try again.';
+    }
+
     return {
       success: false,
-      error: 'Failed to analyze outfit. Please try again.'
+      error: errorMessage
     };
   }
 }
