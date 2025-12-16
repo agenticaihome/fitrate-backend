@@ -19,7 +19,24 @@ router.get('/status', (req, res) => {
   });
 });
 
-// Main analyze endpoint with rate limiting
+// Consume a scan (for free users - no AI call, just tracks usage by IP)
+// This prevents localStorage bypass - server tracks by IP
+router.post('/consume', scanLimiter, (req, res) => {
+  const { ip, limit, isPro } = req.scanInfo;
+  const newCount = incrementScanCount(ip);
+
+  res.json({
+    success: true,
+    scanInfo: {
+      scansUsed: newCount,
+      scansLimit: limit,
+      scansRemaining: Math.max(0, limit - newCount),
+      isPro
+    }
+  });
+});
+
+// Main analyze endpoint with rate limiting (for Pro users - real AI)
 router.post('/', scanLimiter, async (req, res) => {
   try {
     const { image, roastMode, occasion } = req.body;
