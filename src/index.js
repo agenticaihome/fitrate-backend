@@ -9,6 +9,7 @@ import { config } from './config/index.js';
 import analyzeRoutes from './routes/analyze.js';
 import battleRoutes from './routes/battle.js';
 import webhookRoutes from './routes/webhook.js';
+import proRoutes from './routes/pro.js';
 
 import diagRoutes from './routes/diag.js';
 
@@ -55,6 +56,7 @@ app.use('/api/diag', diagRoutes);
 app.use('/api/analyze', analyzeRoutes);
 app.use('/api/battle', battleRoutes);
 app.use('/api/webhook', webhookRoutes);
+app.use('/api/pro', proRoutes);
 
 // 404 handler
 app.use((req, res) => {

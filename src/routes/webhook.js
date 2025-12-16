@@ -1,12 +1,13 @@
 import express from 'express';
 import Stripe from 'stripe';
 import { config } from '../config/index.js';
+import { addProEmail, removeProEmail } from '../middleware/proEmailStore.js';
 
 const router = express.Router();
 
 // Initialize Stripe (only if key is configured)
-const stripe = config.stripe.secretKey 
-  ? new Stripe(config.stripe.secretKey) 
+const stripe = config.stripe.secretKey
+  ? new Stripe(config.stripe.secretKey)
   : null;
 
 router.post('/', async (req, res) => {
@@ -16,7 +17,7 @@ router.post('/', async (req, res) => {
   }
 
   const sig = req.headers['stripe-signature'];
-  
+
   if (!sig || !config.stripe.webhookSecret) {
     return res.status(400).json({ error: 'Missing signature or webhook secret' });
   }
@@ -38,38 +39,43 @@ router.post('/', async (req, res) => {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object;
+      const email = session.customer_email || session.customer_details?.email;
+
       console.log('✅ Payment successful:', session.id);
-      console.log('   Customer email:', session.customer_email);
+      console.log('   Customer email:', email);
       console.log('   Amount:', session.amount_total / 100);
-      
-      // TODO: Add user to your database as Pro
-      // await db.users.update({ email: session.customer_email }, { isPro: true });
-      
+
+      // Add email to Pro store
+      if (email) {
+        addProEmail(email);
+      } else {
+        console.warn('⚠️ No email found in checkout session');
+      }
+
       break;
     }
-    
+
     case 'customer.subscription.created': {
       const subscription = event.data.object;
       console.log('✅ New subscription:', subscription.id);
       break;
     }
-    
+
     case 'customer.subscription.deleted': {
       const subscription = event.data.object;
       console.log('❌ Subscription canceled:', subscription.id);
-      
-      // TODO: Remove Pro status
-      // await db.users.update({ stripeCustomerId: subscription.customer }, { isPro: false });
-      
+
+      // TODO: Get email from subscription and remove Pro
+      // For now, we'd need to look up the customer
       break;
     }
-    
+
     case 'invoice.payment_failed': {
       const invoice = event.data.object;
       console.log('⚠️ Payment failed:', invoice.id);
       break;
     }
-    
+
     default:
       console.log(`Unhandled event type: ${event.type}`);
   }
@@ -78,3 +84,4 @@ router.post('/', async (req, res) => {
 });
 
 export default router;
+
