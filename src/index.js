@@ -12,16 +12,19 @@ import webhookRoutes from './routes/webhook.js';
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
-app.use(morgan('combined'));
-
-// CORS
+// CORS - MUST be before other middleware
 app.use(cors({
   origin: config.allowedOrigins,
   methods: ['GET', 'POST', 'OPTIONS'],
   credentials: true
 }));
+
+// Security middleware (configured for API cross-origin access)
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
+}));
+app.use(morgan('combined'));
 
 // Body parsing (exclude webhook route - needs raw body)
 app.use('/api/webhook', express.raw({ type: 'application/json' }));
@@ -37,11 +40,11 @@ app.use('/api/', limiter);
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     service: 'fitrate-api',
     version: '1.0.0',
-    timestamp: new Date().toISOString() 
+    timestamp: new Date().toISOString()
   });
 });
 
