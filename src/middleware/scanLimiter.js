@@ -59,19 +59,32 @@ export function getProStatus(ip) {
     return data?.isPro || false;
 }
 
+import { consumeBonusScan } from './referralStore.js';
+
 export function scanLimiter(req, res, next) {
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
     const isPro = getProStatus(ip);
     const limit = isPro ? LIMITS.pro : LIMITS.free;
     const currentCount = getScanCount(ip);
 
+    // Check for userId to use bonus scans
+    // Passed in body for POST or query for GET
+    const userId = req.body.userId || req.query.userId;
+
     if (currentCount >= limit) {
+        // Try to use a bonus scan if available
+        if (consumeBonusScan(userId)) {
+            // Attach info and allow
+            req.scanInfo = { ip, currentCount, limit, isPro, usedBonus: true };
+            return next();
+        }
+
         const limitType = isPro ? 'daily Pro' : 'free';
         return res.status(429).json({
             success: false,
             error: isPro
                 ? `You've hit your ${LIMITS.pro} scans for today! Come back tomorrow 🔥`
-                : `You've used your free scan for today!`,
+                : `You've used your free scan for today! Share with friends to earn more.`,
             limitReached: true,
             isPro,
             scansUsed: currentCount,

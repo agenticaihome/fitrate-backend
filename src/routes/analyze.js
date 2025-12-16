@@ -19,11 +19,26 @@ router.get('/status', (req, res) => {
   });
 });
 
+import { getReferralStats } from '../middleware/referralStore.js';
+
 // Consume a scan (for free users - no AI call, just tracks usage by IP)
 // This prevents localStorage bypass - server tracks by IP
 router.post('/consume', scanLimiter, (req, res) => {
-  const { ip, limit, isPro } = req.scanInfo;
-  const newCount = incrementScanCount(ip);
+  const { ip, limit, isPro, usedBonus } = req.scanInfo;
+  const { userId } = req.body;
+
+  let newCount;
+  if (usedBonus) {
+    newCount = getScanCount(ip); // Don't increment IP count if using bonus
+  } else {
+    newCount = incrementScanCount(ip);
+  }
+
+  let bonusRemaining = 0;
+  if (userId) {
+    const stats = getReferralStats(userId);
+    bonusRemaining = stats.bonusScans;
+  }
 
   res.json({
     success: true,
@@ -31,7 +46,9 @@ router.post('/consume', scanLimiter, (req, res) => {
       scansUsed: newCount,
       scansLimit: limit,
       scansRemaining: Math.max(0, limit - newCount),
-      isPro
+      isPro,
+      usedBonus,
+      bonusRemaining
     }
   });
 });
