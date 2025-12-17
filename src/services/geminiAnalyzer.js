@@ -1,60 +1,24 @@
 /**
- * Gemini Outfit Analyzer - Free tier for all users
- * Uses Google's Gemini API via REST for reliable image analysis
- * VIRAL PROMPT DESIGN: Short, shareable, meme-worthy outputs
+ * Gemini Outfit Analyzer - Free tier
+ * OPTIMIZED: ~130 tokens vs ~400 (65% reduction)
  */
 
 import { config } from '../config/index.js';
 
-// Aesthetics trending on TikTok/Instagram
-const AESTHETICS = [
-    'Clean Girl', 'Dark Academia', 'Quiet Luxury', 'Streetwear', 'Y2K',
-    'Cottagecore', 'Mob Wife', 'Coastal Grandmother', 'Grunge', 'Old Money',
-    'Coquette', 'Balletcore', 'Tomato Girl', 'Eclectic Grandpa'
-];
+// Canonical prompt - shared schema
+const CANONICAL = `Rate outfit. JSON only.
+{"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, 1-2 emoji>","tip":"<1 fix>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<celeb moment>","isValidOutfit":true}
+Invalid:{"isValidOutfit":false,"error":"<fun retry>"}`;
 
-// Celebrity comparisons that get shared
-const CELEBRITIES = [
-    'Timothée Chalamet at the airport', 'Zendaya on a press tour',
-    'Bad Bunny off-duty', 'Hailey Bieber on a coffee run',
-    'Bella Hadid street style', 'Harry Styles on tour',
-    'Kendall Jenner model off-duty', 'Rihanna anywhere',
-    'Jacob Elordi casual', 'Sydney Sweeney brunch'
-];
-
+// Gemini-specific delta (playful, safe)
 function createGeminiPrompt(roastMode, occasion) {
-    // Viral prompt: Short, punchy, shareable
-    const modeVibe = roastMode
-        ? `ROAST MODE 🔥 Be BRUTALLY honest. Savage but never body-shame. Roast the CLOTHES only. Use viral Gen Z humor.`
-        : `NICE MODE ✨ Be hyping them UP. Make them feel like a main character. Supportive with style.`;
+    const delta = roastMode
+        ? `ROAST🔥 Playfully brutal. Clothes only. Score:45-70.`
+        : `NICE✨ Hype up. Main character. Score:70-88.`;
 
-    return `You are FitRate AI—the most viral outfit rater on the internet. Your verdicts get screenshotted and shared.
-
-${modeVibe}
-
-RULES FOR VIRAL OUTPUT:
-1. Verdict: MAX 8 WORDS. Punchy. Meme-worthy. Use 1-2 emojis. Screenshot-able.
-2. Tip: ONE specific, actionable tip. Reference actual items in photo.
-3. Be opinionated—boring doesn't get shared.
-
-Respond ONLY in valid JSON:
-{
-  "overall": <0-100>,
-  "color": <0-100>,
-  "fit": <0-100>,
-  "style": <0-100>,
-  "verdict": "<MAX 8 WORDS with emoji - make it quotable>",
-  "tip": "<one specific tip>",
-  "aesthetic": "<one: ${AESTHETICS.slice(0, 8).join(', ')}>",
-  "celebMatch": "<compare to: ${CELEBRITIES.slice(0, 5).join(', ')}>",
-  "isValidOutfit": true
-}
-
-${roastMode ? 'BE SAVAGE. Score average: 45-65. Verdicts like: "The fit said error 404 drip not found 💀"' : 'BE ENCOURAGING. Score average: 70-88. Verdicts like: "Main character energy activated ✨"'}
-${occasion ? `Context: Outfit for ${occasion}` : ''}
-
-If NOT a valid outfit photo:
-{"isValidOutfit": false, "error": "<fun, helpful message to retry>"}`;
+    return `${CANONICAL}
+${delta}
+Verdict:Screenshot-worthy.${occasion ? ` For:${occasion}` : ''}`
 }
 
 export async function analyzeWithGemini(imageBase64, options = {}) {
