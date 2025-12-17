@@ -9,7 +9,7 @@
 const scanStore = new Map();
 
 const LIMITS = {
-    free: 1,
+    free: 2,  // Changed from 1 to 2 for better trust & conversion
     pro: 25
 };
 

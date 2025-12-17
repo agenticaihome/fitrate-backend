@@ -2,44 +2,89 @@ import express from 'express';
 import { analyzeWithGemini } from '../services/geminiAnalyzer.js';
 import { analyzeOutfit as analyzeWithOpenAI } from '../services/outfitAnalyzer.js';
 import { scanLimiter, incrementScanCount, getScanCount, LIMITS, getProStatus } from '../middleware/scanLimiter.js';
+import { getReferralStats, consumeProRoast, hasProRoast, addProRoast } from '../middleware/referralStore.js';
 
 const router = express.Router();
 
-// Check remaining scans
+// Check remaining scans + Pro Roasts
 router.get('/status', (req, res) => {
   const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
   const userId = req.query.userId;
   const isPro = getProStatus(userId, ip);
   const limit = isPro ? LIMITS.pro : LIMITS.free;
   const used = getScanCount(userId, ip);
+  const stats = userId ? getReferralStats(userId) : { proRoasts: 0, totalReferrals: 0 };
 
   res.json({
     scansUsed: used,
     scansLimit: limit,
     scansRemaining: Math.max(0, limit - used),
-    isPro
+    isPro,
+    proRoasts: stats.proRoasts,  // New: Pro Roasts available
+    referrals: stats.totalReferrals
   });
 });
 
-import { getReferralStats } from '../middleware/referralStore.js';
+// Use a Pro Roast (from referral or $0.99 purchase) - uses OpenAI
+router.post('/pro-roast', async (req, res) => {
+  const requestId = `proroast_${Date.now()}`;
+  const { image, roastMode, userId } = req.body;
+
+  if (!userId) {
+    return res.status(400).json({ success: false, error: 'User ID required' });
+  }
+
+  if (!image) {
+    return res.status(400).json({ success: false, error: 'No image provided' });
+  }
+
+  // Check if user has a Pro Roast
+  if (!hasProRoast(userId)) {
+    return res.status(403).json({
+      success: false,
+      error: 'No Pro Roasts available',
+      needsProRoast: true
+    });
+  }
+
+  try {
+    console.log(`[${requestId}] Pro Roast requested by ${userId}`);
+
+    // Use OpenAI for Pro Roasts (premium quality)
+    const result = await analyzeWithOpenAI(image, {
+      roastMode: true,  // Pro Roasts are always roast mode
+      occasion: null
+    });
+
+    if (result.success) {
+      // Consume the Pro Roast
+      consumeProRoast(userId);
+      const remaining = getReferralStats(userId).proRoasts;
+      console.log(`[${requestId}] Pro Roast consumed - ${remaining} remaining`);
+
+      result.proRoastsRemaining = remaining;
+      result.isProRoast = true;
+    }
+
+    return res.json(result);
+  } catch (error) {
+    console.error(`[${requestId}] Pro Roast error:`, error);
+    return res.status(500).json({ success: false, error: 'Pro Roast failed. Please try again.' });
+  }
+});
 
 // Consume a scan (for free users - no AI call, just tracks usage by userId)
-// This prevents localStorage bypass - server tracks by userId (unique per browser)
 router.post('/consume', scanLimiter, (req, res) => {
   const { userId, ip, limit, isPro, usedBonus } = req.scanInfo;
 
   let newCount;
   if (usedBonus) {
-    newCount = getScanCount(userId, ip); // Don't increment if using bonus
+    newCount = getScanCount(userId, ip);
   } else {
     newCount = incrementScanCount(userId, ip);
   }
 
-  let bonusRemaining = 0;
-  if (userId) {
-    const stats = getReferralStats(userId);
-    bonusRemaining = stats.bonusScans;
-  }
+  const stats = userId ? getReferralStats(userId) : { proRoasts: 0 };
 
   res.json({
     success: true,
@@ -49,7 +94,7 @@ router.post('/consume', scanLimiter, (req, res) => {
       scansRemaining: Math.max(0, limit - newCount),
       isPro,
       usedBonus,
-      bonusRemaining
+      proRoasts: stats.proRoasts  // New: show Pro Roasts available
     }
   });
 });

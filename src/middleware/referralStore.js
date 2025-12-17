@@ -1,18 +1,21 @@
 /**
  * Referral Store
- * Tracks referrals and bonus scans
+ * Tracks referrals and Pro Roast entitlements
  * Uses in-memory Map (for production, use Redis/database)
  */
 
-// Stores referrerId -> { bonusScans: number, totalReferrals: number }
+// Stores referrerId -> { proRoasts: number, totalReferrals: number }
 const referralStats = new Map();
 
 // Stores processed referrals to prevent double-counting (refereeIp + referrerId)
 // simplistic anti-abuse
 const processedReferrals = new Set();
 
+// Stores one-time Pro Roast purchases by userId
+const proRoastStore = new Map();
+
 /**
- * Add a referral claim
+ * Add a referral claim - now rewards a PRO ROAST (OpenAI) instead of bonus scan
  * @param {string} referrerId - The ID of the user who shared the link
  * @param {string} refereeIp - The IP of the new user
  */
@@ -21,22 +24,18 @@ export function addReferral(referrerId, refereeIp) {
 
     const key = `${referrerId}:${refereeIp}`;
 
-    // Prevent self-referral (basic IP check - not perfect but okay for MVP)
-    // In real app, we'd check against referrer's IP, but we don't track that persistently here yet.
-    // relying on 'processedReferrals' to prevent spamming same referral.
-
     if (processedReferrals.has(key)) {
         return false; // Already referred this IP
     }
 
     processedReferrals.add(key);
 
-    const stats = referralStats.get(referrerId) || { bonusScans: 0, totalReferrals: 0 };
-    stats.bonusScans += 1;
+    const stats = referralStats.get(referrerId) || { proRoasts: 0, totalReferrals: 0, bonusScans: 0 };
+    stats.proRoasts += 1;  // Reward Pro Roast instead of regular scan
     stats.totalReferrals += 1;
     referralStats.set(referrerId, stats);
 
-    console.log(`🎉 Referral: ${referrerId} referred ${refereeIp} -> +1 bonus scan`);
+    console.log(`🎉 Referral: ${referrerId} referred ${refereeIp} -> +1 Pro Roast`);
     return true;
 }
 
@@ -44,11 +43,58 @@ export function addReferral(referrerId, refereeIp) {
  * Get stats for a user
  */
 export function getReferralStats(userId) {
-    return referralStats.get(userId) || { bonusScans: 0, totalReferrals: 0 };
+    const stats = referralStats.get(userId) || { proRoasts: 0, totalReferrals: 0, bonusScans: 0 };
+    const purchased = proRoastStore.get(userId) || 0;
+    return {
+        ...stats,
+        proRoasts: stats.proRoasts + purchased,  // Combine referral + purchased
+        totalReferrals: stats.totalReferrals
+    };
 }
 
 /**
- * Consume a bonus scan
+ * Add a purchased Pro Roast (from $0.99 payment)
+ */
+export function addProRoast(userId) {
+    const current = proRoastStore.get(userId) || 0;
+    proRoastStore.set(userId, current + 1);
+    console.log(`💰 Pro Roast purchased: ${userId} -> now has ${current + 1}`);
+    return current + 1;
+}
+
+/**
+ * Consume a Pro Roast (from referral or purchase)
+ */
+export function consumeProRoast(userId) {
+    // First try purchased
+    const purchased = proRoastStore.get(userId) || 0;
+    if (purchased > 0) {
+        proRoastStore.set(userId, purchased - 1);
+        return true;
+    }
+
+    // Then try referral-earned
+    const stats = referralStats.get(userId);
+    if (stats && stats.proRoasts > 0) {
+        stats.proRoasts -= 1;
+        referralStats.set(userId, stats);
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * Check if user has any Pro Roasts available
+ */
+export function hasProRoast(userId) {
+    const purchased = proRoastStore.get(userId) || 0;
+    const stats = referralStats.get(userId) || { proRoasts: 0 };
+    return purchased + stats.proRoasts > 0;
+}
+
+/**
+ * Legacy: Consume a bonus scan (backwards compatibility)
  */
 export function consumeBonusScan(userId) {
     const stats = referralStats.get(userId);
@@ -58,3 +104,4 @@ export function consumeBonusScan(userId) {
     referralStats.set(userId, stats);
     return true;
 }
+
