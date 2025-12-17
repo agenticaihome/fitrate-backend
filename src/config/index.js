@@ -11,7 +11,7 @@ export const config = {
   // Gemini (for free users - free tier)
   gemini: {
     apiKey: process.env.GEMINI_API_KEY,
-    model: 'gemini-1.5-flash-latest',
+    model: 'gemini-pro-vision',
   },
 
   // CORS
