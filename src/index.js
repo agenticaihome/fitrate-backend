@@ -16,6 +16,9 @@ import diagRoutes from './routes/diag.js';
 
 const app = express();
 
+// Trust proxy for Railway (fixes X-Forwarded-For warnings)
+app.set('trust proxy', 1);
+
 // CORS - MUST be before other middleware
 app.use(cors({
   origin: config.allowedOrigins,

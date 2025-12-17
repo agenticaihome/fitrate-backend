@@ -1,44 +1,29 @@
 /**
  * Gemini Outfit Analyzer - Free tier for all users
- * Uses Google's Gemini Flash 2.0 for fast, free outfit analysis
+ * Uses Google's Gemini API via REST for reliable image analysis
  */
 
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config/index.js';
 
-// Validate API key exists
-if (!config.gemini.apiKey) {
-    console.error('CRITICAL: GEMINI_API_KEY not set!');
-}
-
-const genAI = config.gemini.apiKey ? new GoogleGenerativeAI(config.gemini.apiKey) : null;
-
-// Aesthetics and celebrity matches (same as OpenAI version)
+// Aesthetics and celebrity matches
 const AESTHETICS = [
     'Clean Girl', 'Dark Academia', 'Quiet Luxury', 'Streetwear', 'Y2K',
-    'Cottagecore', 'Minimalist', 'Coastal Grandmother', 'Grunge', 'Preppy',
-    'Gorpcore', 'Balletcore', 'Old Money', 'Skater', 'Bohemian', 'Normcore'
+    'Cottagecore', 'Minimalist', 'Coastal Grandmother', 'Grunge', 'Preppy'
 ];
 
 const CELEBRITIES = [
-    'Timothée Chalamet at the airport', 'Zendaya on press tour', 'Bad Bunny off-duty',
-    'Hailey Bieber coffee run', 'A$AP Rocky front row', 'Bella Hadid street style',
-    'Harry Styles on tour', 'Kendall Jenner model off-duty', 'Tyler the Creator at Coachella',
-    'Dua Lipa going to dinner', 'Jacob Elordi casual', 'Sydney Sweeney brunch'
+    'Timothée Chalamet', 'Zendaya', 'Bad Bunny', 'Hailey Bieber',
+    'Bella Hadid', 'Harry Styles', 'Kendall Jenner', 'Dua Lipa'
 ];
 
 function createGeminiPrompt(roastMode, occasion) {
     const modeInstructions = roastMode
-        ? `You are in ROAST MODE - be brutally honest and savage about the outfit (NOT the person's body). Use Gen Z slang and humor. Be harsh but ultimately helpful.`
-        : `You are a supportive fashion friend. Be honest but encouraging. Use Gen Z language naturally.`;
+        ? `Be brutally honest and savage about the outfit (NOT the person's body). Use Gen Z slang.`
+        : `Be supportive and encouraging. Use Gen Z language naturally.`;
 
     return `You are FitRate, an AI fashion analyst. ${modeInstructions}
 
-Analyze this outfit photo and rate it.
-
-${occasion ? `Context: This outfit is for ${occasion}. Factor this into your scores.` : ''}
-
-Respond ONLY with valid JSON (no markdown, no backticks):
+Analyze this outfit photo. Respond ONLY with valid JSON (no markdown):
 {
   "overall": <number 0-100>,
   "color": <number 0-100>,
@@ -46,67 +31,79 @@ Respond ONLY with valid JSON (no markdown, no backticks):
   "style": <number 0-100>,
   "occasion": <number 0-100>,
   "trendScore": <number 0-100>,
-  "verdict": "<${roastMode ? 'savage one-liner roast' : 'supportive verdict'} with emoji>",
-  "tip": "<${roastMode ? 'blunt advice' : 'one helpful tip'}>",
-  "aesthetic": "<one from: ${AESTHETICS.slice(0, 8).join(', ')}>",
-  "celebMatch": "<one from: ${CELEBRITIES.slice(0, 6).join(', ')}>",
+  "verdict": "<short verdict with emoji>",
+  "tip": "<one helpful tip>",
+  "aesthetic": "<one from: ${AESTHETICS.join(', ')}>",
+  "celebMatch": "<one from: ${CELEBRITIES.join(', ')}>",
   "isValidOutfit": true
 }
 
-If no outfit visible, respond: {"isValidOutfit": false, "error": "reason"}
-
-SCORING: ${roastMode ? 'Be harsh. Average = 50-65.' : 'Be fair. Average = 70-85.'}`;
+${occasion ? `Context: This outfit is for ${occasion}.` : ''}
+Scoring: ${roastMode ? 'Be harsh. Average = 50-65.' : 'Be fair. Average = 70-85.'}`;
 }
 
 export async function analyzeWithGemini(imageBase64, options = {}) {
     const { roastMode = false, occasion = null } = options;
     const requestId = `gemini_${Date.now()}`;
 
-    // Check if API is configured
-    if (!genAI) {
-        console.error(`[${requestId}] Gemini API not configured - missing API key`);
+    // Check if API key is configured
+    if (!config.gemini.apiKey) {
+        console.error(`[${requestId}] GEMINI_API_KEY not set!`);
         return {
             success: false,
-            error: 'AI service not configured. Please contact support.'
+            error: 'AI service not configured.'
         };
     }
 
     try {
         console.log(`[${requestId}] Starting Gemini analysis (roastMode: ${roastMode})`);
 
-        // Use a stable model name - gemini-1.5-flash is the free tier model
-        const modelName = config.gemini.model || 'gemini-1.5-flash';
-        console.log(`[${requestId}] Using model: ${modelName}`);
-
-        const model = genAI.getGenerativeModel({ model: modelName });
-
         // Clean base64 data
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         console.log(`[${requestId}] Image data length: ${base64Data.length}`);
 
-        // Prepare the image part
-        const imagePart = {
-            inlineData: {
-                data: base64Data,
-                mimeType: 'image/jpeg'
+        // Use direct REST API for reliability
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.gemini.apiKey}`;
+
+        const requestBody = {
+            contents: [{
+                parts: [
+                    { text: createGeminiPrompt(roastMode, occasion) },
+                    {
+                        inline_data: {
+                            mime_type: 'image/jpeg',
+                            data: base64Data
+                        }
+                    }
+                ]
+            }],
+            generationConfig: {
+                temperature: 0.7,
+                maxOutputTokens: 500
             }
         };
 
-        // Generate content
-        const result = await model.generateContent([
-            createGeminiPrompt(roastMode, occasion),
-            imagePart
-        ]);
+        console.log(`[${requestId}] Calling Gemini REST API...`);
 
-        const response = await result.response;
-        const content = response.text();
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(requestBody)
+        });
 
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error(`[${requestId}] API error:`, data);
+            throw new Error(data.error?.message || `API returned ${response.status}`);
+        }
+
+        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (!content) {
             throw new Error('No response from Gemini');
         }
 
-        console.log(`[${requestId}] Received Gemini response (${content.length} chars)`);
-        console.log(`[${requestId}] Raw response: ${content.substring(0, 200)}...`);
+        console.log(`[${requestId}] Received response (${content.length} chars)`);
 
         // Parse JSON response
         let jsonStr = content.trim();
@@ -123,7 +120,7 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
             };
         }
 
-        console.log(`[${requestId}] Gemini analysis successful - Score: ${parsed.overall}`);
+        console.log(`[${requestId}] Analysis successful - Score: ${parsed.overall}`);
 
         return {
             success: true,
@@ -142,20 +139,15 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
             }
         };
     } catch (error) {
-        console.error(`[${requestId}] Gemini error:`, error.message);
-        console.error(`[${requestId}] Full error:`, error);
+        console.error(`[${requestId}] Error:`, error.message);
 
-        // More specific error messages
         let errorMessage = 'AI analysis failed. Please try again.';
-
-        if (error.message?.includes('API_KEY')) {
+        if (error.message?.includes('API key')) {
             errorMessage = 'AI service configuration error.';
         } else if (error.message?.includes('SAFETY')) {
-            errorMessage = 'Image could not be analyzed. Please try a different photo.';
-        } else if (error.message?.includes('JSON')) {
-            errorMessage = 'Analysis formatting error. Please try again.';
-        } else if (error.message?.includes('quota') || error.message?.includes('limit')) {
-            errorMessage = 'AI service is busy. Please try again in a moment.';
+            errorMessage = 'Image could not be analyzed.';
+        } else if (error.message?.includes('quota')) {
+            errorMessage = 'AI service is busy. Try again soon.';
         }
 
         return {
@@ -164,4 +156,5 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
         };
     }
 }
+
 
