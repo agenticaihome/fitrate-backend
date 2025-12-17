@@ -60,10 +60,10 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
         }
     };
 
-    // Models to try in order (fallback chain) - Dec 2025 valid models
+    // Models to try in order (fallback chain) - Dec 2025 stable models
     const models = [
-        config.gemini.model || 'gemini-2.5-flash',
-        'gemini-2.0-flash'  // Fallback - GA since Feb 2025
+        config.gemini.model || 'gemini-2.0-flash',  // Primary - stable and reliable
+        'gemini-1.5-flash'  // Ultimate fallback - very stable
     ];
 
     // Try each model with retries
