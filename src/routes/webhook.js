@@ -93,8 +93,19 @@ router.post('/', async (req, res) => {
       const subscription = event.data.object;
       console.log('❌ Subscription canceled:', subscription.id);
 
-      // TODO: Get email from subscription and remove Pro
-      // For now, we'd need to look up the customer
+      // Get customer email and remove Pro status
+      try {
+        const customer = await stripe.customers.retrieve(subscription.customer);
+        const email = customer.email;
+        if (email) {
+          removeProEmail(email);
+          console.log(`   Pro status removed for: ${email}`);
+        } else {
+          console.warn('⚠️ No email found for canceled subscription');
+        }
+      } catch (err) {
+        console.error('Error handling subscription cancellation:', err.message);
+      }
       break;
     }
 

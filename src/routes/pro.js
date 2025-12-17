@@ -21,10 +21,11 @@ router.post('/check', (req, res) => {
 
     const isPro = isProEmail(email);
 
-    // Also set Pro status for this IP so rate limiter knows
+    // Also set Pro status for this IP/userId so rate limiter knows
     if (isPro) {
         const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-        setProStatus(ip, true);
+        const userId = req.body?.userId || req.query?.userId;
+        setProStatus(userId, ip, true);  // Fixed: correct argument order
     }
 
     res.json({
@@ -35,13 +36,20 @@ router.post('/check', (req, res) => {
 });
 
 /**
- * Dev only: manually add a Pro email (remove in production)
+ * Dev/Admin: manually add a Pro email (secured with API key)
  * POST /api/pro/add
  */
 router.post('/add', (req, res) => {
-    // Only allow in development
-    if (process.env.NODE_ENV === 'production') {
+    // Block in production unless DEV_API_KEY is provided and matches
+    const devKey = req.headers['x-dev-key'] || req.body?.devKey;
+    const expectedKey = process.env.DEV_API_KEY;
+
+    if (process.env.NODE_ENV === 'production' && !expectedKey) {
         return res.status(403).json({ error: 'Not allowed in production' });
+    }
+
+    if (expectedKey && devKey !== expectedKey) {
+        return res.status(401).json({ error: 'Invalid dev key' });
     }
 
     const { email } = req.body;
