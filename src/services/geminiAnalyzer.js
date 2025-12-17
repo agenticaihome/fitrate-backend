@@ -16,7 +16,7 @@ Invalid:{"isValidOutfit":false,"error":"<fun retry>"}`;
 // Mode-specific prompts: nice, honest, roast
 const MODE_PROMPTS = {
     nice: `NICE✨ Hype up. Main character energy. Focus on positives. Score:70-88.`,
-    honest: `HONEST📊 Be balanced and truthful. Give real feedback. Use FULL 0-100 range: 30-50=weak, 50-65=average, 65-80=good, 80-90=great, 90+=exceptional. Vary scores based on actual quality. Don't cluster around any number.`,
+    honest: `HONEST📊 Score VARIES based on quality. Weak outfits:35-55. Average:55-70. Good:70-82. Great:82-92. Exceptional:92+. NEVER default to any single score. Each outfit is unique.`,
     roast: `ROAST🔥 Playfully brutal. Clothes only. Score:45-70.`
 };
 
