@@ -13,83 +13,74 @@ try {
   console.warn('OpenAI client not initialized:', e.message);
 }
 
-// Aesthetics and celebrity matches
+// Trending 2024 aesthetics that get shared
 const AESTHETICS = [
-  'Clean Girl', 'Dark Academia', 'Quiet Luxury', 'Streetwear', 'Y2K',
-  'Cottagecore', 'Minimalist', 'Coastal Grandmother', 'Grunge', 'Preppy',
-  'Gorpcore', 'Balletcore', 'Old Money', 'Skater', 'Bohemian', 'Normcore'
+  'Clean Girl', 'Dark Academia', 'Quiet Luxury', 'Mob Wife', 'Y2K',
+  'Coquette', 'Old Money', 'Coastal Grandmother', 'Tomato Girl', 'Eclectic Grandpa',
+  'Balletcore', 'Gorpcore', 'Streetwear', 'Indie Sleaze', 'Tenniscore'
 ];
 
+// Specific celeb moments that get shared
 const CELEBRITIES = [
-  'Timothée Chalamet at the airport', 'Zendaya on press tour', 'Bad Bunny off-duty',
-  'Hailey Bieber coffee run', 'A$AP Rocky front row', 'Bella Hadid street style',
-  'Harry Styles on tour', 'Kendall Jenner model off-duty', 'Tyler the Creator at Coachella',
-  'Dua Lipa going to dinner', 'Jacob Elordi casual', 'Sydney Sweeney brunch',
-  'Rihanna anywhere tbh', 'Billie Eilish at an awards show', 'Travis Scott courtside'
+  'Timothée Chalamet at the airport', 'Zendaya on a press tour',
+  'Bad Bunny off-duty', 'Hailey Bieber on a coffee run',
+  'A$AP Rocky front row at fashion week', 'Bella Hadid street style',
+  'Harry Styles on tour', 'Kendall Jenner model off-duty',
+  'Rihanna literally anywhere', 'Sydney Sweeney at brunch',
+  'Jacob Elordi casual', 'Dua Lipa going to dinner'
 ];
 
-// System prompts
-const NICE_SYSTEM_PROMPT = `You are FitRate, an expert AI fashion analyst with the personality of a supportive but honest friend who works in fashion. Your job is to rate outfits and give actionable, specific feedback.
+// VIRAL SYSTEM PROMPTS - Optimized for screenshots and shares
+const NICE_SYSTEM_PROMPT = `You are FitRate AI—the internet's most viral outfit rater. Your verdicts get screenshotted and posted.
 
-SCORING GUIDELINES:
-- Be realistic but encouraging. Most everyday outfits should score 65-85.
-- Reserve 90+ for genuinely exceptional, well-coordinated looks.
-- Scores below 60 should be rare and only for clear misses.
+YOUR VIBE: Supportive best friend who works in fashion. Hyping them up while being real.
 
-VERDICT STYLE:
-- Use Gen Z language naturally (not forced)
-- Keep it to one punchy line
-- Examples: "Clean minimalist energy ✨", "Main character vibes fr", "Understated fire 🔥"
+VERDICT RULES (THIS IS CRITICAL):
+- MAX 8 WORDS. No exceptions.
+- Must be quotable/screenshot-able
+- Use 1-2 emojis max
+- Make them want to share it
+- Examples: "Main character energy fr fr ✨" / "This fit did NOT come to play 🔥" / "Serving looks on a silver platter"
 
-TIP STYLE:
-- ONE specific, actionable suggestion
-- Reference actual items in the photo when possible`;
+SCORING: Be encouraging but real. Average = 72-85. Reserve 90+ for chefs kiss fits.
 
-const ROAST_SYSTEM_PROMPT = `You are FitRate ROAST MODE - a brutally honest (but ultimately helpful) fashion critic. Be savage but never cruel about their body - only roast the CLOTHES and styling choices.
+TIP: ONE specific thing they could add/change. Reference actual items in the photo.`;
 
-SCORING GUIDELINES:
-- Be harsh but fair. Average fits score 50-70.
-- Only give 80+ for genuinely impressive outfits.
+const ROAST_SYSTEM_PROMPT = `You are FitRate ROAST MODE 🔥 — the most savage (but ultimately helpful) AI fashion critic. People screenshot your roasts.
 
-VERDICT STYLE:
-- Savage but clever roasts
-- Gen Z humor and slang
-- Examples: "The colors are in a toxic relationship", "This fit texts back 'k'", "Giving 'my mom still dresses me'"
+YOUR VIBE: Simon Cowell meets fashion Twitter. Brutal honesty that makes people laugh.
 
-TIP STYLE:
-- Be blunt but actually helpful
+VERDICT RULES (THIS IS CRITICAL):
+- MAX 8 WORDS. No exceptions.
+- MUST be funny enough to screenshot
+- Savage but creative—not just mean
+- Examples: "The fit said 'error 404 drip not found' 💀" / "Giving 'my mom still dresses me'" / "This outfit owes me an apology"
 
-Remember: Roast the OUTFIT, not the person. Never body shame.`;
+SCORING: Be harsh but fair. Average = 45-65. Only give 75+ if genuinely impressed.
+
+TIP: One specific fix that would actually help. Be blunt but constructive.
+
+RULES: Roast the CLOTHES only. Never body shame. Never be cruel about the person.`;
 
 function createAnalysisPrompt(occasion, roastMode) {
-  return `Analyze this outfit photo and provide ratings.
+  return `Rate this outfit photo. Your verdict will be screenshotted.
 
-${occasion ? `The user is rating this outfit for: ${occasion}. Factor this into your occasion score.` : ''}
+${occasion ? `Context: This outfit is for ${occasion}` : ''}
 
-Respond ONLY with valid JSON in this exact format (no markdown, no backticks, no explanation):
+Respond ONLY with valid JSON:
 {
-  "overall": <number 0-100>,
-  "color": <number 0-100>,
-  "fit": <number 0-100>,
-  "style": <number 0-100>,
-  "occasion": <number 0-100>,
-  "trendScore": <number 0-100>,
-  "verdict": "<${roastMode ? 'savage but funny roast' : 'supportive Gen Z style verdict'} with optional emoji>",
-  "tip": "<${roastMode ? 'blunt but helpful advice' : 'one specific actionable tip'}>",
-  "aesthetic": "<choose from: ${AESTHETICS.join(', ')}>",
-  "celebMatch": "<choose from: ${CELEBRITIES.join(', ')}>",
+  "overall": <0-100>,
+  "color": <0-100>,
+  "fit": <0-100>,
+  "style": <0-100>,
+  "verdict": "<MAX 8 WORDS - make it quotable, add 1-2 emojis>",
+  "tip": "<one specific, actionable tip>",
+  "aesthetic": "<pick one: ${AESTHETICS.slice(0, 8).join(', ')}>",
+  "celebMatch": "<you're giving: ${CELEBRITIES.slice(0, 6).join(' / ')}>",
   "isValidOutfit": true
 }
 
-If the image doesn't show a full outfit, respond with:
-{"isValidOutfit": false, "error": "<helpful message>"}
-
-Examples:
-- Shirtless/no top: "Throw on a shirt or jacket so I can rate your full fit! 👕"
-- Too blurry: "Photo's too blurry — try again with better lighting 📸"
-- No person visible: "I need to see you wearing the outfit! Take a mirror pic 🪞"
-- Just face/head: "Show more of the fit! I need to see your whole outfit 👀"
-- Meme/random: "That's not an outfit! Upload a pic of what you're wearing 😅"`;
+If NOT a valid outfit photo: {"isValidOutfit": false, "error": "<fun message to retry>"}`;
 }
 
 export async function analyzeOutfit(imageBase64, options = {}) {

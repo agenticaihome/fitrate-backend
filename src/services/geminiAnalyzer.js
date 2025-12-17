@@ -1,58 +1,60 @@
 /**
  * Gemini Outfit Analyzer - Free tier for all users
  * Uses Google's Gemini API via REST for reliable image analysis
+ * VIRAL PROMPT DESIGN: Short, shareable, meme-worthy outputs
  */
 
 import { config } from '../config/index.js';
 
-// Aesthetics and celebrity matches
+// Aesthetics trending on TikTok/Instagram
 const AESTHETICS = [
     'Clean Girl', 'Dark Academia', 'Quiet Luxury', 'Streetwear', 'Y2K',
-    'Cottagecore', 'Minimalist', 'Coastal Grandmother', 'Grunge', 'Preppy'
+    'Cottagecore', 'Mob Wife', 'Coastal Grandmother', 'Grunge', 'Old Money',
+    'Coquette', 'Balletcore', 'Tomato Girl', 'Eclectic Grandpa'
 ];
 
+// Celebrity comparisons that get shared
 const CELEBRITIES = [
-    'Timothée Chalamet', 'Zendaya', 'Bad Bunny', 'Hailey Bieber',
-    'Bella Hadid', 'Harry Styles', 'Kendall Jenner', 'Dua Lipa'
+    'Timothée Chalamet at the airport', 'Zendaya on a press tour',
+    'Bad Bunny off-duty', 'Hailey Bieber on a coffee run',
+    'Bella Hadid street style', 'Harry Styles on tour',
+    'Kendall Jenner model off-duty', 'Rihanna anywhere',
+    'Jacob Elordi casual', 'Sydney Sweeney brunch'
 ];
 
 function createGeminiPrompt(roastMode, occasion) {
-    const modeInstructions = roastMode
-        ? `Be brutally honest and savage about the outfit (NOT the person's body). Use Gen Z slang.`
-        : `Be supportive and encouraging. Use Gen Z language naturally.`;
+    // Viral prompt: Short, punchy, shareable
+    const modeVibe = roastMode
+        ? `ROAST MODE 🔥 Be BRUTALLY honest. Savage but never body-shame. Roast the CLOTHES only. Use viral Gen Z humor.`
+        : `NICE MODE ✨ Be hyping them UP. Make them feel like a main character. Supportive with style.`;
 
-    return `You are FitRate, an AI fashion analyst. ${modeInstructions}
+    return `You are FitRate AI—the most viral outfit rater on the internet. Your verdicts get screenshotted and shared.
 
-Analyze this outfit photo. Respond ONLY with valid JSON (no markdown):
+${modeVibe}
+
+RULES FOR VIRAL OUTPUT:
+1. Verdict: MAX 8 WORDS. Punchy. Meme-worthy. Use 1-2 emojis. Screenshot-able.
+2. Tip: ONE specific, actionable tip. Reference actual items in photo.
+3. Be opinionated—boring doesn't get shared.
+
+Respond ONLY in valid JSON:
 {
-  "overall": <number 0-100>,
-  "color": <number 0-100>,
-  "fit": <number 0-100>,
-  "style": <number 0-100>,
-  "occasion": <number 0-100>,
-  "trendScore": <number 0-100>,
-  "verdict": "<short verdict with emoji>",
-  "tip": "<one helpful tip>",
-  "aesthetic": "<one from: ${AESTHETICS.join(', ')}>",
-  "celebMatch": "<one from: ${CELEBRITIES.join(', ')}>",
+  "overall": <0-100>,
+  "color": <0-100>,
+  "fit": <0-100>,
+  "style": <0-100>,
+  "verdict": "<MAX 8 WORDS with emoji - make it quotable>",
+  "tip": "<one specific tip>",
+  "aesthetic": "<one: ${AESTHETICS.slice(0, 8).join(', ')}>",
+  "celebMatch": "<compare to: ${CELEBRITIES.slice(0, 5).join(', ')}>",
   "isValidOutfit": true
 }
 
-If you can't rate the outfit, respond with:
-{
-  "isValidOutfit": false,
-  "error": "<helpful message explaining what's wrong and how to fix it>"
-}
+${roastMode ? 'BE SAVAGE. Score average: 45-65. Verdicts like: "The fit said error 404 drip not found 💀"' : 'BE ENCOURAGING. Score average: 70-88. Verdicts like: "Main character energy activated ✨"'}
+${occasion ? `Context: Outfit for ${occasion}` : ''}
 
-Examples of helpful error messages:
-- If shirtless/no top: "Throw on a shirt or jacket so I can rate your full fit! 👕"
-- If too blurry: "Photo's too blurry — try again with better lighting 📸"
-- If no person visible: "I need to see you wearing the outfit! Take a mirror pic 🪞"
-- If just face/head: "Show more of the fit! I need to see your whole outfit 👀"
-- If meme/random image: "That's not an outfit! Upload a pic of what you're wearing 😅"
-
-${occasion ? `Context: This outfit is for ${occasion}.` : ''}
-Scoring: ${roastMode ? 'Be harsh. Average = 50-65.' : 'Be fair. Average = 70-85.'}`;
+If NOT a valid outfit photo:
+{"isValidOutfit": false, "error": "<fun, helpful message to retry>"}`;
 }
 
 export async function analyzeWithGemini(imageBase64, options = {}) {
