@@ -1,9 +1,17 @@
 import OpenAI from 'openai';
 import { config } from '../config/index.js';
 
-const openai = new OpenAI({
-  apiKey: config.openai.apiKey,
-});
+// Only initialize OpenAI if API key is configured (Gemini is primary analyzer)
+let openai = null;
+try {
+  if (config.openai?.apiKey) {
+    openai = new OpenAI({
+      apiKey: config.openai.apiKey,
+    });
+  }
+} catch (e) {
+  console.warn('OpenAI client not initialized:', e.message);
+}
 
 // Aesthetics and celebrity matches
 const AESTHETICS = [
@@ -88,8 +96,17 @@ export async function analyzeOutfit(imageBase64, options = {}) {
   const { roastMode = false, occasion = null } = options;
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+  // Check if OpenAI is configured
+  if (!openai) {
+    console.error(`[${requestId}] OpenAI not configured - OPENAI_API_KEY missing`);
+    return {
+      success: false,
+      error: 'Premium AI service not configured. Contact support.'
+    };
+  }
+
   try {
-    console.log(`[${requestId}] Starting outfit analysis (roastMode: ${roastMode}, occasion: ${occasion || 'none'})`);
+    console.log(`[${requestId}] Starting outfit analysis with OpenAI (roastMode: ${roastMode}, occasion: ${occasion || 'none'})`);
 
     // Clean base64 data
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
