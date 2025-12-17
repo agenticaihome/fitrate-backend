@@ -60,11 +60,11 @@ router.post('/', async (req, res) => {
         console.log('🔥 Pro Roast purchased!');
 
         if (userId) {
-          addProRoast(userId);
+          await addProRoast(userId);
           console.log(`   Added Pro Roast to user: ${userId}`);
         } else if (email) {
           // Fallback: use email as userId (less reliable)
-          addProRoast(email);
+          await addProRoast(email);
           console.log(`   Added Pro Roast to email: ${email}`);
         } else {
           console.warn('⚠️ No userId or email found for Pro Roast');
@@ -74,7 +74,7 @@ router.post('/', async (req, res) => {
         console.log('⚡ Pro subscription activated!');
 
         if (email) {
-          addProEmail(email);
+          await addProEmail(email);
         } else {
           console.warn('⚠️ No email found in checkout session');
         }
@@ -98,7 +98,7 @@ router.post('/', async (req, res) => {
         const customer = await stripe.customers.retrieve(subscription.customer);
         const email = customer.email;
         if (email) {
-          removeProEmail(email);
+          await removeProEmail(email);
           console.log(`   Pro status removed for: ${email}`);
         } else {
           console.warn('⚠️ No email found for canceled subscription');

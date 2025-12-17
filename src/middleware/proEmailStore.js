@@ -1,22 +1,33 @@
 /**
  * Pro Email Store
  * Stores emails of users who have paid for Pro
- * Uses in-memory Map (for production, use Redis/database)
+ * Uses Redis with in-memory fallback for local dev
  */
 
-// In-memory store for Pro emails
-const proEmails = new Map();
+import { redis, isRedisAvailable } from '../services/redisClient.js';
+
+// In-memory fallback for local dev (when Redis not configured)
+const proEmailsFallback = new Map();
+
+const REDIS_KEY = 'fitrate:pro:emails';
 
 /**
  * Add an email as Pro (called when payment succeeds)
  */
-export function addProEmail(email) {
+export async function addProEmail(email) {
     if (!email) return false;
     const normalized = email.toLowerCase().trim();
-    proEmails.set(normalized, {
+    const data = JSON.stringify({
         addedAt: new Date().toISOString(),
         active: true
     });
+
+    if (isRedisAvailable()) {
+        await redis.hset(REDIS_KEY, normalized, data);
+    } else {
+        proEmailsFallback.set(normalized, JSON.parse(data));
+    }
+
     console.log(`✅ Added Pro email: ${normalized}`);
     return true;
 }
@@ -24,25 +35,47 @@ export function addProEmail(email) {
 /**
  * Check if an email has Pro status
  */
-export function isProEmail(email) {
+export async function isProEmail(email) {
     if (!email) return false;
     const normalized = email.toLowerCase().trim();
-    const data = proEmails.get(normalized);
-    return data?.active || false;
+
+    if (isRedisAvailable()) {
+        const data = await redis.hget(REDIS_KEY, normalized);
+        if (data) {
+            const parsed = JSON.parse(data);
+            return parsed.active || false;
+        }
+        return false;
+    } else {
+        const data = proEmailsFallback.get(normalized);
+        return data?.active || false;
+    }
 }
 
 /**
  * Remove Pro status (for cancellations)
  */
-export function removeProEmail(email) {
+export async function removeProEmail(email) {
     if (!email) return false;
     const normalized = email.toLowerCase().trim();
-    const data = proEmails.get(normalized);
-    if (data) {
-        data.active = false;
-        proEmails.set(normalized, data);
-        console.log(`❌ Removed Pro email: ${normalized}`);
-        return true;
+
+    if (isRedisAvailable()) {
+        const data = await redis.hget(REDIS_KEY, normalized);
+        if (data) {
+            const parsed = JSON.parse(data);
+            parsed.active = false;
+            await redis.hset(REDIS_KEY, normalized, JSON.stringify(parsed));
+            console.log(`❌ Removed Pro email: ${normalized}`);
+            return true;
+        }
+    } else {
+        const data = proEmailsFallback.get(normalized);
+        if (data) {
+            data.active = false;
+            proEmailsFallback.set(normalized, data);
+            console.log(`❌ Removed Pro email: ${normalized}`);
+            return true;
+        }
     }
     return false;
 }
@@ -50,9 +83,17 @@ export function removeProEmail(email) {
 /**
  * Get all Pro emails (for debugging)
  */
-export function getAllProEmails() {
-    return Array.from(proEmails.entries()).map(([email, data]) => ({
-        email,
-        ...data
-    }));
+export async function getAllProEmails() {
+    if (isRedisAvailable()) {
+        const all = await redis.hgetall(REDIS_KEY);
+        return Object.entries(all).map(([email, data]) => ({
+            email,
+            ...JSON.parse(data)
+        }));
+    } else {
+        return Array.from(proEmailsFallback.entries()).map(([email, data]) => ({
+            email,
+            ...data
+        }));
+    }
 }

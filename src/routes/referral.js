@@ -8,7 +8,7 @@ const router = express.Router();
  * POST /api/referral/claim
  * Body: { referrerId: "..." }
  */
-router.post('/claim', (req, res) => {
+router.post('/claim', async (req, res) => {
     const { referrerId } = req.body;
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
 
@@ -16,7 +16,7 @@ router.post('/claim', (req, res) => {
         return res.status(400).json({ success: false, error: 'Referrer ID required' });
     }
 
-    const success = addReferral(referrerId, ip);
+    const success = await addReferral(referrerId, ip);
 
     res.json({
         success: true,
@@ -29,14 +29,14 @@ router.post('/claim', (req, res) => {
  * Get stats for a user (Bonus scans)
  * GET /api/referral/stats?userId=...
  */
-router.get('/stats', (req, res) => {
+router.get('/stats', async (req, res) => {
     const { userId } = req.query;
 
     if (!userId) {
         return res.status(400).json({ success: false, error: 'User ID required' });
     }
 
-    const stats = getReferralStats(userId);
+    const stats = await getReferralStats(userId);
     res.json({
         success: true,
         ...stats

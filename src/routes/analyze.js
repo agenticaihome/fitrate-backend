@@ -2,27 +2,59 @@ import express from 'express';
 import { analyzeWithGemini } from '../services/geminiAnalyzer.js';
 import { analyzeOutfit as analyzeWithOpenAI } from '../services/outfitAnalyzer.js';
 import { scanLimiter, incrementScanCount, getScanCount, LIMITS, getProStatus } from '../middleware/scanLimiter.js';
-import { getReferralStats, consumeProRoast, hasProRoast, addProRoast } from '../middleware/referralStore.js';
+import { getReferralStats, consumeProRoast, hasProRoast } from '../middleware/referralStore.js';
+import { getImageHash, getCachedResult, cacheResult } from '../services/imageHasher.js';
+import { redis, isRedisAvailable } from '../services/redisClient.js';
 
 const router = express.Router();
 
 // Check remaining scans + Pro Roasts
-router.get('/status', (req, res) => {
+router.get('/status', async (req, res) => {
   const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
   const userId = req.query.userId;
-  const isPro = getProStatus(userId, ip);
+  const isPro = await getProStatus(userId, ip);
   const limit = isPro ? LIMITS.pro : LIMITS.free;
-  const used = getScanCount(userId, ip);
-  const stats = userId ? getReferralStats(userId) : { proRoasts: 0, totalReferrals: 0 };
+  const used = await getScanCount(userId, ip);
+  const stats = userId ? await getReferralStats(userId) : { proRoasts: 0, totalReferrals: 0 };
 
   res.json({
     scansUsed: used,
     scansLimit: limit,
     scansRemaining: Math.max(0, limit - used),
     isPro,
-    proRoasts: stats.proRoasts,  // New: Pro Roasts available
+    proRoasts: stats.proRoasts,
     referrals: stats.totalReferrals
   });
+});
+
+// Feedback endpoint - collect ratings for AI improvement
+router.post('/feedback', async (req, res) => {
+  const { resultId, rating, comment, userId } = req.body;
+
+  if (!resultId || !rating) {
+    return res.status(400).json({ success: false, error: 'Result ID and rating required' });
+  }
+
+  if (rating < 1 || rating > 5) {
+    return res.status(400).json({ success: false, error: 'Rating must be 1-5' });
+  }
+
+  const feedback = {
+    resultId,
+    rating,
+    comment: comment || '',
+    userId: userId || 'anonymous',
+    ts: Date.now()
+  };
+
+  if (isRedisAvailable()) {
+    await redis.lpush('fitrate:feedback:ratings', JSON.stringify(feedback));
+    // Keep last 1000 ratings
+    await redis.ltrim('fitrate:feedback:ratings', 0, 999);
+  }
+
+  console.log(`📝 Feedback received: ${rating}/5 for ${resultId}`);
+  res.json({ success: true, message: 'Thanks for the feedback!' });
 });
 
 // Use a Pro Roast (from referral or $0.99 purchase) - uses OpenAI
@@ -39,7 +71,8 @@ router.post('/pro-roast', async (req, res) => {
   }
 
   // Check if user has a Pro Roast
-  if (!hasProRoast(userId)) {
+  const hasRoast = await hasProRoast(userId);
+  if (!hasRoast) {
     return res.status(403).json({
       success: false,
       error: 'No Pro Roasts available',
@@ -52,17 +85,17 @@ router.post('/pro-roast', async (req, res) => {
 
     // Use OpenAI for Pro Roasts (premium quality)
     const result = await analyzeWithOpenAI(image, {
-      roastMode: true,  // Pro Roasts are always roast mode
+      roastMode: true,
       occasion: null
     });
 
     if (result.success) {
       // Consume the Pro Roast
-      consumeProRoast(userId);
-      const remaining = getReferralStats(userId).proRoasts;
-      console.log(`[${requestId}] Pro Roast consumed - ${remaining} remaining`);
+      await consumeProRoast(userId);
+      const stats = await getReferralStats(userId);
+      console.log(`[${requestId}] Pro Roast consumed - ${stats.proRoasts} remaining`);
 
-      result.proRoastsRemaining = remaining;
+      result.proRoastsRemaining = stats.proRoasts;
       result.isProRoast = true;
     }
 
@@ -74,17 +107,17 @@ router.post('/pro-roast', async (req, res) => {
 });
 
 // Consume a scan (for free users - no AI call, just tracks usage by userId)
-router.post('/consume', scanLimiter, (req, res) => {
+router.post('/consume', scanLimiter, async (req, res) => {
   const { userId, ip, limit, isPro, usedBonus } = req.scanInfo;
 
   let newCount;
   if (usedBonus) {
-    newCount = getScanCount(userId, ip);
+    newCount = await getScanCount(userId, ip);
   } else {
-    newCount = incrementScanCount(userId, ip);
+    newCount = await incrementScanCount(userId, ip);
   }
 
-  const stats = userId ? getReferralStats(userId) : { proRoasts: 0 };
+  const stats = userId ? await getReferralStats(userId) : { proRoasts: 0 };
 
   res.json({
     success: true,
@@ -94,12 +127,12 @@ router.post('/consume', scanLimiter, (req, res) => {
       scansRemaining: Math.max(0, limit - newCount),
       isPro,
       usedBonus,
-      proRoasts: stats.proRoasts  // New: show Pro Roasts available
+      proRoasts: stats.proRoasts
     }
   });
 });
 
-// Main analyze endpoint with rate limiting (for Pro users - real AI)
+// Main analyze endpoint with rate limiting
 router.post('/', scanLimiter, async (req, res) => {
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -128,6 +161,27 @@ router.post('/', scanLimiter, async (req, res) => {
       });
     }
 
+    // Image hash for caching (prevents duplicate API calls)
+    const imageHash = await getImageHash(image);
+    const cacheKey = `${imageHash}:${roastMode ? 'roast' : 'nice'}:${occasion || 'none'}`;
+
+    // Check cache first
+    const cachedResult = await getCachedResult(cacheKey);
+    if (cachedResult) {
+      console.log(`[${requestId}] Cache hit - returning cached result`);
+      // Still count the scan
+      const { userId, ip, limit, isPro } = req.scanInfo;
+      const newCount = await incrementScanCount(userId, ip);
+      cachedResult.scanInfo = {
+        scansUsed: newCount,
+        scansLimit: limit,
+        scansRemaining: Math.max(0, limit - newCount),
+        isPro,
+        cached: true
+      };
+      return res.json(cachedResult);
+    }
+
     // Route to appropriate AI based on user tier
     const { isPro } = req.scanInfo;
     const analyzer = isPro ? analyzeWithOpenAI : analyzeWithGemini;
@@ -139,12 +193,18 @@ router.post('/', scanLimiter, async (req, res) => {
       occasion: occasion || null
     });
 
-    // Only increment count on successful analysis
+    // Only increment count and cache on successful analysis
     if (result.success) {
       const { userId, ip, limit, isPro } = req.scanInfo;
-      const newCount = incrementScanCount(userId, ip);
+      const newCount = await incrementScanCount(userId, ip);
 
       console.log(`[${requestId}] Success - Scan count: ${newCount}/${limit} (isPro: ${isPro}, userId: ${userId || 'none'})`);
+
+      // Cache the result for future duplicate requests
+      await cacheResult(cacheKey, result);
+
+      // Add result ID for feedback
+      result.resultId = requestId;
 
       // Add scan info to response
       result.scanInfo = {
@@ -171,4 +231,3 @@ router.post('/', scanLimiter, async (req, res) => {
 });
 
 export default router;
-
