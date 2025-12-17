@@ -2,6 +2,7 @@
  * Referral Store
  * Tracks referrals and Pro Roast entitlements
  * Uses Redis with in-memory fallback for local dev
+ * SECURITY: Uses fingerprint to prevent VPN abuse and self-referral
  */
 
 import { redis, isRedisAvailable } from '../services/redisClient.js';
@@ -15,23 +16,42 @@ const proRoastStoreFallback = new Map();
 const REFERRAL_STATS_PREFIX = 'fitrate:referral:stats:';
 const PROCESSED_REFERRALS_KEY = 'fitrate:referral:processed';
 const PRO_ROAST_PREFIX = 'fitrate:proroast:';
+const FINGERPRINT_REFERRER_KEY = 'fitrate:referral:fingerprints:';
 
 const MAX_REFERRAL_REWARDS = 5;
 
 /**
  * Add a referral claim - rewards a PRO ROAST (OpenAI)
+ * SECURITY: Uses fingerprint to prevent VPN abuse
+ * @param {string} referrerId - The user who shared the link
+ * @param {string} refereeFingerprint - Device fingerprint of the person clicking
+ * @param {string} refereeUserId - UserId of the referee (optional, for self-referral check)
  */
-export async function addReferral(referrerId, refereeIp) {
-    if (!referrerId || !refereeIp) return false;
+export async function addReferral(referrerId, refereeFingerprint, refereeUserId = null) {
+    if (!referrerId || !refereeFingerprint) return { success: false, reason: 'missing_params' };
 
-    const key = `${referrerId}:${refereeIp}`;
+    // SECURITY: Block self-referral
+    if (refereeUserId && refereeUserId === referrerId) {
+        console.warn(`⚠️ FRAUD: Self-referral attempt blocked: ${referrerId}`);
+        return { success: false, reason: 'self_referral' };
+    }
 
-    // Check if already processed
+    // Use fingerprint as the unique identifier (VPN-resistant)
+    const key = `${referrerId}:${refereeFingerprint}`;
+
+    // Check if already processed (same device can't claim twice)
     if (isRedisAvailable()) {
         const exists = await redis.sismember(PROCESSED_REFERRALS_KEY, key);
-        if (exists) return false;
+        if (exists) return { success: false, reason: 'already_claimed' };
+
+        // SECURITY: Check if this fingerprint has referred themselves before
+        const fingerprintReferrer = await redis.get(`${FINGERPRINT_REFERRER_KEY}${refereeFingerprint}`);
+        if (fingerprintReferrer && fingerprintReferrer === referrerId) {
+            console.warn(`⚠️ FRAUD: Same device referral loop detected: ${refereeFingerprint.slice(0, 12)}`);
+            return { success: false, reason: 'device_loop' };
+        }
     } else {
-        if (processedReferralsFallback.has(key)) return false;
+        if (processedReferralsFallback.has(key)) return { success: false, reason: 'already_claimed' };
     }
 
     // Get current stats
@@ -46,7 +66,7 @@ export async function addReferral(referrerId, refereeIp) {
     // Check cap
     if (stats.proRoasts >= MAX_REFERRAL_REWARDS) {
         console.log(`⚠️ Referral cap: ${referrerId} has maxed out referral rewards`);
-        return false;
+        return { success: false, reason: 'cap_reached' };
     }
 
     // Mark as processed and update stats
@@ -56,13 +76,15 @@ export async function addReferral(referrerId, refereeIp) {
     if (isRedisAvailable()) {
         await redis.sadd(PROCESSED_REFERRALS_KEY, key);
         await redis.set(`${REFERRAL_STATS_PREFIX}${referrerId}`, JSON.stringify(stats));
+        // Track which fingerprint claimed from which referrer (for loop detection)
+        await redis.set(`${FINGERPRINT_REFERRER_KEY}${refereeFingerprint}`, referrerId);
     } else {
         processedReferralsFallback.add(key);
         referralStatsFallback.set(referrerId, stats);
     }
 
-    console.log(`🎉 Referral: ${referrerId} referred ${refereeIp} -> +1 Pro Roast (${stats.proRoasts}/${MAX_REFERRAL_REWARDS})`);
-    return true;
+    console.log(`🎉 Referral: ${referrerId} referred ${refereeFingerprint.slice(0, 12)}... -> +1 Pro Roast (${stats.proRoasts}/${MAX_REFERRAL_REWARDS})`);
+    return { success: true, proRoasts: stats.proRoasts };
 }
 
 /**

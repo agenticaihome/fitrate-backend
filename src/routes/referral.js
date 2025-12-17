@@ -1,27 +1,33 @@
 import express from 'express';
 import { addReferral, getReferralStats } from '../middleware/referralStore.js';
+import { generateFingerprint } from '../utils/fingerprint.js';
 
 const router = express.Router();
 
 /**
  * Claim a referral (User B arrives via link)
  * POST /api/referral/claim
- * Body: { referrerId: "..." }
+ * Body: { referrerId: "...", userId: "..." }
+ * SECURITY: Uses fingerprint to prevent VPN abuse
  */
 router.post('/claim', async (req, res) => {
-    const { referrerId } = req.body;
-    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const { referrerId, userId } = req.body;
+    const fingerprint = generateFingerprint(req);
 
     if (!referrerId) {
         return res.status(400).json({ success: false, error: 'Referrer ID required' });
     }
 
-    const success = await addReferral(referrerId, ip);
+    const result = await addReferral(referrerId, fingerprint, userId);
 
     res.json({
-        success: true,
-        newReferral: success,
-        message: success ? 'Referral counted!' : 'Referral already counted or invalid'
+        success: result.success,
+        newReferral: result.success,
+        message: result.success
+            ? 'Referral counted!'
+            : result.reason === 'self_referral'
+                ? 'Nice try! You can\'t refer yourself 😉'
+                : 'Referral already counted or invalid'
     });
 });
 

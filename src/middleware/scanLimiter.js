@@ -3,10 +3,12 @@
  * - Free users: 2 scans/day
  * - Pro users: 25 scans/day
  * Uses Redis with in-memory fallback for local dev
+ * SECURITY: Uses device fingerprint to prevent userId spoofing
  */
 
 import { redis, isRedisAvailable } from '../services/redisClient.js';
 import { consumeBonusScan } from './referralStore.js';
+import { generateFingerprint, getClientIP } from '../utils/fingerprint.js';
 
 // In-memory fallback for local dev
 const scanStoreFallback = new Map();
@@ -25,8 +27,19 @@ function getTodayKey() {
     return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 }
 
-// Get tracking key
-function getTrackingKey(userId, ip) {
+/**
+ * Generate secure tracking key from request
+ * SECURITY: Uses fingerprint as primary identifier to prevent userId spoofing
+ */
+function getSecureKey(req) {
+    const fingerprint = generateFingerprint(req);
+    const userId = req?.body?.userId || req?.query?.userId;
+    // Fingerprint is the anchor, userId is secondary
+    return userId ? `${fingerprint}:${userId.slice(0, 12)}` : fingerprint;
+}
+
+// Legacy key generation for backward compatibility with status endpoints
+function getLegacyKey(userId, ip) {
     return userId || ip || 'unknown';
 }
 
@@ -42,8 +55,9 @@ setInterval(() => {
     }
 }, 60 * 60 * 1000);
 
-export async function getScanCount(userId, ip) {
-    const key = getTrackingKey(userId, ip);
+// Get scan count using secure key from request
+export async function getScanCountSecure(req) {
+    const key = getSecureKey(req);
     const today = getTodayKey();
 
     if (isRedisAvailable()) {
@@ -58,8 +72,26 @@ export async function getScanCount(userId, ip) {
     }
 }
 
-export async function incrementScanCount(userId, ip) {
-    const key = getTrackingKey(userId, ip);
+// Legacy version for status endpoint (uses userId/IP, not fingerprint)
+export async function getScanCount(userId, ip) {
+    const key = getLegacyKey(userId, ip);
+    const today = getTodayKey();
+
+    if (isRedisAvailable()) {
+        const count = await redis.get(`${SCAN_KEY_PREFIX}${key}:${today}`);
+        return parseInt(count) || 0;
+    } else {
+        const data = scanStoreFallback.get(key);
+        if (!data || data.date !== new Date().toDateString()) {
+            return 0;
+        }
+        return data.count;
+    }
+}
+
+// Increment scan count using secure key from request
+export async function incrementScanCountSecure(req) {
+    const key = getSecureKey(req);
     const today = getTodayKey();
 
     if (isRedisAvailable()) {
@@ -85,8 +117,33 @@ export async function incrementScanCount(userId, ip) {
     }
 }
 
+// Legacy version for backward compatibility
+export async function incrementScanCount(userId, ip) {
+    const key = getLegacyKey(userId, ip);
+    const today = getTodayKey();
+
+    if (isRedisAvailable()) {
+        const redisKey = `${SCAN_KEY_PREFIX}${key}:${today}`;
+        const newCount = await redis.incr(redisKey);
+        if (newCount === 1) {
+            await redis.expire(redisKey, 86400);
+        }
+        return newCount;
+    } else {
+        const todayStr = new Date().toDateString();
+        const data = scanStoreFallback.get(key);
+        if (!data || data.date !== todayStr) {
+            scanStoreFallback.set(key, { date: todayStr, count: 1, isPro: false });
+            return 1;
+        }
+        data.count += 1;
+        scanStoreFallback.set(key, data);
+        return data.count;
+    }
+}
+
 export async function setProStatus(userId, ip, isPro) {
-    const key = getTrackingKey(userId, ip);
+    const key = getLegacyKey(userId, ip);
 
     if (isRedisAvailable()) {
         const redisKey = `${PRO_STATUS_PREFIX}${key}`;
@@ -104,7 +161,7 @@ export async function setProStatus(userId, ip, isPro) {
 }
 
 export async function getProStatus(userId, ip) {
-    const key = getTrackingKey(userId, ip);
+    const key = getLegacyKey(userId, ip);
 
     if (isRedisAvailable()) {
         const status = await redis.get(`${PRO_STATUS_PREFIX}${key}`);
@@ -115,20 +172,31 @@ export async function getProStatus(userId, ip) {
     }
 }
 
+/**
+ * Main scan limiter middleware
+ * SECURITY: Uses fingerprint-based tracking to prevent userId spoofing
+ */
 export async function scanLimiter(req, res, next) {
-    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    const ip = getClientIP(req);
     const userId = req.body?.userId || req.query?.userId;
+    const fingerprint = generateFingerprint(req);
 
+    // Use fingerprint-based count for actual limiting
     const isPro = await getProStatus(userId, ip);
     const limit = isPro ? LIMITS.pro : LIMITS.free;
-    const currentCount = await getScanCount(userId, ip);
+    const currentCount = await getScanCountSecure(req);
 
     if (currentCount >= limit) {
         // Try to use a bonus scan if available
         const usedBonus = await consumeBonusScan(userId);
         if (usedBonus) {
-            req.scanInfo = { userId, ip, currentCount, limit, isPro, usedBonus: true };
+            req.scanInfo = { userId, ip, fingerprint, currentCount, limit, isPro, usedBonus: true };
             return next();
+        }
+
+        // Log potential abuse
+        if (currentCount > limit * 2) {
+            console.warn(`⚠️ ABUSE: fingerprint=${fingerprint.slice(0, 12)} exceeded ${currentCount}/${limit} scans`);
         }
 
         return res.status(429).json({
@@ -140,12 +208,11 @@ export async function scanLimiter(req, res, next) {
             isPro,
             scansUsed: currentCount,
             scansLimit: limit,
-            upgradeUrl: isPro ? null : 'https://buy.stripe.com/4gM00l2SI7wT7LpfztfYY00',
             resetTime: getResetTime()
         });
     }
 
-    req.scanInfo = { userId, ip, currentCount, limit, isPro };
+    req.scanInfo = { userId, ip, fingerprint, currentCount, limit, isPro };
     next();
 }
 

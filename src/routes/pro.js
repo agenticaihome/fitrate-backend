@@ -1,21 +1,41 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { isProEmail, addProEmail } from '../middleware/proEmailStore.js';
 import { setProStatus } from '../middleware/scanLimiter.js';
 
 const router = express.Router();
 
+// SECURITY: Strict rate limit on pro check to prevent email enumeration
+const proCheckLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 5, // 5 requests per minute
+    message: { success: false, error: 'Too many requests. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
 /**
  * Check if an email has Pro status
  * POST /api/pro/check
  * Body: { email: "user@example.com" }
+ * SECURITY: Rate limited to prevent enumeration
  */
-router.post('/check', async (req, res) => {
+router.post('/check', proCheckLimiter, async (req, res) => {
     const { email } = req.body;
 
     if (!email) {
         return res.status(400).json({
             success: false,
             error: 'Email required'
+        });
+    }
+
+    // SECURITY: Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({
+            success: false,
+            error: 'Invalid email format'
         });
     }
 

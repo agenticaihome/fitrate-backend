@@ -1,10 +1,11 @@
 import express from 'express';
 import { analyzeWithGemini } from '../services/geminiAnalyzer.js';
 import { analyzeOutfit as analyzeWithOpenAI } from '../services/outfitAnalyzer.js';
-import { scanLimiter, incrementScanCount, getScanCount, LIMITS, getProStatus } from '../middleware/scanLimiter.js';
+import { scanLimiter, incrementScanCountSecure, getScanCount, LIMITS, getProStatus } from '../middleware/scanLimiter.js';
 import { getReferralStats, consumeProRoast, hasProRoast } from '../middleware/referralStore.js';
 import { getImageHash, getCachedResult, cacheResult } from '../services/imageHasher.js';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
+import { validateAndSanitizeImage, quickImageCheck } from '../utils/imageValidator.js';
 
 const router = express.Router();
 
@@ -148,30 +149,40 @@ router.post('/', scanLimiter, async (req, res) => {
       });
     }
 
-    // Validate image size (rough estimate from base64)
-    const imageSizeBytes = (image.length * 3) / 4;
-    const imageSizeMB = (imageSizeBytes / (1024 * 1024)).toFixed(2);
-    console.log(`[${requestId}] Image size: ${imageSizeMB}MB`);
-
-    if (imageSizeBytes > 10 * 1024 * 1024) {
-      console.log(`[${requestId}] Error: Image too large (${imageSizeMB}MB)`);
+    // SECURITY: Quick check before expensive validation
+    if (!quickImageCheck(image)) {
+      console.log(`[${requestId}] Error: Quick image check failed`);
       return res.status(400).json({
         success: false,
-        error: 'Image too large. Please use an image under 10MB.'
+        error: 'Invalid image. Please use JPEG, PNG, or WebP under 10MB.'
       });
     }
 
+    // SECURITY: Full image validation with MIME check and EXIF stripping
+    const validation = await validateAndSanitizeImage(image);
+    if (!validation.valid) {
+      console.log(`[${requestId}] Error: Image validation failed - ${validation.error}`);
+      return res.status(400).json({
+        success: false,
+        error: validation.error
+      });
+    }
+
+    // Use sanitized image (EXIF stripped, validated)
+    const sanitizedImage = validation.sanitizedImage;
+    console.log(`[${requestId}] Image validated: ${validation.width}x${validation.height} (${validation.originalType})`);
+
     // Image hash for caching (prevents duplicate API calls)
-    const imageHash = await getImageHash(image);
+    const imageHash = await getImageHash(sanitizedImage);
     const cacheKey = `${imageHash}:${roastMode ? 'roast' : 'nice'}:${occasion || 'none'}`;
 
     // Check cache first
     const cachedResult = await getCachedResult(cacheKey);
     if (cachedResult) {
       console.log(`[${requestId}] Cache hit - returning cached result`);
-      // Still count the scan
-      const { userId, ip, limit, isPro } = req.scanInfo;
-      const newCount = await incrementScanCount(userId, ip);
+      // Still count the scan (using secure fingerprint-based counting)
+      const { limit, isPro } = req.scanInfo;
+      const newCount = await incrementScanCountSecure(req);
       cachedResult.scanInfo = {
         scansUsed: newCount,
         scansLimit: limit,
@@ -188,17 +199,26 @@ router.post('/', scanLimiter, async (req, res) => {
     const serviceName = isPro ? 'OpenAI GPT-4o' : 'Gemini';
     console.log(`[${requestId}] Using ${serviceName} (isPro: ${isPro})`);
 
-    const result = await analyzer(image, {
+    const result = await analyzer(sanitizedImage, {
       roastMode: roastMode || false,
       occasion: occasion || null
     });
 
+    // SECURITY: Validate AI response structure
+    if (result.success && result.scores) {
+      // Ensure scores are within expected ranges
+      if (result.scores.overall < 0 || result.scores.overall > 100) {
+        console.warn(`[${requestId}] SECURITY: Suspicious AI score: ${result.scores.overall}`);
+        result.scores.overall = Math.min(100, Math.max(0, result.scores.overall));
+      }
+    }
+
     // Only increment count and cache on successful analysis
     if (result.success) {
-      const { userId, ip, limit, isPro } = req.scanInfo;
-      const newCount = await incrementScanCount(userId, ip);
+      const { limit, isPro } = req.scanInfo;
+      const newCount = await incrementScanCountSecure(req);
 
-      console.log(`[${requestId}] Success - Scan count: ${newCount}/${limit} (isPro: ${isPro}, userId: ${userId || 'none'})`);
+      console.log(`[${requestId}] Success - Scan count: ${newCount}/${limit} (isPro: ${isPro})`);
 
       // Cache the result for future duplicate requests
       await cacheResult(cacheKey, result);
