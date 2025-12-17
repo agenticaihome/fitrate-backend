@@ -15,10 +15,13 @@ const processedReferrals = new Set();
 const proRoastStore = new Map();
 
 /**
- * Add a referral claim - now rewards a PRO ROAST (OpenAI) instead of bonus scan
+ * Add a referral claim - rewards a PRO ROAST (OpenAI)
+ * ABUSE PREVENTION: Max 5 Pro Roasts from referrals
  * @param {string} referrerId - The ID of the user who shared the link
  * @param {string} refereeIp - The IP of the new user
  */
+const MAX_REFERRAL_REWARDS = 5;  // Cap to prevent abuse
+
 export function addReferral(referrerId, refereeIp) {
     if (!referrerId || !refereeIp) return false;
 
@@ -28,14 +31,20 @@ export function addReferral(referrerId, refereeIp) {
         return false; // Already referred this IP
     }
 
-    processedReferrals.add(key);
-
     const stats = referralStats.get(referrerId) || { proRoasts: 0, totalReferrals: 0, bonusScans: 0 };
-    stats.proRoasts += 1;  // Reward Pro Roast instead of regular scan
+
+    // Abuse prevention: cap referral rewards
+    if (stats.proRoasts >= MAX_REFERRAL_REWARDS) {
+        console.log(`⚠️ Referral cap: ${referrerId} has maxed out referral rewards`);
+        return false;
+    }
+
+    processedReferrals.add(key);
+    stats.proRoasts += 1;
     stats.totalReferrals += 1;
     referralStats.set(referrerId, stats);
 
-    console.log(`🎉 Referral: ${referrerId} referred ${refereeIp} -> +1 Pro Roast`);
+    console.log(`🎉 Referral: ${referrerId} referred ${refereeIp} -> +1 Pro Roast (${stats.proRoasts}/${MAX_REFERRAL_REWARDS})`);
     return true;
 }
 
