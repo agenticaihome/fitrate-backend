@@ -6,7 +6,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config/index.js';
 
-const genAI = new GoogleGenerativeAI(config.gemini.apiKey);
+// Validate API key exists
+if (!config.gemini.apiKey) {
+    console.error('CRITICAL: GEMINI_API_KEY not set!');
+}
+
+const genAI = config.gemini.apiKey ? new GoogleGenerativeAI(config.gemini.apiKey) : null;
 
 // Aesthetics and celebrity matches (same as OpenAI version)
 const AESTHETICS = [
@@ -57,14 +62,27 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
     const { roastMode = false, occasion = null } = options;
     const requestId = `gemini_${Date.now()}`;
 
+    // Check if API is configured
+    if (!genAI) {
+        console.error(`[${requestId}] Gemini API not configured - missing API key`);
+        return {
+            success: false,
+            error: 'AI service not configured. Please contact support.'
+        };
+    }
+
     try {
         console.log(`[${requestId}] Starting Gemini analysis (roastMode: ${roastMode})`);
 
-        // Get the model
-        const model = genAI.getGenerativeModel({ model: config.gemini.model });
+        // Use a stable model name - gemini-1.5-flash is the free tier model
+        const modelName = config.gemini.model || 'gemini-1.5-flash';
+        console.log(`[${requestId}] Using model: ${modelName}`);
+
+        const model = genAI.getGenerativeModel({ model: modelName });
 
         // Clean base64 data
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+        console.log(`[${requestId}] Image data length: ${base64Data.length}`);
 
         // Prepare the image part
         const imagePart = {
@@ -88,6 +106,7 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
         }
 
         console.log(`[${requestId}] Received Gemini response (${content.length} chars)`);
+        console.log(`[${requestId}] Raw response: ${content.substring(0, 200)}...`);
 
         // Parse JSON response
         let jsonStr = content.trim();
@@ -124,10 +143,25 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
         };
     } catch (error) {
         console.error(`[${requestId}] Gemini error:`, error.message);
+        console.error(`[${requestId}] Full error:`, error);
+
+        // More specific error messages
+        let errorMessage = 'AI analysis failed. Please try again.';
+
+        if (error.message?.includes('API_KEY')) {
+            errorMessage = 'AI service configuration error.';
+        } else if (error.message?.includes('SAFETY')) {
+            errorMessage = 'Image could not be analyzed. Please try a different photo.';
+        } else if (error.message?.includes('JSON')) {
+            errorMessage = 'Analysis formatting error. Please try again.';
+        } else if (error.message?.includes('quota') || error.message?.includes('limit')) {
+            errorMessage = 'AI service is busy. Please try again in a moment.';
+        }
 
         return {
             success: false,
-            error: 'AI analysis failed. Please try again.'
+            error: errorMessage
         };
     }
 }
+
