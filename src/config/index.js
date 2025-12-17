@@ -2,10 +2,16 @@ export const config = {
   port: process.env.PORT || 3001,
   nodeEnv: process.env.NODE_ENV || 'development',
 
-  // OpenAI
+  // OpenAI (for Pro users)
   openai: {
     apiKey: process.env.OPENAI_API_KEY,
     model: 'gpt-4o',
+  },
+
+  // Gemini (for free users - free tier)
+  gemini: {
+    apiKey: process.env.GEMINI_API_KEY,
+    model: 'gemini-2.0-flash-exp',
   },
 
   // CORS
