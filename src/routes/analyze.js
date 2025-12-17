@@ -86,6 +86,7 @@ router.post('/pro-roast', async (req, res) => {
 
     // Use OpenAI for Pro Roasts (premium quality)
     const result = await analyzeWithOpenAI(image, {
+      mode: 'roast',
       roastMode: true,
       occasion: null
     });
@@ -139,7 +140,9 @@ router.post('/', scanLimiter, async (req, res) => {
 
   try {
     console.log(`[${requestId}] POST /api/analyze - IP: ${req.ip || 'unknown'}`);
-    const { image, roastMode, occasion } = req.body;
+    const { image, roastMode, mode: modeParam, occasion } = req.body;
+    // Support both new mode string and legacy roastMode boolean
+    const mode = modeParam || (roastMode ? 'roast' : 'nice');
 
     if (!image) {
       console.log(`[${requestId}] Error: No image provided`);
@@ -174,7 +177,7 @@ router.post('/', scanLimiter, async (req, res) => {
 
     // Image hash for caching (prevents duplicate API calls)
     const imageHash = await getImageHash(sanitizedImage);
-    const cacheKey = `${imageHash}:${roastMode ? 'roast' : 'nice'}:${occasion || 'none'}`;
+    const cacheKey = `${imageHash}:${mode}:${occasion || 'none'}`;
 
     // Check cache first
     const cachedResult = await getCachedResult(cacheKey);
@@ -200,7 +203,8 @@ router.post('/', scanLimiter, async (req, res) => {
     console.log(`[${requestId}] Using ${serviceName} (isPro: ${isPro})`);
 
     const result = await analyzer(sanitizedImage, {
-      roastMode: roastMode || false,
+      mode: mode,
+      roastMode: mode === 'roast', // backwards compatibility
       occasion: occasion || null
     });
 

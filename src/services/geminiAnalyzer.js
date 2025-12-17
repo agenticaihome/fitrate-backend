@@ -13,11 +13,16 @@ const CANONICAL = `Rate outfit. JSON only. Match celebMatch to person's vibe.
 {"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, 1-2 emoji>","tip":"<1 fix>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","isValidOutfit":true}
 Invalid:{"isValidOutfit":false,"error":"<fun retry>"}`;
 
+// Mode-specific prompts: nice, honest, roast
+const MODE_PROMPTS = {
+    nice: `NICE✨ Hype up. Main character energy. Focus on positives. Score:70-88.`,
+    honest: `HONEST📊 Be balanced and truthful. Give real feedback - no inflation or deflation. Point out both strengths and areas to improve. Score naturally based on actual outfit quality.`,
+    roast: `ROAST🔥 Playfully brutal. Clothes only. Score:45-70.`
+};
+
 // Gemini-specific delta (playful, safe)
-function createGeminiPrompt(roastMode, occasion) {
-    const delta = roastMode
-        ? `ROAST🔥 Playfully brutal. Clothes only. Score:45-70.`
-        : `NICE✨ Hype up. Main character. Score:70-88.`;
+function createGeminiPrompt(mode, occasion) {
+    const delta = MODE_PROMPTS[mode] || MODE_PROMPTS.nice;
 
     return `${CANONICAL}
 ${delta}
@@ -25,7 +30,9 @@ Verdict:Screenshot-worthy.${occasion ? ` For:${occasion}` : ''}`
 }
 
 export async function analyzeWithGemini(imageBase64, options = {}) {
-    const { roastMode = false, occasion = null } = options;
+    // Support both old roastMode boolean and new mode string for backwards compatibility
+    const { roastMode = false, mode: modeParam = null, occasion = null } = options;
+    const mode = modeParam || (roastMode ? 'roast' : 'nice');
     const requestId = `gemini_${Date.now()}`;
 
     // Check if API key is configured
@@ -39,13 +46,13 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
 
     // Clean base64 data once
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-    console.log(`[${requestId}] Starting Gemini analysis (roastMode: ${roastMode})`);
+    console.log(`[${requestId}] Starting Gemini analysis (mode: ${mode})`);
     console.log(`[${requestId}] Image data length: ${base64Data.length}`);
 
     const requestBody = {
         contents: [{
             parts: [
-                { text: createGeminiPrompt(roastMode, occasion) },
+                { text: createGeminiPrompt(mode, occasion) },
                 {
                     inline_data: {
                         mime_type: 'image/jpeg',
@@ -143,7 +150,8 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                         tip: parsed.tip,
                         aesthetic: parsed.aesthetic,
                         celebMatch: parsed.celebMatch,
-                        roastMode: roastMode
+                        mode: mode,
+                        roastMode: mode === 'roast' // backwards compatibility
                     }
                 };
             } catch (error) {

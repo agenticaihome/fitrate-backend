@@ -19,30 +19,40 @@ Men: Timothée Chalamet|Bad Bunny|Pedro Pascal|Jacob Elordi|Idris Elba|Simu Liu|
 Women: Zendaya|Jenna Ortega|Ice Spice|Sabrina Carpenter|Hailey Bieber|Jennie|Sydney Sweeney|SZA|Ayo Edebiri|Florence Pugh|Maitreyi Ramakrishnan|Emma Chamberlain
 `.trim();
 
-// Pro-exclusive schema (more detailed than free tier)
+// PRO-exclusive schema (more detailed than free tier)
 const PRO_SCHEMA = `Rate outfit. JSON only. Match celebMatch to person's vibe/energy.
 {"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, 1-2 emoji>","tip":"<1 fix>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear|Gorpcore|Indie Sleaze>","celebMatch":"<match to person: ${CELEBS}>","savageLevel":<1-10>,"itemRoasts":{"top":"<roast>","bottom":"<roast>","shoes":"<roast or 'N/A'>"},"worstCelebComparison":"<who they're NOT giving>","isValidOutfit":true}
 Invalid:{"isValidOutfit":false,"error":"<fun retry>"}`;
 
-// OpenAI system prompts - PRO EXCLUSIVE features
-const NICE_SYSTEM_PROMPT = `FitRate PRO ⚡ Premium analysis. Verdicts get screenshotted.
-NICE✨ Main character energy. Score:72-90.
+// Mode-specific system prompts for OpenAI PRO
+const MODE_SYSTEM_PROMPTS = {
+  nice: `FitRate PRO ⚡ Premium analysis. Verdicts get screenshotted.
+NICE✨ Main character energy. Focus on positives and encouragement. Score:72-90.
 Verdict: ≤8 words, quotable. Match celeb to person's actual vibe.
-PRO EXCLUSIVE: savageLevel, itemRoasts (roast each piece), worstCelebComparison.`;
+PRO EXCLUSIVE: savageLevel (keep low 1-3), itemRoasts (gentle improvements), worstCelebComparison (light-hearted).`,
 
-const ROAST_SYSTEM_PROMPT = `FitRate PRO ROAST🔥 Premium savage analysis.
+  honest: `FitRate PRO ⚡ Premium analysis. Verdicts get screenshotted.
+HONEST📊 Be balanced and truthful. Give real, unbiased feedback - no inflation or deflation.
+Score naturally based on the actual outfit quality. Point out both what works and what doesn't.
+Verdict: ≤8 words, direct but fair. Match celeb to person's actual vibe.
+PRO EXCLUSIVE: savageLevel (honest 4-6), itemRoasts (constructive criticism), worstCelebComparison (honest comparison).`,
+
+  roast: `FitRate PRO ROAST🔥 Premium savage analysis.
 Clothes only. Never body-shame. Score:40-65.
 Verdict: ≤8 words, brutal, must get screenshotted.
-PRO EXCLUSIVE: savageLevel (1-10 brutality), itemRoasts (roast top/bottom/shoes), worstCelebComparison (who they're NOT giving).`;
+PRO EXCLUSIVE: savageLevel (1-10 brutality), itemRoasts (roast top/bottom/shoes), worstCelebComparison (who they're NOT giving).`
+};
 
-function createAnalysisPrompt(occasion, roastMode) {
+function createAnalysisPrompt(occasion, mode) {
   return `${PRO_SCHEMA}${occasion ? ` For:${occasion}` : ''}`;
 }
 
 
 
 export async function analyzeOutfit(imageBase64, options = {}) {
-  const { roastMode = false, occasion = null } = options;
+  // Support both old roastMode boolean and new mode string for backwards compatibility
+  const { roastMode = false, mode: modeParam = null, occasion = null } = options;
+  const mode = modeParam || (roastMode ? 'roast' : 'nice');
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   // Check if OpenAI is configured
@@ -55,7 +65,7 @@ export async function analyzeOutfit(imageBase64, options = {}) {
   }
 
   try {
-    console.log(`[${requestId}] Starting outfit analysis with OpenAI (roastMode: ${roastMode}, occasion: ${occasion || 'none'})`);
+    console.log(`[${requestId}] Starting outfit analysis with OpenAI (mode: ${mode}, occasion: ${occasion || 'none'})`);
 
     // Clean base64 data
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
@@ -76,7 +86,7 @@ export async function analyzeOutfit(imageBase64, options = {}) {
         messages: [
           {
             role: 'system',
-            content: roastMode ? ROAST_SYSTEM_PROMPT : NICE_SYSTEM_PROMPT
+            content: MODE_SYSTEM_PROMPTS[mode] || MODE_SYSTEM_PROMPTS.nice
           },
           {
             role: 'user',
@@ -90,7 +100,7 @@ export async function analyzeOutfit(imageBase64, options = {}) {
               },
               {
                 type: 'text',
-                text: createAnalysisPrompt(occasion, roastMode)
+                text: createAnalysisPrompt(occasion, mode)
               }
             ]
           }
@@ -138,7 +148,8 @@ export async function analyzeOutfit(imageBase64, options = {}) {
         tip: result.tip,
         aesthetic: result.aesthetic,
         celebMatch: result.celebMatch,
-        roastMode: roastMode
+        mode: mode,
+        roastMode: mode === 'roast' // backwards compatibility
       }
     };
   } catch (error) {
