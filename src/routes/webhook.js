@@ -2,6 +2,7 @@ import express from 'express';
 import Stripe from 'stripe';
 import { config } from '../config/index.js';
 import { addProEmail, removeProEmail } from '../middleware/proEmailStore.js';
+import { addProRoast } from '../middleware/referralStore.js';
 
 const router = express.Router();
 
@@ -9,6 +10,10 @@ const router = express.Router();
 const stripe = config.stripe.secretKey
   ? new Stripe(config.stripe.secretKey)
   : null;
+
+// Product identifiers for routing (set in Stripe dashboard metadata or by price)
+const PRO_ROAST_PRICE = 99; // $0.99 in cents
+const PRO_WEEKLY_PRICE = 299; // $2.99 in cents
 
 router.post('/', async (req, res) => {
   if (!stripe) {
@@ -40,16 +45,39 @@ router.post('/', async (req, res) => {
     case 'checkout.session.completed': {
       const session = event.data.object;
       const email = session.customer_email || session.customer_details?.email;
+      const amount = session.amount_total;
+      const mode = session.mode; // 'payment' for one-time, 'subscription' for recurring
+      const userId = session.metadata?.userId || session.client_reference_id;
 
       console.log('✅ Payment successful:', session.id);
       console.log('   Customer email:', email);
-      console.log('   Amount:', session.amount_total / 100);
+      console.log('   Amount:', amount / 100, 'Mode:', mode);
+      console.log('   User ID:', userId);
 
-      // Add email to Pro store
-      if (email) {
-        addProEmail(email);
+      // Differentiate between Pro Roast ($0.99 one-time) and Pro subscription
+      if (mode === 'payment' && amount === PRO_ROAST_PRICE) {
+        // One-time Pro Roast purchase
+        console.log('🔥 Pro Roast purchased!');
+
+        if (userId) {
+          addProRoast(userId);
+          console.log(`   Added Pro Roast to user: ${userId}`);
+        } else if (email) {
+          // Fallback: use email as userId (less reliable)
+          addProRoast(email);
+          console.log(`   Added Pro Roast to email: ${email}`);
+        } else {
+          console.warn('⚠️ No userId or email found for Pro Roast');
+        }
       } else {
-        console.warn('⚠️ No email found in checkout session');
+        // Pro subscription or higher amount = add to Pro email store
+        console.log('⚡ Pro subscription activated!');
+
+        if (email) {
+          addProEmail(email);
+        } else {
+          console.warn('⚠️ No email found in checkout session');
+        }
       }
 
       break;
@@ -84,4 +112,3 @@ router.post('/', async (req, res) => {
 });
 
 export default router;
-
