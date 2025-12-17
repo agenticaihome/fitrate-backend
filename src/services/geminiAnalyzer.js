@@ -62,8 +62,8 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         console.log(`[${requestId}] Image data length: ${base64Data.length}`);
 
-        // Use direct REST API for reliability
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${config.gemini.apiKey}`;
+        // Use direct REST API with gemini-2.5-flash (official model name from docs)
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${config.gemini.apiKey}`;
 
         const requestBody = {
             contents: [{

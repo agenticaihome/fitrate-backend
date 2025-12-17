@@ -1,5 +1,5 @@
 import express from 'express';
-import { analyzeOutfit } from '../services/outfitAnalyzer.js';
+import { analyzeWithGemini as analyzeOutfit } from '../services/geminiAnalyzer.js';
 import { scanLimiter, incrementScanCount, getScanCount, LIMITS, getProStatus } from '../middleware/scanLimiter.js';
 
 const router = express.Router();
