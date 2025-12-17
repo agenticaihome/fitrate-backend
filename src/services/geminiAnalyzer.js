@@ -70,119 +70,142 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
         };
     }
 
-    try {
-        console.log(`[${requestId}] Starting Gemini analysis (roastMode: ${roastMode})`);
+    // Clean base64 data once
+    const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
+    console.log(`[${requestId}] Starting Gemini analysis (roastMode: ${roastMode})`);
+    console.log(`[${requestId}] Image data length: ${base64Data.length}`);
 
-        // Clean base64 data
-        const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
-        console.log(`[${requestId}] Image data length: ${base64Data.length}`);
-
-        // Use model from config
-        const modelName = config.gemini.model || 'gemini-2.5-flash';
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
-
-        const requestBody = {
-            contents: [{
-                parts: [
-                    { text: createGeminiPrompt(roastMode, occasion) },
-                    {
-                        inline_data: {
-                            mime_type: 'image/jpeg',
-                            data: base64Data
-                        }
+    const requestBody = {
+        contents: [{
+            parts: [
+                { text: createGeminiPrompt(roastMode, occasion) },
+                {
+                    inline_data: {
+                        mime_type: 'image/jpeg',
+                        data: base64Data
                     }
-                ]
-            }],
-            generationConfig: {
-                temperature: 0.7,
-                maxOutputTokens: 500
+                }
+            ]
+        }],
+        generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 500
+        }
+    };
+
+    // Models to try in order (fallback chain)
+    const models = [
+        config.gemini.model || 'gemini-2.5-flash',
+        'gemini-1.5-flash'  // Fallback model
+    ];
+
+    // Try each model with retries
+    for (const modelName of models) {
+        const maxRetries = 2;
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
+                console.log(`[${requestId}] Calling Gemini (model: ${modelName}, attempt: ${attempt})...`);
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 25000);
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-goog-api-key': config.gemini.apiKey
+                    },
+                    body: JSON.stringify(requestBody),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+                const data = await response.json();
+
+                // Check for 503/overload errors - retry with backoff
+                if (response.status === 503 || data.error?.status === 'UNAVAILABLE') {
+                    console.warn(`[${requestId}] Model ${modelName} overloaded (attempt ${attempt}), waiting before retry...`);
+                    if (attempt < maxRetries) {
+                        await new Promise(r => setTimeout(r, 1000 * attempt)); // Exponential backoff
+                        continue; // Retry same model
+                    }
+                    throw new Error('Model overloaded');
+                }
+
+                if (!response.ok) {
+                    console.error(`[${requestId}] API error:`, data);
+                    throw new Error(data.error?.message || `API returned ${response.status}`);
+                }
+
+                const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!content) {
+                    throw new Error('No response from Gemini');
+                }
+
+                console.log(`[${requestId}] Received response (${content.length} chars)`);
+
+                // Parse JSON response
+                let jsonStr = content.trim();
+                if (jsonStr.startsWith('```')) {
+                    jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
+                }
+
+                const parsed = JSON.parse(jsonStr);
+
+                if (!parsed.isValidOutfit) {
+                    return {
+                        success: false,
+                        error: parsed.error || 'Could not analyze this image'
+                    };
+                }
+
+                console.log(`[${requestId}] Analysis successful with ${modelName} - Score: ${parsed.overall}`);
+
+                return {
+                    success: true,
+                    scores: {
+                        overall: Math.round(parsed.overall),
+                        color: Math.round(parsed.color),
+                        fit: Math.round(parsed.fit),
+                        style: Math.round(parsed.style),
+                        occasion: Math.round(parsed.occasion ?? parsed.overall ?? 70),
+                        trendScore: Math.round(parsed.trendScore ?? parsed.overall ?? 70),
+                        verdict: parsed.verdict,
+                        tip: parsed.tip,
+                        aesthetic: parsed.aesthetic,
+                        celebMatch: parsed.celebMatch,
+                        roastMode: roastMode
+                    }
+                };
+            } catch (error) {
+                console.error(`[${requestId}] Error with ${modelName} (attempt ${attempt}):`, error.message);
+
+                // For overload/503, continue to next model
+                if (error.message === 'Model overloaded') {
+                    console.log(`[${requestId}] Trying fallback model...`);
+                    break; // Move to next model in fallback chain
+                }
+
+                // For timeout errors, retry same model
+                if (error.name === 'AbortError' && attempt < maxRetries) {
+                    console.log(`[${requestId}] Timeout, retrying...`);
+                    continue;
+                }
+
+                // For other errors on last attempt/model, save the error
+                if (attempt === maxRetries) {
+                    break; // Move to next model
+                }
             }
-        };
-
-        console.log(`[${requestId}] Calling Gemini REST API (model: ${modelName})...`);
-
-        // Add timeout to prevent hung requests
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 25000);
-
-        const response = await fetch(apiUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-goog-api-key': config.gemini.apiKey  // API key in header (more secure)
-            },
-            body: JSON.stringify(requestBody),
-            signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
-
-        const data = await response.json();
-
-        if (!response.ok) {
-            console.error(`[${requestId}] API error:`, data);
-            throw new Error(data.error?.message || `API returned ${response.status}`);
         }
-
-        const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
-        if (!content) {
-            throw new Error('No response from Gemini');
-        }
-
-        console.log(`[${requestId}] Received response (${content.length} chars)`);
-
-        // Parse JSON response
-        let jsonStr = content.trim();
-        if (jsonStr.startsWith('```')) {
-            jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
-        }
-
-        const parsed = JSON.parse(jsonStr);
-
-        if (!parsed.isValidOutfit) {
-            return {
-                success: false,
-                error: parsed.error || 'Could not analyze this image'
-            };
-        }
-
-        console.log(`[${requestId}] Analysis successful - Score: ${parsed.overall}`);
-
-        return {
-            success: true,
-            scores: {
-                overall: Math.round(parsed.overall),
-                color: Math.round(parsed.color),
-                fit: Math.round(parsed.fit),
-                style: Math.round(parsed.style),
-                occasion: Math.round(parsed.occasion ?? parsed.overall ?? 70),
-                trendScore: Math.round(parsed.trendScore ?? parsed.overall ?? 70),
-                verdict: parsed.verdict,
-                tip: parsed.tip,
-                aesthetic: parsed.aesthetic,
-                celebMatch: parsed.celebMatch,
-                roastMode: roastMode
-            }
-        };
-    } catch (error) {
-        console.error(`[${requestId}] Error:`, error.message);
-
-        let errorMessage = 'AI analysis failed. Please try again.';
-        if (error.name === 'AbortError') {
-            errorMessage = 'Analysis is taking too long. Please try again.';
-        } else if (error.message?.includes('API key')) {
-            errorMessage = 'AI service configuration error.';
-        } else if (error.message?.includes('SAFETY')) {
-            errorMessage = 'Image could not be analyzed.';
-        } else if (error.message?.includes('quota')) {
-            errorMessage = 'AI service is busy. Try again soon.';
-        }
-
-        return {
-            success: false,
-            error: errorMessage
-        };
     }
+
+    // All models failed
+    console.error(`[${requestId}] All models failed`);
+    return {
+        success: false,
+        error: 'AI is busy right now. Please try again in a moment! 🔄'
+    };
 }
-
-
