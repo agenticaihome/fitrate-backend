@@ -38,6 +38,19 @@ Analyze this outfit photo. Respond ONLY with valid JSON (no markdown):
   "isValidOutfit": true
 }
 
+If you can't rate the outfit, respond with:
+{
+  "isValidOutfit": false,
+  "error": "<helpful message explaining what's wrong and how to fix it>"
+}
+
+Examples of helpful error messages:
+- If shirtless/no top: "Throw on a shirt or jacket so I can rate your full fit! 👕"
+- If too blurry: "Photo's too blurry — try again with better lighting 📸"
+- If no person visible: "I need to see you wearing the outfit! Take a mirror pic 🪞"
+- If just face/head: "Show more of the fit! I need to see your whole outfit 👀"
+- If meme/random image: "That's not an outfit! Upload a pic of what you're wearing 😅"
+
 ${occasion ? `Context: This outfit is for ${occasion}.` : ''}
 Scoring: ${roastMode ? 'Be harsh. Average = 50-65.' : 'Be fair. Average = 70-85.'}`;
 }

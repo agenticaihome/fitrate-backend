@@ -7,7 +7,7 @@ const openai = new OpenAI({
 
 // Aesthetics and celebrity matches
 const AESTHETICS = [
-  'Clean Girl', 'Dark Academia', 'Quiet Luxury', 'Streetwear', 'Y2K', 
+  'Clean Girl', 'Dark Academia', 'Quiet Luxury', 'Streetwear', 'Y2K',
   'Cottagecore', 'Minimalist', 'Coastal Grandmother', 'Grunge', 'Preppy',
   'Gorpcore', 'Balletcore', 'Old Money', 'Skater', 'Bohemian', 'Normcore'
 ];
@@ -73,8 +73,15 @@ Respond ONLY with valid JSON in this exact format (no markdown, no backticks, no
   "isValidOutfit": true
 }
 
-If the image doesn't show an outfit, respond with:
-{"isValidOutfit": false, "error": "<brief explanation>"}`;
+If the image doesn't show a full outfit, respond with:
+{"isValidOutfit": false, "error": "<helpful message>"}
+
+Examples:
+- Shirtless/no top: "Throw on a shirt or jacket so I can rate your full fit! 👕"
+- Too blurry: "Photo's too blurry — try again with better lighting 📸"
+- No person visible: "I need to see you wearing the outfit! Take a mirror pic 🪞"
+- Just face/head: "Show more of the fit! I need to see your whole outfit 👀"
+- Meme/random: "That's not an outfit! Upload a pic of what you're wearing 😅"`;
 }
 
 export async function analyzeOutfit(imageBase64, options = {}) {
@@ -222,7 +229,7 @@ export async function analyzeBattle(image1Base64, image2Base64) {
         outfit2: result2.scores,
         winner,
         margin: Math.abs(score1 - score2),
-        commentary: winner === 0 
+        commentary: winner === 0
           ? "It's a tie! Both fits are equally fire 🔥"
           : `Outfit ${winner} takes the crown by ${Math.abs(score1 - score2)} points!`
       }
