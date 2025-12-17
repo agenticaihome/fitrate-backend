@@ -1,5 +1,6 @@
 import express from 'express';
-import { analyzeWithGemini as analyzeOutfit } from '../services/geminiAnalyzer.js';
+import { analyzeWithGemini } from '../services/geminiAnalyzer.js';
+import { analyzeOutfit as analyzeWithOpenAI } from '../services/outfitAnalyzer.js';
 import { scanLimiter, incrementScanCount, getScanCount, LIMITS, getProStatus } from '../middleware/scanLimiter.js';
 
 const router = express.Router();
@@ -82,7 +83,13 @@ router.post('/', scanLimiter, async (req, res) => {
       });
     }
 
-    const result = await analyzeOutfit(image, {
+    // Route to appropriate AI based on user tier
+    const { isPro } = req.scanInfo;
+    const analyzer = isPro ? analyzeWithOpenAI : analyzeWithGemini;
+    const serviceName = isPro ? 'OpenAI GPT-4o' : 'Gemini';
+    console.log(`[${requestId}] Using ${serviceName} (isPro: ${isPro})`);
+
+    const result = await analyzer(image, {
       roastMode: roastMode || false,
       occasion: occasion || null
     });

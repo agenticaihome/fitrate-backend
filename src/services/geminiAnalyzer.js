@@ -62,8 +62,9 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
         const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
         console.log(`[${requestId}] Image data length: ${base64Data.length}`);
 
-        // Use direct REST API with gemini-2.5-flash (official model name from docs)
-        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${config.gemini.apiKey}`;
+        // Use model from config
+        const modelName = config.gemini.model || 'gemini-2.5-flash';
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
 
         const requestBody = {
             contents: [{
@@ -83,13 +84,23 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
             }
         };
 
-        console.log(`[${requestId}] Calling Gemini REST API...`);
+        console.log(`[${requestId}] Calling Gemini REST API (model: ${modelName})...`);
+
+        // Add timeout to prevent hung requests
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 25000);
 
         const response = await fetch(apiUrl, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(requestBody)
+            headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': config.gemini.apiKey  // API key in header (more secure)
+            },
+            body: JSON.stringify(requestBody),
+            signal: controller.signal
         });
+
+        clearTimeout(timeoutId);
 
         const data = await response.json();
 
@@ -142,7 +153,9 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
         console.error(`[${requestId}] Error:`, error.message);
 
         let errorMessage = 'AI analysis failed. Please try again.';
-        if (error.message?.includes('API key')) {
+        if (error.name === 'AbortError') {
+            errorMessage = 'Analysis is taking too long. Please try again.';
+        } else if (error.message?.includes('API key')) {
             errorMessage = 'AI service configuration error.';
         } else if (error.message?.includes('SAFETY')) {
             errorMessage = 'Image could not be analyzed.';
