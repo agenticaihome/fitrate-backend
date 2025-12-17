@@ -13,25 +13,32 @@ try {
   console.warn('OpenAI client not initialized:', e.message);
 }
 
-// Canonical prompt - shared schema (same as Gemini)
-const CELEBS = 'Timothée Chalamet|Zendaya|Jenna Ortega|Ice Spice|Sabrina Carpenter|Hailey Bieber|Bad Bunny|Pedro Pascal|Jennie|Emma Chamberlain|Jacob Elordi|Sydney Sweeney';
+// Diverse celeb list (male/female, all backgrounds, 2025 trending)
+const CELEBS = `
+Men: Timothée Chalamet|Bad Bunny|Pedro Pascal|Jacob Elordi|Idris Elba|Simu Liu|Dev Patel|A$AP Rocky|Jaden Smith|Central Cee|BTS Jungkook|Omar Apollo
+Women: Zendaya|Jenna Ortega|Ice Spice|Sabrina Carpenter|Hailey Bieber|Jennie|Sydney Sweeney|SZA|Ayo Edebiri|Florence Pugh|Maitreyi Ramakrishnan|Emma Chamberlain
+`.trim();
 
-const CANONICAL = `Rate outfit. JSON only.
-{"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, 1-2 emoji>","tip":"<1 fix>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","isValidOutfit":true}
+// Pro-exclusive schema (more detailed than free tier)
+const PRO_SCHEMA = `Rate outfit. JSON only. Match celebMatch to person's vibe/energy.
+{"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, 1-2 emoji>","tip":"<1 fix>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear|Gorpcore|Indie Sleaze>","celebMatch":"<match to person: ${CELEBS}>","savageLevel":<1-10>,"itemRoasts":{"top":"<roast>","bottom":"<roast>","shoes":"<roast or 'N/A'>"},"worstCelebComparison":"<who they're NOT giving>","isValidOutfit":true}
 Invalid:{"isValidOutfit":false,"error":"<fun retry>"}`;
 
-// OpenAI system prompts - sharper than Gemini
-const NICE_SYSTEM_PROMPT = `FitRate Pro. Be sharp. Verdicts get screenshotted.
+// OpenAI system prompts - PRO EXCLUSIVE features
+const NICE_SYSTEM_PROMPT = `FitRate PRO ⚡ Premium analysis. Verdicts get screenshotted.
 NICE✨ Main character energy. Score:72-90.
-Verdict: ≤8 words, quotable, 1-2 emoji. Sharp. No filler.`;
+Verdict: ≤8 words, quotable. Match celeb to person's actual vibe.
+PRO EXCLUSIVE: savageLevel, itemRoasts (roast each piece), worstCelebComparison.`;
 
-const ROAST_SYSTEM_PROMPT = `FitRate Pro ROAST🔥. Savage but never body-shame.
-Clothes only. Score:40-65.
-Verdict: ≤8 words, brutal, 1-2 emoji. Must get screenshotted.`;
+const ROAST_SYSTEM_PROMPT = `FitRate PRO ROAST🔥 Premium savage analysis.
+Clothes only. Never body-shame. Score:40-65.
+Verdict: ≤8 words, brutal, must get screenshotted.
+PRO EXCLUSIVE: savageLevel (1-10 brutality), itemRoasts (roast top/bottom/shoes), worstCelebComparison (who they're NOT giving).`;
 
 function createAnalysisPrompt(occasion, roastMode) {
-  return `${CANONICAL}${occasion ? ` For:${occasion}` : ''}`;
+  return `${PRO_SCHEMA}${occasion ? ` For:${occasion}` : ''}`;
 }
+
 
 
 export async function analyzeOutfit(imageBase64, options = {}) {

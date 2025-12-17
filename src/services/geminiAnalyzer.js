@@ -5,11 +5,11 @@
 
 import { config } from '../config/index.js';
 
-// Expanded celeb list (2025 trending)
-const CELEBS = 'Timothée Chalamet|Zendaya|Jenna Ortega|Ice Spice|Sabrina Carpenter|Hailey Bieber|Bad Bunny|Pedro Pascal|Jennie|Emma Chamberlain|Jacob Elordi|Sydney Sweeney';
+// Diverse celeb list (male/female, all backgrounds, 2025 trending)
+const CELEBS = 'Timothée Chalamet|Bad Bunny|Pedro Pascal|Jacob Elordi|Idris Elba|Simu Liu|Dev Patel|Zendaya|Jenna Ortega|Ice Spice|Sabrina Carpenter|Hailey Bieber|Jennie|Sydney Sweeney|SZA|Emma Chamberlain';
 
-// Canonical prompt - shared schema
-const CANONICAL = `Rate outfit. JSON only.
+// Canonical prompt - shared schema (match celeb to person's vibe)
+const CANONICAL = `Rate outfit. JSON only. Match celebMatch to person's vibe.
 {"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, 1-2 emoji>","tip":"<1 fix>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","isValidOutfit":true}
 Invalid:{"isValidOutfit":false,"error":"<fun retry>"}`;
 
