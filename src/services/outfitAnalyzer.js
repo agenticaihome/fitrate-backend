@@ -14,8 +14,10 @@ try {
 }
 
 // Canonical prompt - shared schema (same as Gemini)
+const CELEBS = 'Timothée Chalamet|Zendaya|Jenna Ortega|Ice Spice|Sabrina Carpenter|Hailey Bieber|Bad Bunny|Pedro Pascal|Jennie|Emma Chamberlain|Jacob Elordi|Sydney Sweeney';
+
 const CANONICAL = `Rate outfit. JSON only.
-{"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, 1-2 emoji>","tip":"<1 fix>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<celeb moment>","isValidOutfit":true}
+{"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, 1-2 emoji>","tip":"<1 fix>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","isValidOutfit":true}
 Invalid:{"isValidOutfit":false,"error":"<fun retry>"}`;
 
 // OpenAI system prompts - sharper than Gemini
