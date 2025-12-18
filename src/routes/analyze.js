@@ -84,9 +84,9 @@ router.post('/pro-roast', async (req, res) => {
   try {
     console.log(`[${requestId}] Pro Roast requested by ${userId}`);
 
-    // Use OpenAI for Pro Roasts (premium quality)
+    // Use OpenAI for Pro Roasts - SAVAGE mode (maximum brutality)
     const result = await analyzeWithOpenAI(image, {
-      mode: 'roast',
+      mode: 'savage',
       roastMode: true,
       occasion: null
     });
