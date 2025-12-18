@@ -2,7 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { analyzeWithGemini } from '../services/geminiAnalyzer.js';
 import { analyzeOutfit as analyzeWithOpenAI } from '../services/outfitAnalyzer.js';
-import { scanLimiter, incrementScanCountSecure, getScanCount, LIMITS, getProStatus } from '../middleware/scanLimiter.js';
+import { scanLimiter, incrementScanCountSecure, getScanCount, LIMITS, getProStatus, trackInvalidAttempt, isBlockedForInvalidAttempts } from '../middleware/scanLimiter.js';
 import { getReferralStats, consumeProRoast, hasProRoast } from '../middleware/referralStore.js';
 import { getImageHash, getCachedResult, cacheResult } from '../services/imageHasher.js';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
@@ -181,6 +181,17 @@ router.post('/', scanLimiter, async (req, res) => {
       });
     }
 
+    // SECURITY: Check if user is blocked for spamming invalid images
+    const isBlocked = await isBlockedForInvalidAttempts(req);
+    if (isBlocked) {
+      console.warn(`[${requestId}] BLOCKED: Too many invalid image attempts`);
+      return res.status(429).json({
+        success: false,
+        error: 'Too many failed attempts. Please wait an hour and try again with a valid outfit photo.',
+        code: 'INVALID_SPAM_BLOCKED'
+      });
+    }
+
     // SECURITY: Quick check before expensive validation
     if (!quickImageCheck(image)) {
       console.log(`[${requestId}] Error: Quick image check failed`);
@@ -268,6 +279,15 @@ router.post('/', scanLimiter, async (req, res) => {
       };
     } else {
       console.log(`[${requestId}] Analysis failed: ${result.error}`);
+
+      // SECURITY: Track invalid image attempts to prevent spam abuse
+      // This includes non-outfit images (selfies, random objects, etc.)
+      const invalidTrack = await trackInvalidAttempt(req);
+      console.log(`[${requestId}] Invalid attempt #${invalidTrack.count} (blocked: ${invalidTrack.blocked})`);
+
+      if (invalidTrack.blocked) {
+        result.error = 'Too many failed attempts. Please wait and try again with a valid outfit photo.';
+      }
     }
 
     return res.json(result);

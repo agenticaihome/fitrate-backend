@@ -21,6 +21,13 @@ const LIMITS = {
 // Redis key patterns
 const SCAN_KEY_PREFIX = 'fitrate:scans:';
 const PRO_STATUS_PREFIX = 'fitrate:pro:status:';
+const INVALID_ATTEMPTS_PREFIX = 'fitrate:invalid:'; // Track failed/invalid image submissions
+const REPEAT_OFFENDER_PREFIX = 'fitrate:banned:'; // Permanently banned repeat offenders
+
+// Limits
+const MAX_INVALID_ATTEMPTS = 5; // Max invalid images before temp block
+const INVALID_BLOCK_DURATION = 86400; // 24 hour block (was 1 hour)
+const PERMANENT_BAN_DURATION = 2592000; // 30 days "permanent" ban for repeat offenders
 
 // Get today's date string for key
 function getTodayKey() {
@@ -169,6 +176,96 @@ export async function getProStatus(userId, ip) {
     } else {
         const data = scanStoreFallback.get(key);
         return data?.isPro || false;
+    }
+}
+
+/**
+ * Track invalid image submissions to prevent abuse
+ * Returns current count and whether user is blocked
+ * REPEAT OFFENDERS: If blocked twice, permanently banned
+ */
+export async function trackInvalidAttempt(req) {
+    const fingerprint = generateFingerprint(req);
+    const invalidKey = `${INVALID_ATTEMPTS_PREFIX}${fingerprint}`;
+    const banKey = `${REPEAT_OFFENDER_PREFIX}${fingerprint}`;
+
+    if (isRedisAvailable()) {
+        // Check if already permanently banned
+        const isBanned = await redis.get(banKey);
+        if (isBanned) {
+            return { count: 999, blocked: true, permanentlyBanned: true };
+        }
+
+        const count = await redis.incr(invalidKey);
+        if (count === 1) {
+            await redis.expire(invalidKey, INVALID_BLOCK_DURATION);
+        }
+
+        const isBlocked = count > MAX_INVALID_ATTEMPTS;
+
+        // If just hit block threshold, check if this is a repeat offense
+        if (isBlocked && count === MAX_INVALID_ATTEMPTS + 1) {
+            // Check if they were blocked before (repeat offender key)
+            const wasBlockedBefore = await redis.get(`${invalidKey}:repeat`);
+            if (wasBlockedBefore) {
+                // REPEAT OFFENDER - permanent ban
+                await redis.set(banKey, '1');
+                await redis.expire(banKey, PERMANENT_BAN_DURATION);
+                console.warn(`🚫 PERMANENT BAN: Repeat offender ${fingerprint.slice(0, 12)}`);
+                return { count, blocked: true, permanentlyBanned: true };
+            } else {
+                // First offense - mark for repeat tracking
+                await redis.set(`${invalidKey}:repeat`, '1');
+                await redis.expire(`${invalidKey}:repeat`, PERMANENT_BAN_DURATION); // Remember for 30 days
+            }
+        }
+
+        return { count, blocked: isBlocked, permanentlyBanned: false };
+    } else {
+        // In-memory fallback (simplified)
+        const data = scanStoreFallback.get(invalidKey) || { count: 0, expiry: Date.now() + INVALID_BLOCK_DURATION * 1000, wasBlocked: false };
+        if (Date.now() > data.expiry) {
+            // Check if they were blocked before resetting
+            if (data.count > MAX_INVALID_ATTEMPTS) {
+                data.wasBlocked = true;
+            }
+            data.count = 0;
+            data.expiry = Date.now() + INVALID_BLOCK_DURATION * 1000;
+        }
+        data.count += 1;
+        scanStoreFallback.set(invalidKey, data);
+
+        const isBlocked = data.count > MAX_INVALID_ATTEMPTS;
+        const permanentlyBanned = isBlocked && data.wasBlocked;
+
+        return { count: data.count, blocked: isBlocked, permanentlyBanned };
+    }
+}
+
+/**
+ * Check if user is blocked for too many invalid attempts
+ * Also checks for permanent bans from repeat offenses
+ */
+export async function isBlockedForInvalidAttempts(req) {
+    const fingerprint = generateFingerprint(req);
+    const invalidKey = `${INVALID_ATTEMPTS_PREFIX}${fingerprint}`;
+    const banKey = `${REPEAT_OFFENDER_PREFIX}${fingerprint}`;
+
+    if (isRedisAvailable()) {
+        // Check permanent ban first
+        const isBanned = await redis.get(banKey);
+        if (isBanned) return true;
+
+        // Check temp block
+        const count = await redis.get(invalidKey);
+        return parseInt(count) > MAX_INVALID_ATTEMPTS;
+    } else {
+        const banData = scanStoreFallback.get(banKey);
+        if (banData) return true;
+
+        const data = scanStoreFallback.get(invalidKey);
+        if (!data || Date.now() > data.expiry) return false;
+        return data.count > MAX_INVALID_ATTEMPTS;
     }
 }
 
