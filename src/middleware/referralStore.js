@@ -73,6 +73,14 @@ export async function addReferral(referrerId, refereeFingerprint, refereeUserId 
     stats.proRoasts += 1;
     stats.totalReferrals += 1;
 
+    // BONUS: Grant 15 free scans when reaching 3 referrals
+    let bonusScansGranted = false;
+    if (stats.totalReferrals === 3) {
+        await addPurchasedScans(referrerId, 15);
+        bonusScansGranted = true;
+        console.log(`🎁 BONUS: ${referrerId} reached 3 referrals -> +15 free scans!`);
+    }
+
     if (isRedisAvailable()) {
         await redis.sadd(PROCESSED_REFERRALS_KEY, key);
         await redis.set(`${REFERRAL_STATS_PREFIX}${referrerId}`, JSON.stringify(stats));
@@ -84,7 +92,7 @@ export async function addReferral(referrerId, refereeFingerprint, refereeUserId 
     }
 
     console.log(`🎉 Referral: ${referrerId} referred ${refereeFingerprint.slice(0, 12)}... -> +1 Pro Roast (${stats.proRoasts}/${MAX_REFERRAL_REWARDS})`);
-    return { success: true, proRoasts: stats.proRoasts, totalReferrals: stats.totalReferrals };
+    return { success: true, proRoasts: stats.proRoasts, totalReferrals: stats.totalReferrals, bonusScansGranted };
 }
 
 /**
