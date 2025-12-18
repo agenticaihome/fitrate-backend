@@ -1,5 +1,5 @@
 import express from 'express';
-import { addReferral, getReferralStats } from '../middleware/referralStore.js';
+import { addReferral, getReferralStats, getPurchasedScans } from '../middleware/referralStore.js';
 import { generateFingerprint } from '../utils/fingerprint.js';
 
 const router = express.Router();
@@ -32,7 +32,7 @@ router.post('/claim', async (req, res) => {
 });
 
 /**
- * Get stats for a user (Bonus scans)
+ * Get stats for a user (Bonus scans + purchased scans)
  * GET /api/referral/stats?userId=...
  */
 router.get('/stats', async (req, res) => {
@@ -42,10 +42,15 @@ router.get('/stats', async (req, res) => {
         return res.status(400).json({ success: false, error: 'User ID required' });
     }
 
-    const stats = await getReferralStats(userId);
+    const [stats, purchasedScans] = await Promise.all([
+        getReferralStats(userId),
+        getPurchasedScans(userId)
+    ]);
+
     res.json({
         success: true,
-        ...stats
+        ...stats,
+        purchasedScans // Add purchased scans to response
     });
 });
 
