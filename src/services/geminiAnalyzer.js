@@ -15,9 +15,9 @@ Invalid:{"isValidOutfit":false,"error":"<fun retry>"}`;
 
 // Mode-specific prompts: nice, honest, roast
 const MODE_PROMPTS = {
-    nice: `NICE✨ Hype up. Main character energy. Focus on positives. Score:70-88.`,
+    nice: `NICE✨ Hype up. Main character energy. Focus on positives. Most scores 78-88, great outfits can hit 90-100.`,
     honest: `HONEST📊 Give your TRUE opinion. Score 0-100 based on actual quality. Be real but constructive, never mean.`,
-    roast: `ROAST🔥 Playfully brutal. Clothes only. Score:45-70.`
+    roast: `ROAST🔥 Playfully brutal. Clothes only. Score 20-65. Low scores are funnier.`
 };
 
 // Gemini-specific delta (playful, safe)
