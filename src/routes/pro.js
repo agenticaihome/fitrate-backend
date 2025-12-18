@@ -14,6 +14,15 @@ const proCheckLimiter = rateLimit({
     legacyHeaders: false
 });
 
+// SECURITY: Very strict rate limit on admin endpoint
+const adminLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 3, // 3 attempts per minute
+    message: { success: false, error: 'Too many attempts.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
 /**
  * Check if an email has Pro status
  * POST /api/pro/check
@@ -58,16 +67,19 @@ router.post('/check', proCheckLimiter, async (req, res) => {
 /**
  * Dev/Admin: manually add a Pro email (secured with API key)
  * POST /api/pro/add
+ * SECURITY: Rate limited, header-only key, blocked in production without key
  */
-router.post('/add', async (req, res) => {
-    // Block in production unless DEV_API_KEY is provided and matches
-    const devKey = req.headers['x-dev-key'] || req.body?.devKey;
+router.post('/add', adminLimiter, async (req, res) => {
+    // SECURITY: Only accept key from header (not body - could be logged)
+    const devKey = req.headers['x-dev-key'];
     const expectedKey = process.env.DEV_API_KEY;
 
+    // Block in production if no DEV_API_KEY is configured
     if (process.env.NODE_ENV === 'production' && !expectedKey) {
         return res.status(403).json({ error: 'Not allowed in production' });
     }
 
+    // Require valid key if one is configured
     if (expectedKey && devKey !== expectedKey) {
         return res.status(401).json({ error: 'Invalid dev key' });
     }
@@ -77,8 +89,14 @@ router.post('/add', async (req, res) => {
         return res.status(400).json({ error: 'Email required' });
     }
 
+    // SECURITY: Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+        return res.status(400).json({ error: 'Invalid email format' });
+    }
+
     await addProEmail(email);
-    res.json({ success: true, email });
+    res.json({ success: true, email: email.toLowerCase().trim() });
 });
 
 export default router;

@@ -60,11 +60,20 @@ router.post('/feedback', async (req, res) => {
     return res.status(400).json({ success: false, error: 'Rating must be 1-5' });
   }
 
+  // SECURITY: Sanitize user-provided text to prevent XSS
+  const sanitizeString = (str) => {
+    if (!str || typeof str !== 'string') return '';
+    return str
+      .replace(/[<>]/g, '') // Remove angle brackets
+      .replace(/javascript:/gi, '') // Remove javascript: protocol
+      .slice(0, 500); // Limit length
+  };
+
   const feedback = {
-    resultId,
-    rating,
-    comment: comment || '',
-    userId: userId || 'anonymous',
+    resultId: sanitizeString(resultId),
+    rating: Math.min(5, Math.max(1, parseInt(rating) || 3)),
+    comment: sanitizeString(comment),
+    userId: sanitizeString(userId) || 'anonymous',
     ts: Date.now()
   };
 
@@ -74,7 +83,7 @@ router.post('/feedback', async (req, res) => {
     await redis.ltrim('fitrate:feedback:ratings', 0, 999);
   }
 
-  console.log(`📝 Feedback received: ${rating}/5 for ${resultId}`);
+  console.log(`📝 Feedback received: ${feedback.rating}/5 for ${feedback.resultId.slice(0, 20)}`);
   res.json({ success: true, message: 'Thanks for the feedback!' });
 });
 

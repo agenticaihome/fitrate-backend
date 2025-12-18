@@ -30,11 +30,26 @@ app.use(cors({
 }));
 
 // Security middleware (configured for API cross-origin access)
+// SECURITY: Enhanced helmet configuration
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
-  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' }
+  crossOriginOpenerPolicy: { policy: 'same-origin-allow-popups' },
+  // Strict Transport Security - enforce HTTPS
+  hsts: {
+    maxAge: 31536000, // 1 year
+    includeSubDomains: true,
+    preload: true
+  },
+  // Referrer Policy - don't leak full URLs
+  referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
+  // X-Content-Type-Options - prevent MIME sniffing
+  noSniff: true,
+  // X-Frame-Options - prevent clickjacking
+  frameguard: { action: 'deny' }
 }));
-app.use(morgan('combined'));
+
+// Request logging (use 'short' format in production to reduce PII exposure)
+app.use(morgan(config.nodeEnv === 'production' ? 'short' : 'combined'));
 
 // Body parsing (exclude webhook route - needs raw body)
 app.use('/api/webhook', express.raw({ type: 'application/json' }));

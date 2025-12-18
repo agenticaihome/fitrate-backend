@@ -10,24 +10,26 @@ const router = express.Router();
  */
 router.get('/', (req, res) => {
     const hasOpenAIKey = !!(config.openai.apiKey && config.openai.apiKey.startsWith('sk-'));
-    const keyLastFour = hasOpenAIKey ? config.openai.apiKey.slice(-4) : null;
+    const hasGeminiKey = !!config.gemini.apiKey;
 
+    // SECURITY: Only return boolean flags, never expose actual values or partial keys
     res.json({
         service: 'fitrate-api',
         timestamp: new Date().toISOString(),
         runtime: 'node',
         config: {
             hasOpenAIKey,
-            keyLastFour: hasOpenAIKey ? `...${keyLastFour}` : null,
+            hasGeminiKey,
             model: config.openai.model,
             nodeEnv: config.nodeEnv,
-            allowedOrigins: config.allowedOrigins,
             rateLimitMax: config.rateLimit.maxRequests,
+            // SECURITY: Don't expose allowedOrigins - helps attackers craft bypass attempts
         },
         envVarsLoaded: {
             PORT: !!process.env.PORT,
             NODE_ENV: !!process.env.NODE_ENV,
             OPENAI_API_KEY: !!process.env.OPENAI_API_KEY,
+            GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
             ALLOWED_ORIGINS: !!process.env.ALLOWED_ORIGINS,
             STRIPE_SECRET_KEY: !!process.env.STRIPE_SECRET_KEY,
         }

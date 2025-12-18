@@ -49,10 +49,11 @@ router.post('/', async (req, res) => {
       const mode = session.mode; // 'payment' for one-time, 'subscription' for recurring
       const userId = session.metadata?.userId || session.client_reference_id;
 
-      console.log('✅ Payment successful:', session.id);
-      console.log('   Customer email:', email);
-      console.log('   Amount:', amount / 100, 'Mode:', mode);
-      console.log('   User ID:', userId);
+      // SECURITY: Mask PII in logs
+      const maskedEmail = email ? `${email.slice(0, 3)}***@${email.split('@')[1] || '***'}` : 'none';
+      const maskedUserId = userId ? `${userId.slice(0, 8)}...` : 'none';
+
+      console.log(`✅ Payment: ${session.id} | $${amount / 100} | ${mode} | user:${maskedUserId}`);
 
       // Differentiate between product types by amount
       if (mode === 'payment') {
