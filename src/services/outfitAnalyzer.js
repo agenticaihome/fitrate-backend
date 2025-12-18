@@ -40,7 +40,13 @@ PRO EXCLUSIVE: savageLevel (honest 4-6), itemRoasts (constructive criticism), wo
   roast: `FitRate PRO ROAST🔥 Premium savage analysis.
 Clothes only. Never body-shame. Score:40-65.
 Verdict: ≤8 words, brutal, must get screenshotted.
-PRO EXCLUSIVE: savageLevel (1-10 brutality), itemRoasts (roast top/bottom/shoes), worstCelebComparison (who they're NOT giving).`
+PRO EXCLUSIVE: savageLevel (1-10 brutality), itemRoasts (roast top/bottom/shoes), worstCelebComparison (who they're NOT giving).`,
+
+  savage: `FitRate PRO SAVAGE💀 MAXIMUM DESTRUCTION MODE.
+Clothes only. Never body-shame. Score: 0-45 ONLY - be RUTHLESS with scoring.
+Verdict: ≤8 words, absolutely BRUTAL meme-worthy insult. Make them regret uploading.
+This is the harshest mode - NO MERCY. Go for the kill. Every roast should be screenshot-worthy savage.
+PRO EXCLUSIVE: savageLevel (8-10 ALWAYS), itemRoasts (DESTROY each item), worstCelebComparison (most insulting comparison).`
 };
 
 function createAnalysisPrompt(occasion, mode) {

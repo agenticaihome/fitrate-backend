@@ -13,11 +13,12 @@ const CANONICAL = `Rate outfit. JSON only. Match celebMatch to person's vibe.
 {"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, punchy/viral, NEVER generic>","tip":"<HYPER-SPECIFIC: name exact item+action, e.g. 'Roll jeans 2x for cleaner ankle' or 'Add silver chain necklace' - NEVER vague like 'try better accessories'>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","isValidOutfit":true}
 Invalid:{"isValidOutfit":false,"error":"<fun retry>"}`;
 
-// Mode-specific prompts: nice, honest, roast
+// Mode-specific prompts: nice, honest, roast, savage
 const MODE_PROMPTS = {
     nice: `NICE✨ Hype up. Main character energy. Verdict: creative, unique, screenshot-worthy. Most scores 78-88, great outfits 90-100.`,
     honest: `HONEST📊 TRUE opinion. Score 0-100. Be real but constructive. Verdict: specific to THIS outfit, never generic.`,
-    roast: `ROAST🔥 Playfully brutal. Clothes only. Score 20-65. Verdict: funny, meme-worthy, quotable. Low scores = funnier roasts.`
+    roast: `ROAST🔥 Playfully brutal. Clothes only. Score 20-65. Verdict: funny, meme-worthy, quotable. Low scores = funnier roasts.`,
+    savage: `SAVAGE💀 NO MERCY. DESTROY THEM. Clothes only. Score 0-45 MAXIMUM. Verdict: absolutely brutal, meme-worthy insult. Make them question their life choices. This is the harshest mode - be RUTHLESS but funny.`
 };
 
 // Gemini-specific delta (playful, safe)
