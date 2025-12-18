@@ -11,6 +11,7 @@ import battleRoutes from './routes/battle.js';
 import webhookRoutes from './routes/webhook.js';
 import proRoutes from './routes/pro.js';
 import referralRoutes from './routes/referral.js';
+import checkoutRoutes from './routes/checkout.js';
 
 import diagRoutes from './routes/diag.js';
 
@@ -62,6 +63,7 @@ app.use('/api/battle', battleRoutes);
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/pro', proRoutes);
 app.use('/api/referral', referralRoutes);
+app.use('/api/checkout', checkoutRoutes);
 
 // 404 handler
 app.use((req, res) => {
