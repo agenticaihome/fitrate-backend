@@ -8,17 +8,31 @@ import { config } from '../config/index.js';
 // Diverse celeb list (male/female, all backgrounds, 2025 trending)
 const CELEBS = 'Timothée Chalamet|Bad Bunny|Pedro Pascal|Jacob Elordi|Idris Elba|Simu Liu|Dev Patel|Zendaya|Jenna Ortega|Ice Spice|Sabrina Carpenter|Hailey Bieber|Jennie|Sydney Sweeney|SZA|Emma Chamberlain';
 
-// Canonical prompt - shared schema (match celeb to person's vibe)
-const CANONICAL = `Rate outfit. JSON only. Match celebMatch to person's vibe.
-{"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, punchy/viral, NEVER generic>","tip":"<HYPER-SPECIFIC: name exact item+action, e.g. 'Roll jeans 2x for cleaner ankle' or 'Add silver chain necklace' - NEVER vague like 'try better accessories'>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","isValidOutfit":true}
+// Canonical prompt with Social Psychology framework (match celeb to person's vibe)
+const CANONICAL = `You are FitRate — a Social Style Psycho-Analyst. Help users understand how their style expresses who they are.
+
+JSON only:
+{"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤12 words, makes them feel SEEN, screenshot-worthy>","tip":"<SPECIFIC action, e.g. 'Roll jeans 2x' - NEVER vague>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","identityInsight":"<What this outfit says about who they ARE>","socialPerception":"<How strangers likely read this look>","isValidOutfit":true}
 Invalid:{"isValidOutfit":false,"error":"<fun retry>"}`;
 
-// Mode-specific prompts: nice, honest, roast, savage
+// Mode-specific prompts with psychological framework
 const MODE_PROMPTS = {
-    nice: `NICE✨ Hype up. Main character energy. Verdict: creative, unique, screenshot-worthy. Most scores 78-88, great outfits 90-100.`,
-    honest: `HONEST📊 TRUE opinion. Score 0-100. Be real but constructive. Verdict: specific to THIS outfit, never generic.`,
-    roast: `ROAST🔥 Playfully brutal. Clothes only. Score 20-65. Verdict: funny, meme-worthy, quotable. Low scores = funnier roasts.`,
-    savage: `SAVAGE💀 NO MERCY. DESTROY THEM. Clothes only. Score 0-45 MAXIMUM. Verdict: absolutely brutal, meme-worthy insult. Make them question their life choices. This is the harshest mode - be RUTHLESS but funny.`
+    nice: `NICE✨ Main character energy. Make them feel SEEN.
+identityInsight: What this says about who they are ("You favor clean lines — that reads as confidence")
+socialPerception: How others see them ("Approachable but put-together")
+verdict: Screenshot-worthy. Score: 78-92.`,
+    honest: `HONEST📊 Real talk. Be their honest friend.
+identityInsight: What this reveals about their style identity
+socialPerception: How this actually reads to strangers
+verdict: Direct, specific, fair. Score naturally.`,
+    roast: `ROAST🔥 Playfully brutal. Clothes only.
+identityInsight: What this ACCIDENTALLY says about them (funny)
+socialPerception: How strangers are judging this (comedic but true)
+verdict: Meme-worthy. Score: 25-60.`,
+    savage: `SAVAGE💀 NO MERCY. Clothes only.
+identityInsight: What this screams about their lack of taste (brutal comedy)
+socialPerception: Horrified stranger reactions (exaggerated, funny)
+verdict: BRUTAL. Score: 0-40. Make them question everything.`
 };
 
 // Gemini-specific delta (playful, safe)
@@ -27,7 +41,7 @@ function createGeminiPrompt(mode, occasion) {
 
     return `${CANONICAL}
 ${delta}
-Verdict:Screenshot-worthy.${occasion ? ` For:${occasion}` : ''}`
+${occasion ? ` For:${occasion}` : ''}`
 }
 
 export async function analyzeWithGemini(imageBase64, options = {}) {
@@ -151,6 +165,9 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                         tip: parsed.tip,
                         aesthetic: parsed.aesthetic,
                         celebMatch: parsed.celebMatch,
+                        // New Social Psychology fields
+                        identityInsight: parsed.identityInsight || null,
+                        socialPerception: parsed.socialPerception || null,
                         mode: mode,
                         roastMode: mode === 'roast' // backwards compatibility
                     }
