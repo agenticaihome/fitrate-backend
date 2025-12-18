@@ -10,14 +10,14 @@ const CELEBS = 'Timothée Chalamet|Bad Bunny|Pedro Pascal|Jacob Elordi|Idris Elb
 
 // Canonical prompt - shared schema (match celeb to person's vibe)
 const CANONICAL = `Rate outfit. JSON only. Match celebMatch to person's vibe.
-{"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, 1-2 emoji>","tip":"<1 fix>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","isValidOutfit":true}
+{"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, punchy/viral, NEVER generic>","tip":"<1 specific fix>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","isValidOutfit":true}
 Invalid:{"isValidOutfit":false,"error":"<fun retry>"}`;
 
 // Mode-specific prompts: nice, honest, roast
 const MODE_PROMPTS = {
-    nice: `NICE✨ Hype up. Main character energy. Focus on positives. Most scores 78-88, great outfits can hit 90-100.`,
-    honest: `HONEST📊 Give your TRUE opinion. Score 0-100 based on actual quality. Be real but constructive, never mean.`,
-    roast: `ROAST🔥 Playfully brutal. Clothes only. Score 20-65. Low scores are funnier.`
+    nice: `NICE✨ Hype up. Main character energy. Verdict: creative, unique, screenshot-worthy. Most scores 78-88, great outfits 90-100.`,
+    honest: `HONEST📊 TRUE opinion. Score 0-100. Be real but constructive. Verdict: specific to THIS outfit, never generic.`,
+    roast: `ROAST🔥 Playfully brutal. Clothes only. Score 20-65. Verdict: funny, meme-worthy, quotable. Low scores = funnier roasts.`
 };
 
 // Gemini-specific delta (playful, safe)
