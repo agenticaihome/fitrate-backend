@@ -10,7 +10,7 @@ const CELEBS = 'Timothée Chalamet|Bad Bunny|Pedro Pascal|Jacob Elordi|Idris Elb
 
 // Canonical prompt - shared schema (match celeb to person's vibe)
 const CANONICAL = `Rate outfit. JSON only. Match celebMatch to person's vibe.
-{"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, punchy/viral, NEVER generic>","tip":"<1 specific fix>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","isValidOutfit":true}
+{"overall":<0-100>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤8 words, punchy/viral, NEVER generic>","tip":"<HYPER-SPECIFIC: name exact item+action, e.g. 'Roll jeans 2x for cleaner ankle' or 'Add silver chain necklace' - NEVER vague like 'try better accessories'>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","isValidOutfit":true}
 Invalid:{"isValidOutfit":false,"error":"<fun retry>"}`;
 
 // Mode-specific prompts: nice, honest, roast
