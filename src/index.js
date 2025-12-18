@@ -12,8 +12,10 @@ import webhookRoutes from './routes/webhook.js';
 import proRoutes from './routes/pro.js';
 import referralRoutes from './routes/referral.js';
 import checkoutRoutes from './routes/checkout.js';
-
 import diagRoutes from './routes/diag.js';
+
+// Security middleware
+import { validateOrigin, costTracker } from './middleware/apiKeyAuth.js';
 
 const app = express();
 
@@ -56,8 +58,25 @@ app.get('/health', (req, res) => {
   });
 });
 
+// Origin validation for API routes (skip for webhooks)
+app.use('/api/', validateOrigin);
+
+// Cost tracking for expensive endpoints
+app.use('/api/analyze', costTracker('scan'));
+app.use('/api/battle', costTracker('battle'));
+
 // Routes
-app.use('/api/diag', diagRoutes);
+// SECURITY: Diag route only available in development or with valid origin
+app.use('/api/diag', (req, res, next) => {
+  if (config.nodeEnv === 'production') {
+    // In production, only allow from authenticated admin or block entirely
+    const adminKey = req.headers['x-admin-key'];
+    if (adminKey !== process.env.ADMIN_KEY) {
+      return res.status(403).json({ error: 'Admin access required' });
+    }
+  }
+  next();
+}, diagRoutes);
 app.use('/api/analyze', analyzeRoutes);
 app.use('/api/battle', battleRoutes);
 app.use('/api/webhook', webhookRoutes);
