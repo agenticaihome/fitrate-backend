@@ -1,5 +1,5 @@
 import express from 'express';
-import { addReferral, getReferralStats, getPurchasedScans } from '../middleware/referralStore.js';
+import { addReferral, getReferralStats, getPurchasedScans, hasUnlockedViaReferrals } from '../middleware/referralStore.js';
 import { generateFingerprint } from '../utils/fingerprint.js';
 
 const router = express.Router();
@@ -32,7 +32,7 @@ router.post('/claim', async (req, res) => {
 });
 
 /**
- * Get stats for a user (Bonus scans + purchased scans)
+ * Get stats for a user (Bonus scans + purchased scans + unlock status)
  * GET /api/referral/stats?userId=...
  */
 router.get('/stats', async (req, res) => {
@@ -42,15 +42,18 @@ router.get('/stats', async (req, res) => {
         return res.status(400).json({ success: false, error: 'User ID required' });
     }
 
-    const [stats, purchasedScans] = await Promise.all([
+    const [stats, purchasedScans, unlockedViaReferrals] = await Promise.all([
         getReferralStats(userId),
-        getPurchasedScans(userId)
+        getPurchasedScans(userId),
+        hasUnlockedViaReferrals(userId)
     ]);
 
     res.json({
         success: true,
         ...stats,
-        purchasedScans // Add purchased scans to response
+        purchasedScans,
+        unlockedViaReferrals, // true if 3+ successful referrals
+        referralsNeeded: Math.max(0, 3 - (stats.totalReferrals || 0)) // X more needed
     });
 });
 

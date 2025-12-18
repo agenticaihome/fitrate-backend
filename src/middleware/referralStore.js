@@ -84,7 +84,24 @@ export async function addReferral(referrerId, refereeFingerprint, refereeUserId 
     }
 
     console.log(`🎉 Referral: ${referrerId} referred ${refereeFingerprint.slice(0, 12)}... -> +1 Pro Roast (${stats.proRoasts}/${MAX_REFERRAL_REWARDS})`);
-    return { success: true, proRoasts: stats.proRoasts };
+    return { success: true, proRoasts: stats.proRoasts, totalReferrals: stats.totalReferrals };
+}
+
+/**
+ * Check if user has unlocked via referrals (3+ successful referrals)
+ */
+export async function hasUnlockedViaReferrals(userId) {
+    if (!userId) return false;
+
+    let stats;
+    if (isRedisAvailable()) {
+        const data = await redis.get(`${REFERRAL_STATS_PREFIX}${userId}`);
+        stats = data ? JSON.parse(data) : { totalReferrals: 0 };
+    } else {
+        stats = referralStatsFallback.get(userId) || { totalReferrals: 0 };
+    }
+
+    return stats.totalReferrals >= 3;
 }
 
 /**
