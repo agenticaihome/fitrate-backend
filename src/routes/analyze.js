@@ -1,4 +1,5 @@
 import express from 'express';
+import rateLimit from 'express-rate-limit';
 import { analyzeWithGemini } from '../services/geminiAnalyzer.js';
 import { analyzeOutfit as analyzeWithOpenAI } from '../services/outfitAnalyzer.js';
 import { scanLimiter, incrementScanCountSecure, getScanCount, LIMITS, getProStatus } from '../middleware/scanLimiter.js';
@@ -9,8 +10,27 @@ import { validateAndSanitizeImage, quickImageCheck } from '../utils/imageValidat
 
 const router = express.Router();
 
+// Rate limiter for Pro Roast - expensive OpenAI calls
+const proRoastLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 3, // 3 pro roasts per minute per IP
+  message: {
+    success: false,
+    error: 'Too many Pro Roast requests. Please wait a moment.'
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// Stricter rate limiter for status checks (prevent enumeration)
+const statusLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 30, // 30 status checks per minute
+  message: { error: 'Too many requests' },
+});
+
 // Check remaining scans + Pro Roasts
-router.get('/status', async (req, res) => {
+router.get('/status', statusLimiter, async (req, res) => {
   const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
   const userId = req.query.userId;
   const isPro = await getProStatus(userId, ip);
@@ -59,7 +79,7 @@ router.post('/feedback', async (req, res) => {
 });
 
 // Use a Pro Roast (from referral or $0.99 purchase) - uses OpenAI
-router.post('/pro-roast', async (req, res) => {
+router.post('/pro-roast', proRoastLimiter, async (req, res) => {
   const requestId = `proroast_${Date.now()}`;
   const { image, roastMode, userId } = req.body;
 
