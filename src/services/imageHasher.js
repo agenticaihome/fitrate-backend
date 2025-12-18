@@ -7,7 +7,7 @@ import sharp from 'sharp';
 import { redis, isRedisAvailable } from './redisClient.js';
 
 const CACHE_PREFIX = 'fitrate:cache:';
-const CACHE_TTL = 3600; // 1 hour cache
+const CACHE_TTL = 86400; // 24 hours - outfits don't change, saves API costs
 
 /**
  * Generate a perceptual hash from base64 image

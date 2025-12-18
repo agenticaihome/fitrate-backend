@@ -82,7 +82,7 @@ export async function analyzeOutfit(imageBase64, options = {}) {
     const response = await Promise.race([
       openai.chat.completions.create({
         model: config.openai.model,
-        max_tokens: 600,
+        max_tokens: 400,  // Reduced from 600 - actual responses are ~200-300 tokens
         messages: [
           {
             role: 'system',

@@ -63,7 +63,7 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
         }],
         generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 500
+            maxOutputTokens: 300  // Reduced from 500 - actual responses are ~150-200 tokens
         }
     };
 
