@@ -2,7 +2,7 @@ import express from 'express';
 import Stripe from 'stripe';
 import { config } from '../config/index.js';
 import { addProEmail, removeProEmail } from '../middleware/proEmailStore.js';
-import { addProRoast } from '../middleware/referralStore.js';
+import { addProRoast, addPurchasedScans } from '../middleware/referralStore.js';
 
 const router = express.Router();
 
@@ -54,23 +54,38 @@ router.post('/', async (req, res) => {
       console.log('   Amount:', amount / 100, 'Mode:', mode);
       console.log('   User ID:', userId);
 
-      // Differentiate between Pro Roast ($0.99 one-time) and Pro subscription
-      if (mode === 'payment' && amount === PRO_ROAST_PRICE) {
-        // One-time Pro Roast purchase
-        console.log('🔥 Pro Roast purchased!');
+      // Differentiate between product types by amount
+      if (mode === 'payment') {
+        // One-time purchases
+        const targetUserId = userId || email;
 
-        if (userId) {
-          await addProRoast(userId);
-          console.log(`   Added Pro Roast to user: ${userId}`);
-        } else if (email) {
-          // Fallback: use email as userId (less reliable)
-          await addProRoast(email);
-          console.log(`   Added Pro Roast to email: ${email}`);
+        if (!targetUserId) {
+          console.warn('⚠️ No userId or email found for purchase');
+          break;
+        }
+
+        // Scan Packs (amounts in cents)
+        const SCAN_PACK_AMOUNTS = {
+          199: 5,    // Starter Pack: $1.99 = 5 scans
+          399: 15,   // Popular Pack: $3.99 = 15 scans
+          999: 50,   // Power Pack: $9.99 = 50 scans
+        };
+
+        if (SCAN_PACK_AMOUNTS[amount]) {
+          const scansToAdd = SCAN_PACK_AMOUNTS[amount];
+          console.log(`📦 Scan Pack purchased: ${scansToAdd} scans for $${amount / 100}`);
+          await addPurchasedScans(targetUserId, scansToAdd);
+          console.log(`   Added ${scansToAdd} scans to user: ${targetUserId}`);
+        } else if (amount === PRO_ROAST_PRICE) {
+          // Pro Roast: $0.99 = 1 roast
+          console.log('🔥 Pro Roast purchased!');
+          await addProRoast(targetUserId);
+          console.log(`   Added Pro Roast to user: ${targetUserId}`);
         } else {
-          console.warn('⚠️ No userId or email found for Pro Roast');
+          console.log(`⚠️ Unknown one-time purchase amount: $${amount / 100}`);
         }
       } else {
-        // Pro subscription or higher amount = add to Pro email store
+        // Pro subscription = add to Pro email store
         console.log('⚡ Pro subscription activated!');
 
         if (email) {

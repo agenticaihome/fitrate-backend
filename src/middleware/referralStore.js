@@ -213,3 +213,61 @@ export async function consumeBonusScan(userId) {
     }
     return false;
 }
+
+// ============================================
+// SCAN PACK TRACKING
+// ============================================
+
+const PURCHASED_SCANS_PREFIX = 'fitrate:scans:';
+const purchasedScansFallback = new Map();
+
+/**
+ * Add purchased scans (from scan pack purchase)
+ * @param {string} userId - User ID
+ * @param {number} count - Number of scans to add
+ */
+export async function addPurchasedScans(userId, count) {
+    if (isRedisAvailable()) {
+        const newCount = await redis.incrby(`${PURCHASED_SCANS_PREFIX}${userId}`, count);
+        console.log(`💰 Scan pack purchased: ${userId} -> +${count} scans (total: ${newCount})`);
+        return newCount;
+    } else {
+        const current = purchasedScansFallback.get(userId) || 0;
+        purchasedScansFallback.set(userId, current + count);
+        console.log(`💰 Scan pack purchased: ${userId} -> +${count} scans (total: ${current + count})`);
+        return current + count;
+    }
+}
+
+/**
+ * Get purchased scans balance
+ */
+export async function getPurchasedScans(userId) {
+    if (isRedisAvailable()) {
+        const count = await redis.get(`${PURCHASED_SCANS_PREFIX}${userId}`);
+        return parseInt(count) || 0;
+    } else {
+        return purchasedScansFallback.get(userId) || 0;
+    }
+}
+
+/**
+ * Consume a purchased scan
+ * Returns true if successful, false if no scans available
+ */
+export async function consumePurchasedScan(userId) {
+    if (isRedisAvailable()) {
+        const current = await redis.get(`${PURCHASED_SCANS_PREFIX}${userId}`);
+        if (parseInt(current) > 0) {
+            await redis.decr(`${PURCHASED_SCANS_PREFIX}${userId}`);
+            return true;
+        }
+    } else {
+        const current = purchasedScansFallback.get(userId) || 0;
+        if (current > 0) {
+            purchasedScansFallback.set(userId, current - 1);
+            return true;
+        }
+    }
+    return false;
+}
