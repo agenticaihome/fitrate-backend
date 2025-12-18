@@ -175,11 +175,45 @@ export async function getProStatus(userId, ip) {
 /**
  * Main scan limiter middleware
  * SECURITY: Uses fingerprint-based tracking to prevent userId spoofing
+ * SECURITY: Checks for suspicious behavior before processing
  */
 export async function scanLimiter(req, res, next) {
     const ip = getClientIP(req);
     const userId = req.body?.userId || req.query?.userId;
     const fingerprint = generateFingerprint(req);
+
+    // SECURITY: Check for suspicious behavior first (bots, multi-account abuse)
+    const { checkSuspiciousBehavior } = await import('../utils/fingerprint.js');
+    const suspiciousCheck = await checkSuspiciousBehavior(req, userId);
+
+    if (suspiciousCheck.suspicious) {
+        console.warn(`🚫 BLOCKED: ${suspiciousCheck.reason} | fp:${fingerprint.slice(0, 12)} | ip:${ip?.slice(-8)}`);
+
+        // Different responses based on reason
+        if (suspiciousCheck.reason === 'bot_ua' || suspiciousCheck.reason === 'missing_ua') {
+            return res.status(403).json({
+                success: false,
+                error: 'Request blocked. Please use a web browser.',
+                code: 'BOT_DETECTED'
+            });
+        }
+
+        if (suspiciousCheck.reason === 'multi_account') {
+            return res.status(429).json({
+                success: false,
+                error: 'Too many accounts from this device. Try again later.',
+                code: 'ABUSE_DETECTED'
+            });
+        }
+
+        if (suspiciousCheck.blocked) {
+            return res.status(403).json({
+                success: false,
+                error: 'Access temporarily restricted.',
+                code: 'TEMPORARILY_BLOCKED'
+            });
+        }
+    }
 
     // Use fingerprint-based count for actual limiting
     const isPro = await getProStatus(userId, ip);
