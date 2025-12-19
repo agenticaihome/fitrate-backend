@@ -68,7 +68,8 @@ const PRO_SCHEMA = `You are FitRate.app's AI outfit analyzer running on the PRO 
 
 const MODE_SYSTEM_PROMPTS = {
   nice: `🟢 NICE MODE - Positive hype ONLY:
-- SCORE RANGE: 70-95 (be generous, boost confidence)
+- SCORE RANGE: 70-100 (be generous! PERFECT fits deserve 100!)
+- 95-100: LEGENDARY tier — "Flawless" / "Runway Ready" / "Fashion Icon"
 - TONE: Warm, supportive, main character energy
 - VERDICT: Praise their style with creative compliments
 - identityReflection: What this says about their confidence/aspirations
