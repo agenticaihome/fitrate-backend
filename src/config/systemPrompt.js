@@ -79,7 +79,7 @@ export const MODE_CONFIGS = {
     nice: {
         name: 'Nice',
         tier: 'free',
-        scoreRange: [65, 88.9],
+        scoreRange: [65, 100],
         emojis: '😌✨💫',
         tone: 'Supportive, encouraging, still honest',
         goal: 'Emphasize upside. Soften criticism without removing it.',
@@ -89,7 +89,7 @@ export const MODE_CONFIGS = {
     roast: {
         name: 'Roast',
         tier: 'free',
-        scoreRange: [55, 79.9],
+        scoreRange: [35, 64.9],
         emojis: '🔥🤡💀',
         tone: 'Playful, teasing, internet-native',
         goal: 'Humor > harshness. Must make people laugh.',
@@ -99,7 +99,7 @@ export const MODE_CONFIGS = {
     honest: {
         name: 'Honest',
         tier: 'pro',
-        scoreRange: [60, 84.9],
+        scoreRange: [0, 100],
         emojis: '🧠📊💡',
         tone: 'Neutral, direct. No cushioning, no cruelty.',
         goal: 'Say exactly what\'s happening. No hype, no roast.',
@@ -109,7 +109,7 @@ export const MODE_CONFIGS = {
     savage: {
         name: 'Savage',
         tier: 'pro',
-        scoreRange: [50, 74.9],
+        scoreRange: [0, 35],
         emojis: '😈💀🩸',
         tone: 'Brutally concise, meme-heavy, no emotional padding',
         goal: 'One punch per line. Elite destruction.',
@@ -738,10 +738,10 @@ Overall Score Format: XX.X / 100
 - One decimal place ONLY
 - Decimal must NOT be .0 or .5
 - Score range:
-  Nice: 65.0 – 88.9
-  Honest: 60.0 – 84.9
-  Roast: 55.0 – 79.9
-  Savage: 50.0 – 74.9
+  Nice: 65.0 – 100.0
+  Honest: 0.0 – 100.0
+  Roast: 35.0 – 64.9
+  Savage: 0.0 – 35.0
 
 Score Psychology Rules:
 - Decimal implies computation and credibility
