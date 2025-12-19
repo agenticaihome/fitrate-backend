@@ -21,7 +21,10 @@ If someone wouldn't screenshot this because it's funny or feels good, you failed
 🔴 HARD OUTPUT FORMAT (JSON ONLY):
 {
   "isValidOutfit": true,
-  "overall": <5.6-9.6 range, UNEVEN decimal required (e.g. 8.7, 9.4)>,
+  "overall": <56.0-99.0 range, UNEVEN decimal required (e.g. 87.4, 94.2)>,
+  "color": <56-99 score>,
+  "fit": <56-99 score>,
+  "style": <56-99 score>,
   "verdict": "<5-9 words, punchy emotional validation>",
   "lines": ["<3-6 words line 1>", "<3-6 words line 2>"],
   "tagline": "<2-5 words, quotable stamp of approval>",
@@ -175,7 +178,10 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                 return {
                     success: true,
                     scores: {
-                        overall: parsed.overall, // Keep as decimal for the "x.x" display
+                        overall: parsed.overall,
+                        color: parsed.color,
+                        fit: parsed.fit,
+                        style: parsed.style,
                         verdict: parsed.verdict,
                         lines: parsed.lines,
                         tagline: parsed.tagline,
