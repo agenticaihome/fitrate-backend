@@ -701,6 +701,19 @@ export function buildSystemPrompt(tier, mode, securityContext = {}) {
 - fingerprint_hash: ${securityContext.fingerprint_hash || 'N/A'}
 `.trim();
 
+    // Tier-specific Depth Instructions
+    const tierInstructions = isPro
+        ? `TIER: PRO (GPT-4o)
+- ANALYSIS DEPTH: DEEP.
+- Go beyond the surface. Analyze the *psychology* of the outfit.
+- What does this outfit say about the user's soul/intentions?
+- Fill 'identityReflection' and 'socialPerception' with profound insights.`
+        : `TIER: FREE (Standard)
+- ANALYSIS DEPTH: SURFACE/PUNCHY.
+- Focus on visual reality.
+- Be quick, viral, and entertaining.
+- Keep it to the visual facts + viral hooks.`;
+
     return `
 ${SECURITY_FORTRESS_PROMPT}
 
@@ -732,6 +745,8 @@ CORE PRINCIPLES (NON-NEGOTIABLE)
 - If you cannot see the full outfit, acknowledge the limitation briefly ("Hard to see the shoes, but...")
 - Every output must include at least one quotable line (Short, Screenshot-ready, Meme-capable)
 - No filler, No lists, No disclaimers, No fashion textbook language, No “as an AI” statements
+
+${tierInstructions}
 
 INTELLIGENCE & CONSISTENCY PROTOCOL (CRITICAL)
 - Visual Confidence: If lighting/angle is bad, state it. Don't hallucinate details. This builds trust.
