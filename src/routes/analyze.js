@@ -7,6 +7,7 @@ import { getReferralStats, consumeProRoast, hasProRoast } from '../middleware/re
 import { getImageHash, getCachedResult, cacheResult } from '../services/imageHasher.js';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
 import { validateAndSanitizeImage, quickImageCheck } from '../utils/imageValidator.js';
+import { ERROR_MESSAGES, MODE_CONFIGS } from '../config/systemPrompt.js';
 
 const router = express.Router();
 
@@ -183,6 +184,27 @@ router.post('/', scanLimiter, async (req, res) => {
     const { image, roastMode, mode: modeParam, occasion } = req.body;
     // Support both new mode string and legacy roastMode boolean
     const mode = modeParam || (roastMode ? 'roast' : 'nice');
+
+    // SECURITY: Validate mode exists
+    const modeConfig = MODE_CONFIGS[mode];
+    if (!modeConfig) {
+      console.log(`[${requestId}] Error: Invalid mode - ${mode}`);
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid mode. Use: nice, roast, honest, or savage.'
+      });
+    }
+
+    // SECURITY: Check tier restriction for Pro-only modes
+    const isPro = req.scanInfo?.isPro;
+    if (modeConfig.tier === 'pro' && !isPro) {
+      console.log(`[${requestId}] Error: Pro-only mode requested by free user - ${mode}`);
+      return res.status(403).json({
+        success: false,
+        error: ERROR_MESSAGES.mode_restricted,
+        code: 'PRO_MODE_REQUIRED'
+      });
+    }
 
     if (!image) {
       console.log(`[${requestId}] Error: No image provided`);

@@ -7,9 +7,10 @@
  */
 
 import { redis, isRedisAvailable } from '../services/redisClient.js';
-import { consumeBonusScan } from './referralStore.js';
+import { consumeBonusScan, getReferralStats } from './referralStore.js';
 import { generateFingerprint, getClientIP } from '../utils/fingerprint.js';
 import { EntitlementService } from '../services/entitlements.js';
+import { ERROR_MESSAGES, SCAN_LIMITS } from '../config/systemPrompt.js';
 
 // In-memory fallback for local dev
 const scanStoreFallback = new Map();
@@ -348,15 +349,23 @@ export async function scanLimiter(req, res, next) {
             console.warn(`⚠️ ABUSE: fingerprint=${fingerprint.slice(0, 12)} exceeded ${currentCount}/${limit} scans`);
         }
 
+        // Get referral stats for accurate error message
+        const stats = userId ? await getReferralStats(userId) : { totalReferrals: 0 };
+        const extras = stats.totalReferrals || 0;
+
+        // Use verbatim error messages from spec
+        const errorMessage = isPro
+            ? ERROR_MESSAGES.pro_limit_reached
+            : ERROR_MESSAGES.free_limit_reached(currentCount, extras);
+
         return res.status(429).json({
             success: false,
-            error: isPro
-                ? `You've hit your ${LIMITS.pro} scans for today! Come back tomorrow 🔥`
-                : `You've used your free scan for today! Share with friends to earn more.`,
+            error: errorMessage,
             limitReached: true,
             isPro,
             scansUsed: currentCount,
             scansLimit: limit,
+            referralExtras: extras,
             resetTime: getResetTime()
         });
     }

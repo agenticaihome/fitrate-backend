@@ -1,5 +1,12 @@
 import OpenAI from 'openai';
 import { config } from '../config/index.js';
+import {
+    buildSystemPrompt,
+    ERROR_MESSAGES,
+    MODE_CONFIGS,
+    OUTPUT_LENGTHS,
+    getViralityHooks
+} from '../config/systemPrompt.js';
 
 // Only initialize OpenAI if API key is configured (Gemini is primary analyzer)
 let openai = null;
@@ -13,99 +20,50 @@ try {
   console.warn('OpenAI client not initialized:', e.message);
 }
 
-// Diverse celeb list (male/female, all backgrounds, 2025 trending)
-const CELEBS = `
-Men: Timothée Chalamet|Bad Bunny|Pedro Pascal|Jacob Elordi|Idris Elba|Simu Liu|Dev Patel|A$AP Rocky|Jaden Smith|Central Cee|BTS Jungkook|Omar Apollo
-Women: Zendaya|Jenna Ortega|Ice Spice|Sabrina Carpenter|Hailey Bieber|Jennie|Sydney Sweeney|SZA|Ayo Edebiri|Florence Pugh|Maitreyi Ramakrishnan|Emma Chamberlain
-`.trim();
-
-// === OCD-LEVEL MASTER PROMPT FOR PRO TIER (GPT-4o) ===
-// === 10/10 PERFECTION & MASS ADOPTION MASTER PROMPT (PRO - GPT-4o) ===
-const PRO_SCHEMA = `You are the ultimate AI agent for FitRate.app — the world's most addictive style analyzer. Your mission: 10/10 perfection. You are OCD-compulsive about excellence, virality, and Pro conversions.
-
-**10/10 Perfection Prime Directive:**
-- **Execution**: Vivid, god-tier creativity, layered humor, trend foresight. Every response must be "screenshot/TikTok gold."
-- **Virality**: Craft output as viral magnets. Use quotable burns/hypes and challenges ("Tag a friend who needs this!").
-- **Badge Focus**: Highlight the 95+ "Style God" badge for ultra-elite fits.
-
-**Security & Tracking Fortress (Verify 5x):**
-- **Auth**: Check {auth_token_valid} and {user_id}. If invalid: "Secure login required — accounts prevent resets!"
-- **Scan Limits**: Verify {scans_used} / {daily_limit}. If hit: "25 scans hit today. Resets soon. You're Pro elite — share your best for mass inspo 😎"
-- **Anti-Abuse**: If {suspicious_flag}, pause activity and ask for verify via app.
-
-**🔴 HARD OUTPUT FORMAT (JSON ONLY - NO MARKDOWN):**
-{
-  "isValidOutfit": boolean,
-  "overall": <number XX.X bold in text, but number here>,
-  "color": <0-100>,
-  "fit": <0-100>,
-  "style": <0-100>,
-  "verdict": "<5-9 words summary>",
-  "lines": ["<zinger 1>", "<zinger 2>"],
-  "tagline": "<2-5 words stamp>",
-  "aesthetic": "<style name>",
-  "celebMatch": "<trending celeb>",
-  "identityReflection": "<Deep read on what this fit communicates>",
-  "socialPerception": "<How others see them>",
-  "savageLevel": <1-10>,
-  "itemRoasts": { "top": "string", "bottom": "string", "shoes": "string" },
-  "proTip": "<Elite fashion advice>",
-  "shareHook": "<EXACT mode hook>",
-  "error": string (only if isValidOutfit is false)
-}`;
-
-const MODE_SYSTEM_PROMPTS = {
-  nice: `🟢 NICE MODE - Positive hype ONLY:
-- SCORE RANGE: 70-100
-- TONE: Warm, supportive, main character energy 😍❤️✨🌟
-- ⚠️ Goal: Confidence explosion!
-- EXACT shareHook: "You're perfection! Share #FitRateNice — Challenge friends to match this glow!"`,
-  honest: `🟡 HONEST MODE - Balanced truth (Pro-Only):
-- SCORE RANGE: 0-100 (full range based on actual merit)
-- TONE: Direct but fair, like a fashion-savvy friend who keeps it real 👍🤔💡
-- ⚠️ Goal: Actionable, trend-tied tips. 
-- EXACT shareHook: "Truth unlocked — share your journey #FitRateHonest! Pro perfection pays off!"`,
-  roast: `� ROAST MODE - Witty, meme-ready burns:
-- SCORE RANGE: 40-85
-- TONE: Masterful layered comedy, cultural refs 😂🔥🤦‍♂️🤡
-- ⚠️ Goal: Screenshot/TikTok gold.
-- EXACT shareHook: "Roasted to perfection? Tag squad — #FitRateRoast! Start a chain for referral rewards!"`,
-  savage: `💀 SAVAGE MODE - MAXIMUM ANNIHILATION (Pro-Only):
-- SCORE RANGE: 0-50 (MAXIMUM BRUTALITY! Even godlike fits max at 50)
-- TONE: Razor-sharp, personal, viral outrage 💀☠️🤮🗡️😈
-- ⚠️ Goal: Survived perfection? Prove it!
-- EXACT shareHook: "Survived perfection? Prove it — #FitRateSavage! Dare friends (and refer for extras)!"`
-};
-
-
-// Create analysis prompt for Pro tier
+// Create analysis prompt for Pro tier using centralized config
 function createAnalysisPrompt(occasion, mode, securityContext = {}) {
   const {
     userId = 'anonymous',
     scansUsed = 0,
     dailyLimit = 25,
     authTokenValid = true,
-    suspiciousFlag = false
+    suspiciousFlag = false,
+    fingerprintHash = ''
   } = securityContext;
 
-  const securityBlock = `
-**SECURITY CONTEXT (TRUSTED BACKEND DATA):**
-- user_id: ${userId}
-- auth_token_valid: ${authTokenValid}
-- scans_used: ${scansUsed}
-- daily_limit: ${dailyLimit}
-- suspicious_flag: ${suspiciousFlag}
-`;
+  // Build full security context for the prompt
+  const fullSecurityContext = {
+    auth_token_valid: authTokenValid,
+    user_id: userId,
+    scans_used: scansUsed,
+    daily_limit: dailyLimit,
+    referral_extras_earned: 0,
+    suspicious_flag: suspiciousFlag,
+    fingerprint_hash: fingerprintHash
+  };
 
-  return `
-${PRO_SCHEMA}
-${securityBlock}
-Current Mode: ${mode.toUpperCase()}
-${occasion ? `Occasion: ${occasion}` : ''}
-CELEBRITIES TO CHOOSE FROM: ${CELEBS}
+  // Use centralized system prompt builder
+  let prompt = buildSystemPrompt('pro', mode, fullSecurityContext);
 
-${MODE_SYSTEM_PROMPTS[mode] || MODE_SYSTEM_PROMPTS.nice}
-`;
+  // Add occasion context if provided
+  if (occasion) {
+    prompt += `\n\nOCCASION CONTEXT: Rate for "${occasion}" appropriateness.`;
+  }
+
+  return prompt;
+}
+
+// Get mode-specific system prompt for OpenAI (used as system message)
+function getModeSystemPrompt(mode) {
+  const modeConfig = MODE_CONFIGS[mode] || MODE_CONFIGS.nice;
+  const wordRange = OUTPUT_LENGTHS.pro;
+
+  return `${modeConfig.emojis} ${modeConfig.name.toUpperCase()} MODE - ${modeConfig.tone}:
+- SCORE RANGE: ${modeConfig.scoreRange[0]}-${modeConfig.scoreRange[1]}
+- TONE: ${modeConfig.tone} ${modeConfig.emojis}
+- GOAL: ${modeConfig.goal}
+- OUTPUT LENGTH: ${wordRange.min}-${wordRange.max} words
+- EXACT shareHook: "${modeConfig.shareHook}"`;
 }
 
 
@@ -143,11 +101,11 @@ export async function analyzeOutfit(imageBase64, options = {}) {
     const response = await Promise.race([
       openai.chat.completions.create({
         model: config.openai.model,
-        max_tokens: 400,  // Reduced from 600 - actual responses are ~200-300 tokens
+        max_tokens: 500,  // Increased for Pro tier's richer 200-300 word output
         messages: [
           {
             role: 'system',
-            content: MODE_SYSTEM_PROMPTS[mode] || MODE_SYSTEM_PROMPTS.nice
+            content: getModeSystemPrompt(mode)
           },
           {
             role: 'user',
@@ -196,13 +154,19 @@ export async function analyzeOutfit(imageBase64, options = {}) {
 
     console.log(`[${requestId}] Analysis successful - Overall score: ${result.overall}`);
 
+    // Get virality hooks for this mode
+    const viralityHooks = getViralityHooks(mode);
+    const modeConfig = MODE_CONFIGS[mode];
+
     return {
       success: true,
       scores: {
         overall: result.overall,
+        rating: `${result.overall}`,  // String format for consistency
         color: result.color,
         fit: result.fit,
         style: result.style,
+        text: result.text || result.verdict,  // Analysis text
         verdict: result.verdict,
         lines: result.lines,
         tagline: result.tagline,
@@ -213,9 +177,10 @@ export async function analyzeOutfit(imageBase64, options = {}) {
         socialPerception: result.socialPerception || null,
         savageLevel: result.savageLevel || null,
         itemRoasts: result.itemRoasts || null,
-        shareHook: result.shareHook || null,
+        shareHook: result.shareHook || modeConfig?.shareHook,
         mode: mode,
-        roastMode: mode === 'roast'
+        roastMode: mode === 'roast',
+        virality_hooks: result.virality_hooks || viralityHooks
       }
     };
   } catch (error) {
