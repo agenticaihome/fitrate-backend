@@ -44,7 +44,9 @@ ONLY reject if there is literally NO outfit visible. Respond with:
 - Overall coherence
 
 JSON OUTPUT:
-{"overall":<0-100, 1 decimal>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤12 words, makes them feel SEEN, screenshot-worthy>","tip":"<SPECIFIC action, e.g. 'Roll jeans 2x' - NEVER vague>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","identityInsight":"<What this outfit says about who they ARE>","socialPerception":"<How strangers likely read this look>","visibilityNote":"<null if full body, or brief note if partial e.g. 'Based on waist-up view'>","isValidOutfit":true}`;
+{"overall":<0-100, 1 decimal>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤12 words, makes them feel SEEN, screenshot-worthy>","tip":"<SPECIFIC action, e.g. 'Roll jeans 2x' - NEVER vague>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","identityInsight":"<What this outfit says about who they ARE>","socialPerception":"<How strangers likely read this look>","visibilityNote":"<null if full body, or brief note if partial e.g. 'Based on waist-up view'>","isValidOutfit":true}
+
+IMPORTANT: Output ONLY the JSON object above. No preamble, no explanation, no markdown. Start your response with { and end with }.`;
 
 // Mode-specific prompts with psychological framework
 const MODE_PROMPTS = {
@@ -120,7 +122,7 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
     // Models to try in order (fallback chain) - Dec 2025 stable models
     const models = [
         config.gemini.model || 'gemini-2.0-flash',  // Primary - stable and reliable
-        'gemini-1.5-flash'  // Ultimate fallback - very stable
+        'gemini-2.0-flash-lite'  // Fallback - lighter version
     ];
 
     // Try each model with retries
@@ -170,10 +172,18 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
 
                 console.log(`[${requestId}] Received response (${content.length} chars)`);
 
-                // Parse JSON response
+                // Parse JSON response - extract JSON from potential non-JSON preamble
                 let jsonStr = content.trim();
+
+                // Remove markdown code blocks
                 if (jsonStr.startsWith('```')) {
                     jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
+                }
+
+                // Extract JSON if there's preamble text (e.g., "Okay, let me...")
+                const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    jsonStr = jsonMatch[0];
                 }
 
                 const parsed = JSON.parse(jsonStr);
