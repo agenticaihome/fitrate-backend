@@ -30,5 +30,13 @@ export const config = {
     secretKey: process.env.STRIPE_SECRET_KEY,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
     proPriceId: process.env.STRIPE_PRO_PRICE_ID,
-  }
+  },
+
+  // Admin & Security
+  adminKey: process.env.ADMIN_KEY,
+  devApiKey: process.env.DEV_API_KEY,
+  frontendApiKeys: (process.env.FRONTEND_API_KEYS || '')
+    .split(',')
+    .map(key => key.trim())
+    .filter(key => key.length > 0),
 };

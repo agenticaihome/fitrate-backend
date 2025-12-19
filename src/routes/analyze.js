@@ -7,6 +7,7 @@ import { getReferralStats, consumeProRoast, hasProRoast } from '../middleware/re
 import { getImageHash, getCachedResult, cacheResult } from '../services/imageHasher.js';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
 import { validateAndSanitizeImage, quickImageCheck } from '../utils/imageValidator.js';
+import { SecurityFortress, ResponseBuilder } from '../middleware/aiGateway.js';
 
 const router = express.Router();
 
@@ -247,6 +248,32 @@ router.post('/', scanLimiter, async (req, res) => {
       return res.json(cachedResult);
     }
 
+    // 🔒 AI GATEWAY SECURITY FORTRESS: 5x Verification
+    // Additional security layer for OCD-level paranoia checking
+    console.log(`[${requestId}] 🔒 Initiating AI Gateway Security Fortress...`);
+    const fortress = new SecurityFortress();
+    const gatewayCheck = await fortress.executeSecurityFortress(req);
+
+    if (!gatewayCheck.allowed) {
+      console.warn(`[${requestId}] 🚫 AI Gateway BLOCKED request: ${gatewayCheck.reason}`);
+      // Return exact denial message from Security Fortress
+      if (gatewayCheck.stats) {
+        return res.status(403).json(
+          ResponseBuilder.buildLimitExceededResponse(
+            gatewayCheck.error,
+            gatewayCheck.viralityHook,
+            gatewayCheck.stats
+          )
+        );
+      } else {
+        return res.status(gatewayCheck.upgradePrompt ? 402 : 403).json(
+          ResponseBuilder.buildErrorResponse(gatewayCheck.error, gatewayCheck.reason)
+        );
+      }
+    }
+
+    console.log(`[${requestId}] ✅ AI Gateway verification passed - ${gatewayCheck.data.routing.aiModel} authorized`);
+
     // Gather security context for AI gatekeeper
     const stats = req.scanInfo.userId ? await getReferralStats(req.scanInfo.userId) : { totalReferrals: 0 };
     const securityContext = {
@@ -258,7 +285,7 @@ router.post('/', scanLimiter, async (req, res) => {
       suspiciousFlag: false // Backend middleware already handles this, but AI acts as backup
     };
 
-    // Route to appropriate AI based on user tier
+    // Route to appropriate AI based on user tier (verified by Security Fortress)
     const isPro = req.scanInfo.isPro;
     const analyzer = isPro ? analyzeWithOpenAI : analyzeWithGemini;
     const serviceName = isPro ? 'OpenAI GPT-4o' : 'Gemini';
