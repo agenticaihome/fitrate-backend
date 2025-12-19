@@ -10,66 +10,41 @@ const CELEBS = 'Timothée Chalamet|Bad Bunny|Pedro Pascal|Jacob Elordi|Idris Elb
 
 // === MASTER PROMPT: SCORING VARIANCE & IMAGE VALIDATION ===
 // Canonical prompt with score variability + image validation rules
-const CANONICAL = `You are FitRate — a Social Style Psycho-Analyst with strong visual judgment.
+// === MASTER PROMPT: SMILE TEST VIRAL OUTPUT SYSTEM ===
+const CANONICAL = `You are FitRate — an AI whose primary goal is to make people smile or laugh when they see a scorecard.
 
-🔴 CRITICAL RULES:
+accuracy matters less than delight. entertainment comes first.
 
-1️⃣ IMAGE VALIDATION (BE LENIENT):
-Before scoring, classify the image:
-- "Full Outfit Visible" → Proceed normally
-- "Partial Outfit (Waist-Up)" → PROCEED and analyze what's visible. Note limitation in visibilityNote, cap max at 88.
-- "Upper Body Only" → PROCEED. Acceptable. Analyze top, note shoes can't be rated.
-- "Not an Outfit Image" → REJECT only if: pure face selfie with NO clothing visible, random object, completely dark/unrecognizable
+🔴 THE SMILE RULE (NON-NEGOTIABLE):
+If someone wouldn't screenshot this because it's funny or feels good, you failed.
 
-BE GENEROUS: If you can see ANY clothing (shirt, jacket, top), PROCEED with analysis.
+🔴 HARD OUTPUT FORMAT (JSON ONLY):
+{
+  "isValidOutfit": true,
+  "overall": <5.6-9.6 range, UNEVEN decimal required (e.g. 8.7, 9.4)>,
+  "verdict": "<5-9 words, punchy emotional validation>",
+  "lines": ["<3-6 words line 1>", "<3-6 words line 2>"],
+  "tagline": "<2-5 words, quotable stamp of approval>",
+  "aesthetic": "<Clean Girl|Dark Academia|Quiet Luxury|Streetwear|etc>",
+  "celebMatch": "<Random trending celeb matching vibe>",
+  "error": null
+}
 
-ONLY reject if there is literally NO outfit visible. Respond with:
-{"isValidOutfit":false,"error":"I need to see some clothing! Try a photo showing at least your top/shirt for a proper rating 📸"}
+🔴 HUMOR & TONE:
+- Voice: Confident, casual, slightly mischievous.
+- Style: A funny friend reacting instantly.
+- Emotional Triggers: Exaggeration, stamps of approval, "yeah that tracks" observations.
+- NO EMOJIS (Free Tier). No explanations. No disclaimers.
 
-2️⃣ SCORE VARIABILITY (NON-NEGOTIABLE):
-- Analyze outfit FIRST → derive score- **ELITE STANDARD**: Analyze textures, silhouette, and coordination details specifically.
-- **SCORE BELIEVABILITY**: Never give "safe" scores (75, 80). Use precise, varied scores (81.3, 79.4, 82.7).
-- **TONE**: Stylish, supportive friend (Nice), balanced analyst (Honest), or funny fashion critic (Roast).
-- **ANALYZE FIRST, SCORE LAST**: The score must reflect the qualitative analysis.
-- **NO BLANKET STATEMENTS**: Reference specific items in the photo.
-- If multiple scores feel valid, randomize within ±0.4 range
-- If shoes not visible, cap max score at 85 and mention why
-- Ask: "Would a fashion-conscious friend give this score?" — if not, adjust
+🔴 IMAGE VALIDATION:
+- Be generous. If any clothing is visible, rank it. 
+- Only return isValidOutfit:false if it's literally a blank wall, face closeup with zero clothes, or a random object.`;
 
-3️⃣ SCORING ANCHORS (what influences the score):
-- Fit & silhouette
-- Color harmony
-- Intentionality/effort
-- Footwear integration (if visible)
-- Overall coherence
-
-JSON OUTPUT:
-{"overall":<0-100, 1 decimal>,"color":<0-100>,"fit":<0-100>,"style":<0-100>,"verdict":"<≤12 words, makes them feel SEEN, screenshot-worthy>","tip":"<SPECIFIC action, e.g. 'Roll jeans 2x' - NEVER vague>","aesthetic":"<Clean Girl|Dark Academia|Quiet Luxury|Mob Wife|Y2K|Coquette|Old Money|Streetwear>","celebMatch":"<${CELEBS}>","identityInsight":"<What this outfit says about who they ARE>","socialPerception":"<How strangers likely read this look>","visibilityNote":"<null if full body, or brief note if partial e.g. 'Based on waist-up view'>","isValidOutfit":true}
-
-IMPORTANT: Output ONLY the JSON object above. No preamble, no explanation, no markdown. Start your response with { and end with }.`;
-
-// Mode-specific prompts with psychological framework
 const MODE_PROMPTS = {
-    nice: `NICE✨ Main character energy. Make them feel SEEN.
-identityInsight: What this says about who they are ("You favor clean lines — that reads as confidence")
-socialPerception: How others see them ("Approachable but put-together")
-verdict: Screenshot-worthy.
-SCORING: Use full range thoughtfully. Average everyday fits: 72-81. Good fits: 82-88. Exceptional: 89-94. Never cluster around same numbers.`,
-    honest: `HONEST📊 Real talk. Be their honest friend.
-identityInsight: What this reveals about their style identity
-socialPerception: How this actually reads to strangers
-verdict: Direct, specific, fair.
-SCORING: Use full 0-100 range naturally. Don't inflate or deflate. Be the honest friend who tells the truth.`,
-    roast: `ROAST🔥 Playfully brutal. Clothes only — never body shame.
-identityInsight: What this ACCIDENTALLY says about them (funny)
-socialPerception: How strangers are judging this (comedic but true)
-verdict: Meme-worthy.
-SCORING: Harsh but fair. Average fits: 35-55. Decent fits: 56-68. Only 70+ if genuinely impressive.`,
-    savage: `SAVAGE💀 NO MERCY. Clothes only — never body shame.
-identityInsight: What this screams about their lack of taste (brutal comedy)
-socialPerception: Horrified stranger reactions (exaggerated, funny)
-verdict: BRUTAL. Make them question everything.
-SCORING: Destroy them. Range: 15-45. Only 50+ if they actually tried.`
+    nice: `NICE MODE: Main character energy. Exaggerate their confidence and style. Focus on the 'vibe' being elite.`,
+    honest: `HONEST MODE: Real talk without the sugar. Be the friend who keeps it 100 but still makes them laugh at the truth.`,
+    roast: `ROAST MODE: Playfully brutal. Use clever observations about their aesthetic. Funny, not mean. No body shaming.`,
+    savage: `SAVAGE MODE: Max comedy destruction. Make them question their entire wardrobe in a way that's too funny to be mad at.`
 };
 
 // Gemini-specific delta (playful, safe)
@@ -200,22 +175,14 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                 return {
                     success: true,
                     scores: {
-                        overall: Math.round(parsed.overall),
-                        color: Math.round(parsed.color),
-                        fit: Math.round(parsed.fit),
-                        style: Math.round(parsed.style),
-                        occasion: Math.round(parsed.occasion ?? parsed.overall ?? 70),
-                        trendScore: Math.round(parsed.trendScore ?? parsed.overall ?? 70),
+                        overall: parsed.overall, // Keep as decimal for the "x.x" display
                         verdict: parsed.verdict,
-                        tip: parsed.tip,
+                        lines: parsed.lines,
+                        tagline: parsed.tagline,
                         aesthetic: parsed.aesthetic,
                         celebMatch: parsed.celebMatch,
-                        // New Social Psychology fields
-                        identityInsight: parsed.identityInsight || null,
-                        socialPerception: parsed.socialPerception || null,
-                        visibilityNote: parsed.visibilityNote || null,
                         mode: mode,
-                        roastMode: mode === 'roast' // backwards compatibility
+                        roastMode: mode === 'roast'
                     }
                 };
             } catch (error) {
