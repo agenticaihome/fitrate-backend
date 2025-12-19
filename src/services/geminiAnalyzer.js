@@ -88,7 +88,7 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
         }],
         generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 300  // Reduced from 500 - actual responses are ~150-200 tokens
+            maxOutputTokens: 600  // Increased from 300 - enhanced prompt needs more tokens for full JSON
         }
     };
 
@@ -159,7 +159,45 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                     jsonStr = jsonMatch[0];
                 }
 
-                const parsed = JSON.parse(jsonStr);
+                // Try to repair truncated JSON
+                let parsed;
+                try {
+                    parsed = JSON.parse(jsonStr);
+                } catch (parseError) {
+                    console.warn(`[${requestId}] JSON parse failed, attempting repair: ${parseError.message}`);
+
+                    // Try to close unclosed brackets/braces
+                    let repaired = jsonStr;
+
+                    // Count brackets and close any that are open
+                    const openBraces = (repaired.match(/\{/g) || []).length;
+                    const closeBraces = (repaired.match(/\}/g) || []).length;
+                    const openBrackets = (repaired.match(/\[/g) || []).length;
+                    const closeBrackets = (repaired.match(/\]/g) || []).length;
+
+                    // If truncated mid-string, close the string
+                    if (repaired.match(/"[^"]*$/)) {
+                        repaired += '"';
+                    }
+
+                    // Close arrays
+                    for (let i = 0; i < openBrackets - closeBrackets; i++) {
+                        repaired += ']';
+                    }
+
+                    // Close objects
+                    for (let i = 0; i < openBraces - closeBraces; i++) {
+                        repaired += '}';
+                    }
+
+                    try {
+                        parsed = JSON.parse(repaired);
+                        console.log(`[${requestId}] JSON repair successful`);
+                    } catch (repairError) {
+                        // Still failed - throw original error
+                        throw parseError;
+                    }
+                }
 
                 if (!parsed.isValidOutfit) {
                     return {
