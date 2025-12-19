@@ -1,6 +1,6 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { isProEmail, addProEmail } from '../middleware/proEmailStore.js';
+import { EntitlementService } from '../services/entitlements.js';
 import { setProStatus } from '../middleware/scanLimiter.js';
 
 const router = express.Router();
@@ -30,36 +30,44 @@ const adminLimiter = rateLimit({
  * SECURITY: Rate limited to prevent enumeration
  */
 router.post('/check', proCheckLimiter, async (req, res) => {
-    const { email } = req.body;
+    const { email, userId } = req.body;
 
-    if (!email) {
+    if (!email && !userId) {
         return res.status(400).json({
             success: false,
-            error: 'Email required'
+            error: 'Email or userId required'
         });
     }
 
-    // SECURITY: Basic email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-        return res.status(400).json({
-            success: false,
-            error: 'Invalid email format'
-        });
+    // SECURITY: Basic email validation if provided
+    if (email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Invalid email format'
+            });
+        }
     }
 
-    const isPro = await isProEmail(email);
+    // Use EntitlementService to check status
+    const isPro = await EntitlementService.isPro(userId, email);
 
-    // Also set Pro status for this IP/userId so rate limiter knows
+    // Also set Pro status for this IP/userId so rate limiter knows (legacy sync)
     if (isPro) {
         const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-        const userId = req.body?.userId || req.query?.userId;
         await setProStatus(userId, ip, true);
+
+        // CRITICAL: Ensure this userId is permanently linked to Pro status
+        // This allows scanLimiter to verify them independently of email (e.g. after server restart)
+        if (userId) {
+            await EntitlementService.grantPro(userId, email, 'verification_link');
+        }
     }
 
     res.json({
         success: true,
-        email: email.toLowerCase().trim(),
+        email: email ? email.toLowerCase().trim() : undefined,
         isPro
     });
 });
@@ -95,7 +103,7 @@ router.post('/add', adminLimiter, async (req, res) => {
         return res.status(400).json({ error: 'Invalid email format' });
     }
 
-    await addProEmail(email);
+    await EntitlementService.grantPro(null, email, 'admin_add');
     res.json({ success: true, email: email.toLowerCase().trim() });
 });
 

@@ -51,9 +51,18 @@ app.use(helmet({
 // Request logging (use 'short' format in production to reduce PII exposure)
 app.use(morgan(config.nodeEnv === 'production' ? 'short' : 'combined'));
 
-// Body parsing (exclude webhook route - needs raw body)
+// Body parsing
+// 1. Webhook needs RAW body for signature verification
 app.use('/api/webhook', express.raw({ type: 'application/json' }));
-app.use(express.json({ limit: '10mb' }));
+
+// 2. All other API routes use JSON parser (skip webhook)
+app.use((req, res, next) => {
+  if (req.originalUrl.startsWith('/api/webhook')) {
+    next();
+  } else {
+    express.json({ limit: '10mb' })(req, res, next);
+  }
+});
 
 // Rate limiting
 const limiter = rateLimit({

@@ -9,6 +9,7 @@
 import { redis, isRedisAvailable } from '../services/redisClient.js';
 import { consumeBonusScan } from './referralStore.js';
 import { generateFingerprint, getClientIP } from '../utils/fingerprint.js';
+import { EntitlementService } from '../services/entitlements.js';
 
 // In-memory fallback for local dev
 const scanStoreFallback = new Map();
@@ -167,16 +168,33 @@ export async function setProStatus(userId, ip, isPro) {
     }
 }
 
+
+
 export async function getProStatus(userId, ip) {
     const key = getLegacyKey(userId, ip);
 
+    // 1. Check legacy/redis cache (fastest)
+    let status = false;
     if (isRedisAvailable()) {
-        const status = await redis.get(`${PRO_STATUS_PREFIX}${key}`);
-        return status === '1';
+        const val = await redis.get(`${PRO_STATUS_PREFIX}${key}`);
+        status = val === '1';
     } else {
         const data = scanStoreFallback.get(key);
-        return data?.isPro || false;
+        status = data?.isPro || false;
     }
+
+    // 2. If not found in cache, but we have a userId, consult the Authority (Entitlements)
+    // This allows recovery from server restarts without explicit re-auth
+    if (!status && userId) {
+        const authoritativePro = await EntitlementService.isPro(userId);
+        if (authoritativePro) {
+            // Self-heal the cache
+            await setProStatus(userId, ip, true);
+            return true;
+        }
+    }
+
+    return status;
 }
 
 /**

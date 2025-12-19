@@ -1,7 +1,8 @@
 import express from 'express';
 import Stripe from 'stripe';
 import { config } from '../config/index.js';
-import { addProEmail, removeProEmail } from '../middleware/proEmailStore.js';
+import { EntitlementService } from '../services/entitlements.js';
+import { IdempotencyService } from '../services/idempotency.js';
 import { addProRoast, addPurchasedScans } from '../middleware/referralStore.js';
 
 const router = express.Router();
@@ -38,6 +39,13 @@ router.post('/', async (req, res) => {
   } catch (err) {
     console.error('Webhook signature verification failed:', err.message);
     return res.status(400).json({ error: `Webhook Error: ${err.message}` });
+  }
+
+  // IDEMPOTENCY CHECK: Prevent duplicate processing (hardening)
+  const processed = await IdempotencyService.hasProcessed(event.id);
+  if (processed) {
+    console.log(`Event ${event.id} already processed. Skipping.`);
+    return res.status(200).send({ received: true });
   }
 
   // Handle the event
@@ -86,14 +94,12 @@ router.post('/', async (req, res) => {
           console.log(`⚠️ Unknown one-time purchase amount: $${amount / 100}`);
         }
       } else {
-        // Pro subscription = add to Pro email store
-        console.log('⚡ Pro subscription activated!');
+        // Pro subscription = add to Pro entitlement store
+        console.log(`⚡ Pro subscription activated! userId:${maskedUserId} email:${maskedEmail}`);
 
-        if (email) {
-          await addProEmail(email);
-        } else {
-          console.warn('⚠️ No email found in checkout session');
-        }
+        // CRITICAL FIX: Grant Pro to BOTH userId and email
+        // This ensures the user gets access immediately even if they are anonymous or using a different email
+        await EntitlementService.grantPro(userId, email, 'stripe_subscription');
       }
 
       break;
@@ -114,7 +120,7 @@ router.post('/', async (req, res) => {
         const customer = await stripe.customers.retrieve(subscription.customer);
         const email = customer.email;
         if (email) {
-          await removeProEmail(email);
+          await EntitlementService.revokePro(email);
           console.log(`   Pro status removed for: ${email}`);
         } else {
           console.warn('⚠️ No email found for canceled subscription');
@@ -134,6 +140,9 @@ router.post('/', async (req, res) => {
     default:
       console.log(`Unhandled event type: ${event.type}`);
   }
+
+  // Mark event as processed cleanly
+  await IdempotencyService.markProcessed(event.id);
 
   res.status(200).json({ received: true });
 });
