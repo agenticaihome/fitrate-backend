@@ -113,11 +113,22 @@ router.post('/pro-roast', proRoastLimiter, async (req, res) => {
   try {
     console.log(`[${requestId}] Pro Roast requested by ${userId}`);
 
+    const stats = await getReferralStats(userId);
+    const securityContext = {
+      userId,
+      scansUsed: 0, // Pro roasts are separate from daily scans
+      dailyLimit: stats.proRoasts || 1,
+      referralExtrasEarned: 0,
+      authTokenValid: true,
+      suspiciousFlag: false
+    };
+
     // Use OpenAI for Pro Roasts - SAVAGE mode (maximum brutality)
     const result = await analyzeWithOpenAI(image, {
       mode: 'savage',
       roastMode: true,
-      occasion: null
+      occasion: null,
+      securityContext
     });
 
     if (result.success) {
@@ -236,16 +247,28 @@ router.post('/', scanLimiter, async (req, res) => {
       return res.json(cachedResult);
     }
 
+    // Gather security context for AI gatekeeper
+    const stats = req.scanInfo.userId ? await getReferralStats(req.scanInfo.userId) : { totalReferrals: 0 };
+    const securityContext = {
+      userId: req.scanInfo.userId || 'anonymous',
+      scansUsed: req.scanInfo.currentCount || 0,
+      dailyLimit: req.scanInfo.limit || 2,
+      referralExtrasEarned: (stats.totalReferrals || 0) * 2, // 2 extra per referral
+      authTokenValid: !!req.scanInfo.userId,
+      suspiciousFlag: false // Backend middleware already handles this, but AI acts as backup
+    };
+
     // Route to appropriate AI based on user tier
-    const { isPro } = req.scanInfo;
+    const isPro = req.scanInfo.isPro;
     const analyzer = isPro ? analyzeWithOpenAI : analyzeWithGemini;
     const serviceName = isPro ? 'OpenAI GPT-4o' : 'Gemini';
     console.log(`[${requestId}] Using ${serviceName} (isPro: ${isPro})`);
 
     const result = await analyzer(sanitizedImage, {
       mode: mode,
-      roastMode: mode === 'roast', // backwards compatibility
-      occasion: occasion || null
+      roastMode: mode === 'roast',
+      occasion: occasion || null,
+      securityContext
     });
 
     // SECURITY: Validate AI response structure
