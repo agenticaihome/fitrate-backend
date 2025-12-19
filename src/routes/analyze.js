@@ -281,7 +281,6 @@ router.post('/', scanLimiter, async (req, res) => {
     };
 
     // Route to appropriate AI based on user tier
-    const isPro = req.scanInfo.isPro;
     const analyzer = isPro ? analyzeWithOpenAI : analyzeWithGemini;
     const serviceName = isPro ? 'OpenAI GPT-4o' : 'Gemini';
     console.log(`[${requestId}] Using ${serviceName} (isPro: ${isPro})`);
