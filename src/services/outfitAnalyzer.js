@@ -78,7 +78,7 @@ const MODE_SYSTEM_PROMPTS = {
 - itemRoasts: Make these COMPLIMENTS (e.g., "top": "This shirt has main character energy")
 - EXACT shareHook: "You're glowing! Share your look with #FitRateNice"`,
   honest: `🟡 HONEST MODE - Balanced truth (Pro-Only):
-- SCORE RANGE: 40-90 (full range based on actual merit)
+- SCORE RANGE: 0-100 (full range based on actual merit)
 - TONE: Direct but fair, like a fashion-savvy friend who keeps it real
 - VERDICT: Balanced observation - acknowledge strengths, note improvements
 - identityReflection: Honest read on what this outfit communicates
@@ -100,7 +100,7 @@ const MODE_SYSTEM_PROMPTS = {
 - ⚠️ NEVER body shame - destroy the CLOTHES only
 - EXACT shareHook: "Got roasted and lived? Tag your friends — share with #FitRateRoast!"`,
   savage: `💀 SAVAGE MODE - MAXIMUM ANNIHILATION (Pro-Only):
-- SCORE RANGE: 20-60 (BRUTAL! average = 30-45, even good fits max at 65)
+- SCORE RANGE: 0-50 (MAXIMUM BRUTALITY! Even godlike fits max at 50)
 - TONE: Gordon Ramsay meets Twitter roast account meets fashion critic from hell
 - VERDICT: One-liner SO devastating they'll think about it for weeks
 - LINES: Individual KILLSHOTS - each one screenshot-worthy
