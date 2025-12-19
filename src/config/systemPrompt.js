@@ -704,13 +704,13 @@ export function buildSystemPrompt(tier, mode, securityContext = {}) {
     // Tier-specific Depth Instructions
     const tierInstructions = isPro
         ? `TIER: PRO (GPT-4o)
-- ANALYSIS DEPTH: DEEP.
-- Go beyond the surface. Analyze the *psychology* of the outfit.
-- What does this outfit say about the user's soul/intentions?
-- Fill 'identityReflection' and 'socialPerception' with profound insights.`
+- ANALYSIS DEPTH: HIGH-FIDELITY.
+- Demonstrate elite fashion IQ. Analyze fit, fabric weight, color theory, and aesthetic intent.
+- Explain *why* it works or fails with precision.
+- Fill 'identityReflection' and 'socialPerception' with specific, detailed observations.`
         : `TIER: FREE (Standard)
 - ANALYSIS DEPTH: SURFACE/PUNCHY.
-- Focus on visual reality.
+- Focus on immediate visual impact.
 - Be quick, viral, and entertaining.
 - Keep it to the visual facts + viral hooks.`;
 
