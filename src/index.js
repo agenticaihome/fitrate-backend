@@ -116,10 +116,10 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Origin validation for API routes (skip for webhooks and admin)
+// Origin validation for API routes (skip for webhooks, admin, and diag)
 app.use('/api/', (req, res, next) => {
-  if (req.path.startsWith('/admin')) {
-    return next(); // Skip origin check for admin endpoints
+  if (req.path.startsWith('/admin') || req.path.startsWith('/diag')) {
+    return next(); // Skip origin check for admin and diag endpoints
   }
   validateOrigin(req, res, next);
 });
@@ -129,17 +129,8 @@ app.use('/api/analyze', costTracker('scan'));
 app.use('/api/battle', costTracker('battle'));
 
 // Routes
-// SECURITY: Diag route only available in development or with valid origin
-app.use('/api/diag', (req, res, next) => {
-  if (config.nodeEnv === 'production') {
-    // In production, only allow from authenticated admin or block entirely
-    const adminKey = req.headers['x-admin-key'];
-    if (adminKey !== process.env.ADMIN_KEY) {
-      return res.status(403).json({ error: 'Admin access required' });
-    }
-  }
-  next();
-}, diagRoutes);
+// TEMPORARILY OPEN: Diag route for debugging (no admin key required)
+app.use('/api/diag', diagRoutes);
 app.use('/api/analyze', analyzeRoutes);
 app.use('/api/battle', battleRoutes);
 app.use('/api/webhook', webhookRoutes);
