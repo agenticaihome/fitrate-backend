@@ -102,4 +102,107 @@ router.post('/test-openai', async (req, res) => {
     }
 });
 
+/**
+ * Test Gemini connection with a simple text-only request
+ * POST /api/diag/test-gemini
+ */
+router.post('/test-gemini', async (req, res) => {
+    const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    console.log(`[${requestId}] Testing Gemini connection...`);
+
+    if (!config.gemini.apiKey) {
+        console.error(`[${requestId}] GEMINI_API_KEY not configured`);
+        return res.status(500).json({
+            requestId,
+            success: false,
+            error: 'GEMINI_API_KEY not configured'
+        });
+    }
+
+    try {
+        const modelName = config.gemini.model || 'gemini-2.0-flash';
+        const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-goog-api-key': config.gemini.apiKey
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{ text: 'Say "FitRate Gemini connection successful!" and nothing else.' }]
+                }],
+                generationConfig: {
+                    temperature: 0.1,
+                    maxOutputTokens: 50
+                }
+            }),
+            signal: controller.signal
+        });
+
+        clearTimeout(timeoutId);
+        const data = await response.json();
+
+        if (!response.ok) {
+            console.error(`[${requestId}] Gemini API error:`, data);
+
+            // Map Gemini error codes
+            let errorType = 'unknown';
+            let statusCode = response.status;
+
+            if (response.status === 400 && data.error?.message?.includes('API key')) {
+                errorType = 'invalid_api_key';
+                statusCode = 401;
+            } else if (response.status === 403) {
+                errorType = 'invalid_api_key';
+            } else if (response.status === 429) {
+                errorType = 'rate_limit';
+            } else if (response.status === 503 || data.error?.status === 'UNAVAILABLE') {
+                errorType = 'gemini_unavailable';
+            } else if (response.status === 404) {
+                errorType = 'model_not_found';
+            }
+
+            return res.status(statusCode).json({
+                requestId,
+                success: false,
+                errorType,
+                model: modelName,
+                error: data.error?.message || `Gemini API returned ${response.status}`
+            });
+        }
+
+        const message = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        console.log(`[${requestId}] Gemini test successful: ${message}`);
+
+        return res.json({
+            requestId,
+            success: true,
+            message,
+            model: modelName,
+            usageMetadata: data.usageMetadata
+        });
+    } catch (error) {
+        console.error(`[${requestId}] Gemini test failed:`, error);
+
+        let errorType = 'unknown';
+        if (error.name === 'AbortError') {
+            errorType = 'timeout';
+        } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+            errorType = 'network_error';
+        }
+
+        return res.status(500).json({
+            requestId,
+            success: false,
+            errorType,
+            error: error.message || 'Gemini test failed'
+        });
+    }
+});
+
 export default router;
