@@ -338,7 +338,7 @@ export async function scanLimiter(req, res, next) {
     const ip = getClientIP(req);
     const userId = req.body?.userId || req.query?.userId;
     console.log(`[SCAN] ⚠️ LIMITS DISABLED - allowing scan for ${userId?.slice(0, 12) || 'anonymous'}`);
-    req.scanInfo = { userId, ip, currentCount: 0, limit: 9999, isPro: true };
+    req.scanInfo = { userId, ip, currentCount: 0, limit: 9999, isPro: false };  // isPro: false to use Gemini
     return next();
     // === END TEMPORARY BYPASS ===
 
