@@ -205,4 +205,64 @@ router.post('/test-gemini', async (req, res) => {
     }
 });
 
+/**
+ * Test full scan pipeline with a test image
+ * POST /api/diag/test-scan
+ * Body: { image: "base64..." } (optional - uses test image if not provided)
+ */
+router.post('/test-scan', async (req, res) => {
+    const requestId = `test_${Date.now()}`;
+    console.log(`[${requestId}] === TEST SCAN STARTED ===`);
+
+    try {
+        // Use provided image or a simple test pattern
+        const image = req.body?.image;
+
+        if (!image) {
+            return res.json({
+                requestId,
+                success: false,
+                error: 'Please provide an image in the request body: { "image": "data:image/jpeg;base64,..." }'
+            });
+        }
+
+        console.log(`[${requestId}] Image provided, length: ${image.length}`);
+
+        // Import Gemini analyzer
+        const { analyzeWithGemini } = await import('../services/geminiAnalyzer.js');
+
+        console.log(`[${requestId}] Calling Gemini...`);
+        const startTime = Date.now();
+
+        const result = await analyzeWithGemini(image, {
+            mode: 'nice',
+            securityContext: { userId: 'test', scansUsed: 0, dailyLimit: 2 }
+        });
+
+        const duration = Date.now() - startTime;
+        console.log(`[${requestId}] Gemini returned in ${duration}ms:`, JSON.stringify(result).slice(0, 500));
+
+        return res.json({
+            requestId,
+            success: result.success,
+            duration: `${duration}ms`,
+            result: result.success ? {
+                overall: result.scores?.overall,
+                verdict: result.scores?.verdict,
+                text: result.scores?.text?.slice(0, 100) + '...'
+            } : {
+                error: result.error
+            }
+        });
+    } catch (error) {
+        console.error(`[${requestId}] Test scan error:`, error);
+        return res.status(500).json({
+            requestId,
+            success: false,
+            error: error.message,
+            stack: error.stack?.split('\n').slice(0, 5)
+        });
+    }
+});
+
 export default router;
