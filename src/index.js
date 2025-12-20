@@ -18,6 +18,38 @@ import eventRoutes from './routes/event.js';
 // Security middleware
 import { validateOrigin, costTracker } from './middleware/apiKeyAuth.js';
 
+// ===========================================
+// STARTUP VALIDATION - Log API key status
+// ===========================================
+console.log('🚀 FitRate API Starting...');
+console.log(`   Environment: ${process.env.NODE_ENV || 'development'}`);
+
+if (!process.env.GEMINI_API_KEY) {
+  console.error('❌ GEMINI_API_KEY is NOT SET - Free scans will fail!');
+} else {
+  console.log('✅ GEMINI_API_KEY is configured');
+}
+
+if (!process.env.OPENAI_API_KEY) {
+  console.warn('⚠️  OPENAI_API_KEY is not set (Pro features disabled)');
+} else {
+  console.log('✅ OPENAI_API_KEY is configured');
+}
+
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.warn('⚠️  STRIPE_SECRET_KEY is not set (Payments disabled)');
+} else {
+  console.log('✅ STRIPE_SECRET_KEY is configured');
+}
+
+if (!process.env.REDIS_URL) {
+  console.warn('⚠️  REDIS_URL is not set (Using in-memory fallback)');
+} else {
+  console.log('✅ REDIS_URL is configured');
+}
+
+console.log(''); // Blank line for readability
+
 const app = express();
 
 // Trust proxy for Railway (fixes X-Forwarded-For warnings)
