@@ -304,7 +304,7 @@ router.post('/', scanLimiter, async (req, res) => {
       }
     }
 
-    const result = await analyzer(sanitizedImage, {
+    let result = await analyzer(sanitizedImage, {
       mode: mode,
       roastMode: mode === 'roast',
       occasion: occasion || null,
