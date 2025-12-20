@@ -191,43 +191,28 @@ export const CORE_LOGIC_RULES = `
 export const OUTPUT_FORMAT = {
     free: `{
   "isValidOutfit": boolean,
-  "rating": "XX.X",
-  "overall": <number>,
-  "color": <0-100>,
-  "fit": <0-100>,
-  "style": <0-100>,
-  "text": "<100-150 word analysis>",
-  "verdict": "<5-9 words summary>",
+  "overall": <0-100>,
+  "text": "<80-120 words, punchy analysis>",
+  "verdict": "<5-9 words, screenshot-ready>",
   "lines": ["<zinger 1>", "<zinger 2>"],
-  "tagline": "<2-5 words stamp>",
-  "aesthetic": "<style name>",
+  "tagline": "<2-5 word Instagram stamp>",
   "celebMatch": "<trending celeb>",
   "mode": "<nice|roast>",
-  "shareHook": "<EXACT mode hook>",
-  "virality_hooks": ["<hook1>", "<hook2>"],
   "error": string (only if isValidOutfit is false)
 }`,
     pro: `{
   "isValidOutfit": boolean,
-  "rating": "XX.X",
-  "overall": <number>,
-  "color": <0-100>,
-  "fit": <0-100>,
-  "style": <0-100>,
-  "text": "<200-300 word analysis>",
-  "verdict": "<5-9 words summary>",
+  "overall": <0-100>,
+  "text": "<150-200 words, high-fidelity analysis>",
+  "verdict": "<5-9 words, screenshot-ready>",
   "lines": ["<zinger 1>", "<zinger 2>"],
-  "tagline": "<2-5 words stamp>",
-  "aesthetic": "<style name>",
+  "tagline": "<2-5 word stamp>",
   "celebMatch": "<trending celeb>",
-  "identityReflection": "<Deep read on what this fit communicates>",
-  "socialPerception": "<How others see them>",
-  "savageLevel": <1-10>,
-  "itemRoasts": { "top": "string", "bottom": "string", "shoes": "string" },
-  "proTip": "<Elite fashion advice>",
+  "identityReflection": "<What this fit says about them - 1-2 sentences>",
+  "socialPerception": "<How others perceive them - 1-2 sentences>",
+  "itemRoasts": { "top": "<roast>", "bottom": "<roast>", "shoes": "<roast>" },
+  "proTip": "<One actionable style upgrade>",
   "mode": "<nice|roast|honest|savage>",
-  "shareHook": "<EXACT mode hook>",
-  "virality_hooks": ["<hook1>", "<hook2>", "<hook3>"],
   "error": string (only if isValidOutfit is false)
 }`
 };
@@ -794,9 +779,7 @@ REQUIRED:
 - Quotable verdict (4-9 words, screenshot-ready)
 - If can't see full outfit, acknowledge briefly
 
-CELEBS:
-Men: ${CELEBS.male.slice(0, 6).join(', ')}
-Women: ${CELEBS.female.slice(0, 6).join(', ')}
+CELEB MATCH: Pick any relevant trending celeb (2024-2025). Be creative.
 
 OUTPUT (JSON only, no markdown):
 ${outputFormat}
