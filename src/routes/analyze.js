@@ -407,7 +407,7 @@ router.post('/', scanLimiter, async (req, res) => {
       console.log(`[${requestId}] ❌ Analysis failed: ${result.error}`);
 
       // IMPORTANT: Failed scans do NOT count against daily limit
-      const currentCount = await getScanCountSecure(req);
+      const currentCount = await getScanCount(req);
       const { limit, isPro } = req.scanInfo;
 
       // Add scan info to show user they didn't lose a scan
