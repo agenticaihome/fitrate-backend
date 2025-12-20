@@ -185,7 +185,14 @@ router.post('/', scanLimiter, async (req, res) => {
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   try {
-    console.log(`[${requestId}] POST /api/analyze - IP: ${req.ip || 'unknown'}`);
+    // Enhanced logging for debugging
+    const userId = req.body?.userId || 'anonymous';
+    const userAgent = req.headers['user-agent'] || 'none';
+    console.log(`[${requestId}] ===== SCAN REQUEST =====`);
+    console.log(`[${requestId}] IP: ${req.ip || 'unknown'} | User: ${userId.slice(0, 16)}...`);
+    console.log(`[${requestId}] UA: ${userAgent.slice(0, 50)}...`);
+    console.log(`[${requestId}] ScanInfo: ${JSON.stringify(req.scanInfo || {})}`);
+
     const { image, roastMode, mode: modeParam, occasion, eventMode } = req.body;
     // Support both new mode string and legacy roastMode boolean
     const mode = modeParam || (roastMode ? 'roast' : 'nice');

@@ -317,10 +317,18 @@ export async function scanLimiter(req, res, next) {
     const ip = getClientIP(req);
     const userId = req.body?.userId || req.query?.userId;
     const fingerprint = generateFingerprint(req);
+    const userAgent = req.headers['user-agent'] || '';
+
+    // Enhanced debug logging
+    console.log(`[scanLimiter] ===== CHECKING REQUEST =====`);
+    console.log(`[scanLimiter] userId: ${userId || 'none'} | fp: ${fingerprint.slice(0, 12)}...`);
+    console.log(`[scanLimiter] UA length: ${userAgent.length} | UA: ${userAgent.slice(0, 40)}...`);
 
     // SECURITY: Check for suspicious behavior first (bots, multi-account abuse)
     const { checkSuspiciousBehavior } = await import('../utils/fingerprint.js');
     const suspiciousCheck = await checkSuspiciousBehavior(req, userId);
+
+    console.log(`[scanLimiter] Suspicious check: ${JSON.stringify(suspiciousCheck)}`);
 
     if (suspiciousCheck.suspicious) {
         console.warn(`🚫 BLOCKED: ${suspiciousCheck.reason} | fp:${fingerprint.slice(0, 12)} | ip:${ip?.slice(-8)}`);
@@ -355,6 +363,8 @@ export async function scanLimiter(req, res, next) {
     const isPro = await getProStatus(userId, ip);
     const limit = isPro ? LIMITS.pro : LIMITS.free;
     const currentCount = await getScanCountSecure(req);
+
+    console.log(`[scanLimiter] isPro: ${isPro} | limit: ${limit} | used: ${currentCount} | remaining: ${limit - currentCount}`);
 
     if (currentCount >= limit) {
         // Try to use a bonus scan if available
@@ -391,6 +401,7 @@ export async function scanLimiter(req, res, next) {
     }
 
     req.scanInfo = { userId, ip, fingerprint, currentCount, limit, isPro };
+    console.log(`[scanLimiter] ✅ PASSED - proceeding to analyze`);
     next();
 }
 

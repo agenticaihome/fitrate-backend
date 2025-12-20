@@ -1,5 +1,10 @@
 import express from 'express';
 import { config } from '../config/index.js';
+import { redis, isRedisAvailable } from '../services/redisClient.js';
+import { generateFingerprint, getClientIP, checkSuspiciousBehavior } from '../utils/fingerprint.js';
+import { getScanCountSecure, getProStatus, isBlockedForInvalidAttempts } from '../middleware/scanLimiter.js';
+import { getReferralStats } from '../middleware/referralStore.js';
+import { quickImageCheck, validateAndSanitizeImage } from '../utils/imageValidator.js';
 
 const router = express.Router();
 
@@ -203,6 +208,274 @@ router.post('/test-gemini', async (req, res) => {
             error: error.message || 'Gemini test failed'
         });
     }
+});
+
+/**
+ * MASTER DIAGNOSTIC - Why can't I scan?
+ * POST /api/diag/diagnose
+ * Send the same payload you'd send to /api/analyze
+ * Returns detailed breakdown of what would block the request
+ */
+router.post('/diagnose', async (req, res) => {
+    const report = {
+        timestamp: new Date().toISOString(),
+        checks: [],
+        canScan: true,
+        blockers: [],
+        warnings: []
+    };
+
+    const addCheck = (name, passed, detail, blocker = false) => {
+        report.checks.push({ name, passed, detail });
+        if (!passed && blocker) {
+            report.canScan = false;
+            report.blockers.push(`${name}: ${detail}`);
+        } else if (!passed) {
+            report.warnings.push(`${name}: ${detail}`);
+        }
+    };
+
+    try {
+        // === 1. ENVIRONMENT CHECKS ===
+        addCheck(
+            'GEMINI_API_KEY',
+            !!config.gemini.apiKey,
+            config.gemini.apiKey ? `Set (${config.gemini.apiKey.slice(0, 8)}...)` : 'NOT SET - Free users cannot scan!',
+            true
+        );
+
+        addCheck(
+            'OPENAI_API_KEY',
+            !!config.openai.apiKey,
+            config.openai.apiKey ? `Set (${config.openai.apiKey.slice(0, 8)}...)` : 'NOT SET - Pro users cannot scan!',
+            false
+        );
+
+        addCheck(
+            'Redis',
+            isRedisAvailable(),
+            isRedisAvailable() ? 'Connected' : 'Not available - using in-memory fallback (data lost on restart)',
+            false
+        );
+
+        // === 2. REQUEST IDENTITY CHECKS ===
+        const ip = getClientIP(req);
+        const fingerprint = generateFingerprint(req);
+        const userId = req.body?.userId || req.query?.userId;
+        const userAgent = req.headers['user-agent'] || '';
+
+        report.identity = {
+            ip: ip,
+            fingerprint: fingerprint.slice(0, 16) + '...',
+            userId: userId || 'NOT PROVIDED',
+            userAgent: userAgent.slice(0, 80) + (userAgent.length > 80 ? '...' : '')
+        };
+
+        addCheck(
+            'User-Agent Length',
+            userAgent.length >= 20,
+            `Length: ${userAgent.length} (min 20 required)`,
+            userAgent.length < 20
+        );
+
+        // Check for bot patterns
+        const botPatterns = [/curl/i, /wget/i, /python/i, /scrapy/i, /bot/i, /spider/i];
+        const matchedBot = botPatterns.find(p => p.test(userAgent));
+        addCheck(
+            'Bot Detection',
+            !matchedBot,
+            matchedBot ? `Matched bot pattern: ${matchedBot}` : 'No bot patterns detected',
+            !!matchedBot
+        );
+
+        // === 3. ABUSE DETECTION CHECKS ===
+        const suspiciousCheck = await checkSuspiciousBehavior(req, userId);
+        addCheck(
+            'Suspicious Behavior',
+            !suspiciousCheck.suspicious,
+            suspiciousCheck.suspicious
+                ? `BLOCKED: ${suspiciousCheck.reason}${suspiciousCheck.userCount ? ` (${suspiciousCheck.userCount} userIds)` : ''}`
+                : 'No suspicious behavior detected',
+            suspiciousCheck.suspicious
+        );
+
+        const invalidBlocked = await isBlockedForInvalidAttempts(req);
+        addCheck(
+            'Invalid Attempts Block',
+            !invalidBlocked,
+            invalidBlocked ? 'BLOCKED: Too many invalid image attempts (wait 1 hour)' : 'Not blocked',
+            invalidBlocked
+        );
+
+        // === 4. RATE LIMIT CHECKS ===
+        const isPro = await getProStatus(userId, ip);
+        const currentCount = await getScanCountSecure(req);
+        const limit = isPro ? 25 : 2;
+        const remaining = Math.max(0, limit - currentCount);
+
+        report.scanStatus = {
+            isPro,
+            scansUsed: currentCount,
+            scansLimit: limit,
+            scansRemaining: remaining
+        };
+
+        addCheck(
+            'Daily Scan Limit',
+            remaining > 0,
+            `${currentCount}/${limit} used, ${remaining} remaining`,
+            remaining === 0
+        );
+
+        // Check for bonus scans
+        if (userId && remaining === 0) {
+            const stats = await getReferralStats(userId);
+            if (stats.proRoasts > 0) {
+                report.warnings.push(`User has ${stats.proRoasts} Pro Roasts available as backup`);
+            }
+        }
+
+        // === 5. IMAGE VALIDATION (if provided) ===
+        const { image, mode = 'nice' } = req.body;
+
+        if (image) {
+            // Quick check
+            const quickPass = quickImageCheck(image);
+            addCheck(
+                'Image Quick Check',
+                quickPass,
+                quickPass
+                    ? `Passed (length: ${image.length} chars)`
+                    : `Failed - wrong format or size (length: ${image.length}, need 10KB-10MB base64)`,
+                !quickPass
+            );
+
+            // Full validation
+            if (quickPass) {
+                try {
+                    const validation = await validateAndSanitizeImage(image);
+                    addCheck(
+                        'Image Full Validation',
+                        validation.valid,
+                        validation.valid
+                            ? `Valid: ${validation.width}x${validation.height} ${validation.originalType}`
+                            : `Failed: ${validation.error}`,
+                        !validation.valid
+                    );
+                } catch (e) {
+                    addCheck('Image Full Validation', false, `Error: ${e.message}`, true);
+                }
+            }
+        } else {
+            addCheck('Image Provided', false, 'No image in request body', true);
+        }
+
+        // === 6. MODE VALIDATION ===
+        const validModes = ['nice', 'roast', 'honest', 'savage'];
+        const requestedMode = req.body?.mode || 'nice';
+        addCheck(
+            'Mode Valid',
+            validModes.includes(requestedMode),
+            `Mode: "${requestedMode}" ${validModes.includes(requestedMode) ? '(valid)' : '(invalid - use nice, roast, honest, or savage)'}`,
+            !validModes.includes(requestedMode)
+        );
+
+        if (['honest', 'savage'].includes(requestedMode) && !isPro) {
+            addCheck(
+                'Pro Mode Access',
+                false,
+                `Mode "${requestedMode}" requires Pro subscription`,
+                true
+            );
+        }
+
+        // === SUMMARY ===
+        report.summary = report.canScan
+            ? '✅ All checks passed - scan should work!'
+            : `❌ ${report.blockers.length} blocker(s) found - scan will fail`;
+
+        // Add fix suggestions
+        if (!report.canScan) {
+            report.fixes = report.blockers.map(b => {
+                if (b.includes('GEMINI_API_KEY')) return 'Set GEMINI_API_KEY environment variable';
+                if (b.includes('User-Agent')) return 'Add a browser-like User-Agent header (min 20 chars)';
+                if (b.includes('Bot Detection')) return 'Use a real browser User-Agent, not curl/python/etc';
+                if (b.includes('Daily Scan Limit')) return 'Wait for reset or upgrade to Pro';
+                if (b.includes('Invalid Attempts')) return 'Wait 1 hour, then use valid outfit photos';
+                if (b.includes('multi_account')) return 'Use consistent userId from same device';
+                if (b.includes('Image')) return 'Use JPEG/PNG/WebP between 100px-4096px and 10KB-10MB';
+                if (b.includes('Mode')) return 'Use valid mode: nice, roast (free) or honest, savage (pro)';
+                if (b.includes('Pro Mode')) return 'Upgrade to Pro for honest/savage modes';
+                return 'Check the error detail';
+            });
+        }
+
+        return res.json(report);
+
+    } catch (error) {
+        return res.status(500).json({
+            error: 'Diagnostic failed',
+            message: error.message,
+            stack: config.nodeEnv !== 'production' ? error.stack : undefined
+        });
+    }
+});
+
+/**
+ * Clear all blocks for current device (for testing)
+ * POST /api/diag/clear-blocks
+ */
+router.post('/clear-blocks', async (req, res) => {
+    const fingerprint = generateFingerprint(req);
+    const userId = req.body?.userId;
+    const today = new Date().toISOString().split('T')[0];
+
+    const keysToDelete = [
+        `fitrate:invalid:${fingerprint}`,
+        `fitrate:banned:${fingerprint}`,
+        `fitrate:suspicious:${fingerprint}`,
+        `fitrate:fp:users:${fingerprint}`
+    ];
+
+    if (userId) {
+        keysToDelete.push(`fitrate:scans:user:${userId}:${today}`);
+    }
+    keysToDelete.push(`fitrate:scans:fp:${fingerprint}:${today}`);
+
+    if (isRedisAvailable()) {
+        for (const key of keysToDelete) {
+            await redis.del(key);
+        }
+        return res.json({
+            success: true,
+            message: `Cleared all blocks for fingerprint ${fingerprint.slice(0, 16)}...`,
+            keysDeleted: keysToDelete
+        });
+    } else {
+        return res.json({
+            success: true,
+            message: 'Redis not available - using in-memory (restart server to clear)',
+            note: 'In-memory store clears on server restart'
+        });
+    }
+});
+
+/**
+ * Quick health check with all service status
+ * GET /api/diag/health
+ */
+router.get('/health', async (req, res) => {
+    res.json({
+        status: 'ok',
+        timestamp: new Date().toISOString(),
+        services: {
+            gemini: { configured: !!config.gemini.apiKey, model: config.gemini.model },
+            openai: { configured: !!config.openai.apiKey, model: config.openai.model },
+            redis: { available: isRedisAvailable() },
+            stripe: { configured: !!config.stripe.secretKey }
+        },
+        env: config.nodeEnv
+    });
 });
 
 export default router;
