@@ -76,10 +76,11 @@ export async function analyzeOutfit(imageBase64, options = {}) {
 
   // Check if OpenAI is configured
   if (!openai) {
-    console.error(`[${requestId}] OpenAI not configured - OPENAI_API_KEY missing`);
+    console.error(`[${requestId}] ❌ CRITICAL: OpenAI not configured - OPENAI_API_KEY missing`);
     return {
       success: false,
-      error: 'Premium AI service not configured. Contact support.'
+      error: 'Unable to connect to premium AI service. Please contact support.',
+      code: 'AI_SERVICE_UNAVAILABLE'
     };
   }
 
@@ -192,22 +193,31 @@ export async function analyzeOutfit(imageBase64, options = {}) {
     });
 
     // Return more specific error messages
-    let errorMessage = 'Failed to analyze outfit. Please try again.';
+    let errorMessage = 'Unable to analyze outfit. Please try again.';
+    let errorCode = 'AI_CONNECTION_FAILED';
 
     if (error.message === 'OpenAI request timeout') {
-      errorMessage = 'Analysis is taking too long. Please try again with a smaller image.';
+      errorMessage = 'Connection timeout. Please try again with a smaller image.';
+      errorCode = 'AI_TIMEOUT';
     } else if (error.status === 401 || error.code === 'invalid_api_key') {
-      errorMessage = 'Service configuration error. Please contact support.';
-      console.error(`[${requestId}] CRITICAL: Invalid OpenAI API key`);
+      errorMessage = 'Unable to connect to AI service. Please contact support.';
+      errorCode = 'AI_SERVICE_UNAVAILABLE';
+      console.error(`[${requestId}] ❌ CRITICAL: Invalid OpenAI API key`);
     } else if (error.status === 429) {
-      errorMessage = 'OpenAI service is busy. Please try again in a moment.';
+      errorMessage = 'AI service is busy. Please try again in a moment. 🔄';
+      errorCode = 'AI_RATE_LIMITED';
     } else if (error.message?.includes('JSON')) {
-      errorMessage = 'Failed to parse analysis results. Please try again.';
+      errorMessage = 'Failed to process AI response. Please try again.';
+      errorCode = 'AI_PARSE_ERROR';
+    } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+      errorMessage = 'Unable to connect to AI service. Please check your internet connection and try again.';
+      errorCode = 'NETWORK_ERROR';
     }
 
     return {
       success: false,
-      error: errorMessage
+      error: errorMessage,
+      code: errorCode
     };
   }
 }

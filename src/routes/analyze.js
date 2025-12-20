@@ -258,16 +258,31 @@ router.post('/', scanLimiter, async (req, res) => {
     const cachedResult = await getCachedResult(cacheKey);
     if (cachedResult) {
       console.log(`[${requestId}] Cache hit - returning cached result`);
-      // Still count the scan (using secure fingerprint-based counting)
-      const { limit, isPro } = req.scanInfo;
-      const newCount = await incrementScanCountSecure(req);
-      cachedResult.scanInfo = {
-        scansUsed: newCount,
-        scansLimit: limit,
-        scansRemaining: Math.max(0, limit - newCount),
-        isPro,
-        cached: true
-      };
+
+      // SECURITY: Only count scan if cached result was successful
+      // This prevents failed/corrupted cache entries from consuming scans
+      if (cachedResult.success) {
+        const { limit, isPro } = req.scanInfo;
+        const newCount = await incrementScanCountSecure(req);
+        cachedResult.scanInfo = {
+          scansUsed: newCount,
+          scansLimit: limit,
+          scansRemaining: Math.max(0, limit - newCount),
+          isPro,
+          cached: true
+        };
+      } else {
+        // Failed result in cache (shouldn't happen, but safety check)
+        console.warn(`[${requestId}] WARNING: Failed result found in cache, not counting scan`);
+        const currentCount = await getScanCountSecure(req);
+        cachedResult.scanInfo = {
+          scansUsed: currentCount,
+          scansLimit: req.scanInfo.limit,
+          scansRemaining: Math.max(0, req.scanInfo.limit - currentCount),
+          isPro: req.scanInfo.isPro,
+          cached: true
+        };
+      }
       return res.json(cachedResult);
     }
 
@@ -350,7 +365,7 @@ router.post('/', scanLimiter, async (req, res) => {
       const { limit, isPro } = req.scanInfo;
       const newCount = await incrementScanCountSecure(req);
 
-      console.log(`[${requestId}] Success - Scan count: ${newCount}/${limit} (isPro: ${isPro})`);
+      console.log(`[${requestId}] ✅ Success - Scan count: ${newCount}/${limit} (isPro: ${isPro})`);
 
       // Cache the result for future duplicate requests
       await cacheResult(cacheKey, result);
@@ -389,7 +404,22 @@ router.post('/', scanLimiter, async (req, res) => {
         }
       }
     } else {
-      console.log(`[${requestId}] Analysis failed: ${result.error}`);
+      console.log(`[${requestId}] ❌ Analysis failed: ${result.error}`);
+
+      // IMPORTANT: Failed scans do NOT count against daily limit
+      const currentCount = await getScanCountSecure(req);
+      const { limit, isPro } = req.scanInfo;
+
+      // Add scan info to show user they didn't lose a scan
+      result.scanInfo = {
+        scansUsed: currentCount,
+        scansLimit: limit,
+        scansRemaining: Math.max(0, limit - currentCount),
+        isPro,
+        scanNotCounted: true  // Flag to indicate this failure didn't consume a scan
+      };
+
+      console.log(`[${requestId}] ℹ️  Scan NOT counted - User still has ${limit - currentCount}/${limit} scans remaining`);
 
       // SECURITY: Track invalid image attempts to prevent spam abuse
       // This includes non-outfit images (selfies, random objects, etc.)
