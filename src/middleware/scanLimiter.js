@@ -52,11 +52,15 @@ function getSecureKey(req) {
     const userId = req?.body?.userId || req?.query?.userId;
     // userId is PRIMARY - fingerprint only used if no userId (anonymous)
     if (userId && userId.length >= 16) {
-        return `user:${userId}`;
+        const key = `user:${userId}`;
+        console.log(`[IDENTITY] Using userId key: ${key.slice(0, 30)}...`);
+        return key;
     }
     // Fallback: fingerprint for anonymous users
     const fingerprint = generateFingerprint(req);
-    return `fp:${fingerprint}`;
+    const key = `fp:${fingerprint}`;
+    console.log(`[IDENTITY] Using fingerprint key: ${key} (no userId in request)`);
+    return key;
 }
 
 // Legacy key generation for backward compatibility with status endpoints
