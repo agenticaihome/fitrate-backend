@@ -13,6 +13,7 @@ import proRoutes from './routes/pro.js';
 import referralRoutes from './routes/referral.js';
 import checkoutRoutes from './routes/checkout.js';
 import diagRoutes from './routes/diag.js';
+import eventRoutes from './routes/event.js';
 
 // Security middleware
 import { validateOrigin, costTracker } from './middleware/apiKeyAuth.js';
@@ -107,6 +108,7 @@ app.use('/api/webhook', webhookRoutes);
 app.use('/api/pro', proRoutes);
 app.use('/api/referral', referralRoutes);
 app.use('/api/checkout', checkoutRoutes);
+app.use('/api/event', eventRoutes);
 
 // 404 handler
 app.use((req, res) => {

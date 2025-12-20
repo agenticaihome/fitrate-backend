@@ -8,6 +8,7 @@ import { getImageHash, getCachedResult, cacheResult } from '../services/imageHas
 import { redis, isRedisAvailable } from '../services/redisClient.js';
 import { validateAndSanitizeImage, quickImageCheck } from '../utils/imageValidator.js';
 import { ERROR_MESSAGES, MODE_CONFIGS } from '../config/systemPrompt.js';
+import { getActiveEvent, recordEventScore } from '../services/eventService.js';
 
 const router = express.Router();
 
@@ -181,7 +182,7 @@ router.post('/', scanLimiter, async (req, res) => {
 
   try {
     console.log(`[${requestId}] POST /api/analyze - IP: ${req.ip || 'unknown'}`);
-    const { image, roastMode, mode: modeParam, occasion } = req.body;
+    const { image, roastMode, mode: modeParam, occasion, eventMode } = req.body;
     // Support both new mode string and legacy roastMode boolean
     const mode = modeParam || (roastMode ? 'roast' : 'nice');
 
@@ -285,11 +286,29 @@ router.post('/', scanLimiter, async (req, res) => {
     const serviceName = isPro ? 'OpenAI GPT-4o' : 'Gemini';
     console.log(`[${requestId}] Using ${serviceName} (isPro: ${isPro})`);
 
+    // Fetch event context if user opted into event mode
+    let eventContext = null;
+    if (eventMode) {
+      try {
+        const event = await getActiveEvent();
+        eventContext = {
+          theme: event.theme,
+          themeDescription: event.themeDescription,
+          themeEmoji: event.themeEmoji,
+          weekId: event.weekId
+        };
+        console.log(`[${requestId}] Event mode active - theme: ${event.theme}`);
+      } catch (e) {
+        console.warn(`[${requestId}] Failed to fetch event: ${e.message}`);
+      }
+    }
+
     const result = await analyzer(sanitizedImage, {
       mode: mode,
       roastMode: mode === 'roast',
       occasion: occasion || null,
-      securityContext
+      securityContext,
+      eventContext
     });
 
     // SECURITY: Validate AI response structure
@@ -321,6 +340,22 @@ router.post('/', scanLimiter, async (req, res) => {
         scansRemaining: Math.max(0, limit - newCount),
         isPro
       };
+
+      // Record score for event leaderboard if in event mode
+      if (eventContext && result.scores?.overall) {
+        try {
+          const eventResult = await recordEventScore(
+            req.scanInfo.userId,
+            result.scores.overall,
+            result.scores.themeCompliant ?? true,
+            isPro
+          );
+          result.eventStatus = eventResult;
+          console.log(`[${requestId}] Event score recorded: ${result.scores.overall} (${eventResult.action})`);
+        } catch (e) {
+          console.warn(`[${requestId}] Failed to record event score: ${e.message}`);
+        }
+      }
     } else {
       console.log(`[${requestId}] Analysis failed: ${result.error}`);
 

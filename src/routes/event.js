@@ -1,0 +1,185 @@
+/**
+ * Event Routes
+ * API endpoints for Weekly Event Mode + Leaderboard
+ */
+
+import express from 'express';
+import rateLimit from 'express-rate-limit';
+import {
+    getActiveEvent,
+    getUpcomingEvent,
+    getAllThemes,
+    getLeaderboard,
+    getUserEventStatus,
+    getArchivedEvent,
+    getWeekId
+} from '../services/eventService.js';
+
+const router = express.Router();
+
+// Rate limiter for event endpoints
+const eventLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    max: 30, // 30 requests per minute
+    message: { success: false, error: 'Too many requests. Please try again later.' },
+    standardHeaders: true,
+    legacyHeaders: false
+});
+
+/**
+ * GET /api/event
+ * Get current active event info
+ */
+router.get('/', eventLimiter, async (req, res) => {
+    try {
+        const event = await getActiveEvent();
+        const upcoming = getUpcomingEvent();
+
+        res.json({
+            success: true,
+            event: {
+                weekId: event.weekId,
+                theme: event.theme,
+                themeDescription: event.themeDescription,
+                themeEmoji: event.themeEmoji,
+                startDate: event.startDate,
+                endDate: event.endDate,
+                totalParticipants: event.totalParticipants || 0
+            },
+            upcoming: {
+                weekId: upcoming.weekId,
+                theme: upcoming.theme,
+                themeDescription: upcoming.themeDescription,
+                themeEmoji: upcoming.themeEmoji,
+                startDate: upcoming.startDate,
+                startsIn: upcoming.startsIn
+            }
+        });
+    } catch (error) {
+        console.error('Error getting active event:', error);
+        res.status(500).json({ success: false, error: 'Failed to get event info' });
+    }
+});
+
+/**
+ * GET /api/event/upcoming
+ * Get next week's event for preview (creates anticipation!)
+ */
+router.get('/upcoming', eventLimiter, (req, res) => {
+    try {
+        const upcoming = getUpcomingEvent();
+
+        res.json({
+            success: true,
+            upcoming
+        });
+    } catch (error) {
+        console.error('Error getting upcoming event:', error);
+        res.status(500).json({ success: false, error: 'Failed to get upcoming event' });
+    }
+});
+
+/**
+ * GET /api/event/themes
+ * Get all available themes (for admin/preview)
+ */
+router.get('/themes', eventLimiter, (req, res) => {
+    try {
+        const themes = getAllThemes();
+
+        res.json({
+            success: true,
+            themes,
+            totalThemes: themes.length
+        });
+    } catch (error) {
+        console.error('Error getting themes:', error);
+        res.status(500).json({ success: false, error: 'Failed to get themes' });
+    }
+});
+
+/**
+ * GET /api/event/leaderboard
+ * Get Top 5 leaderboard for current event
+ */
+router.get('/leaderboard', eventLimiter, async (req, res) => {
+    try {
+        const event = await getActiveEvent();
+        const leaderboard = await getLeaderboard(event.weekId, 5);
+
+        res.json({
+            success: true,
+            event: {
+                weekId: event.weekId,
+                theme: event.theme,
+                themeEmoji: event.themeEmoji,
+                endsAt: event.endDate
+            },
+            leaderboard,
+            totalParticipants: event.totalParticipants || 0
+        });
+    } catch (error) {
+        console.error('Error getting leaderboard:', error);
+        res.status(500).json({ success: false, error: 'Failed to get leaderboard' });
+    }
+});
+
+/**
+ * GET /api/event/status
+ * Get user's event status (rank, score, etc.)
+ * Query params: userId (required)
+ */
+router.get('/status', eventLimiter, async (req, res) => {
+    try {
+        const { userId } = req.query;
+
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'userId required' });
+        }
+
+        const event = await getActiveEvent();
+        const status = await getUserEventStatus(event.weekId, userId);
+
+        res.json({
+            success: true,
+            weekId: event.weekId,
+            theme: event.theme,
+            ...status
+        });
+    } catch (error) {
+        console.error('Error getting user event status:', error);
+        res.status(500).json({ success: false, error: 'Failed to get status' });
+    }
+});
+
+/**
+ * GET /api/event/archive/:weekId
+ * Get archived leaderboard from a past week
+ * Only available to Pro users (checked in frontend)
+ */
+router.get('/archive/:weekId', eventLimiter, async (req, res) => {
+    try {
+        const { weekId } = req.params;
+
+        // Validate weekId format (YYYY-Www)
+        if (!/^\d{4}-W\d{2}$/.test(weekId)) {
+            return res.status(400).json({ success: false, error: 'Invalid weekId format' });
+        }
+
+        const archive = await getArchivedEvent(weekId);
+
+        if (!archive) {
+            return res.status(404).json({ success: false, error: 'Archive not found' });
+        }
+
+        res.json({
+            success: true,
+            archive
+        });
+    } catch (error) {
+        console.error('Error getting archived event:', error);
+        res.status(500).json({ success: false, error: 'Failed to get archive' });
+    }
+});
+
+export default router;

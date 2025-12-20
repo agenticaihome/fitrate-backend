@@ -1,11 +1,11 @@
 import OpenAI from 'openai';
 import { config } from '../config/index.js';
 import {
-    buildSystemPrompt,
-    ERROR_MESSAGES,
-    MODE_CONFIGS,
-    OUTPUT_LENGTHS,
-    getViralityHooks
+  buildSystemPrompt,
+  ERROR_MESSAGES,
+  MODE_CONFIGS,
+  OUTPUT_LENGTHS,
+  getViralityHooks
 } from '../config/systemPrompt.js';
 
 // Only initialize OpenAI if API key is configured (Gemini is primary analyzer)
@@ -21,7 +21,7 @@ try {
 }
 
 // Create analysis prompt for Pro tier using centralized config
-function createAnalysisPrompt(occasion, mode, securityContext = {}) {
+function createAnalysisPrompt(occasion, mode, securityContext = {}, eventContext = null) {
   const {
     userId = 'anonymous',
     scansUsed = 0,
@@ -43,7 +43,7 @@ function createAnalysisPrompt(occasion, mode, securityContext = {}) {
   };
 
   // Use centralized system prompt builder
-  let prompt = buildSystemPrompt('pro', mode, fullSecurityContext);
+  let prompt = buildSystemPrompt('pro', mode, fullSecurityContext, eventContext);
 
   // Add occasion context if provided
   if (occasion) {
@@ -70,7 +70,7 @@ function getModeSystemPrompt(mode) {
 
 export async function analyzeOutfit(imageBase64, options = {}) {
   // Support both old roastMode boolean and new mode string for backwards compatibility
-  const { roastMode = false, mode: modeParam = null, occasion = null, securityContext = {} } = options;
+  const { roastMode = false, mode: modeParam = null, occasion = null, securityContext = {}, eventContext = null } = options;
   const mode = modeParam || (roastMode ? 'roast' : 'nice');
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -119,7 +119,7 @@ export async function analyzeOutfit(imageBase64, options = {}) {
               },
               {
                 type: 'text',
-                text: createAnalysisPrompt(occasion, mode, securityContext)
+                text: createAnalysisPrompt(occasion, mode, securityContext, eventContext)
               }
             ]
           }

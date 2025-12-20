@@ -674,14 +674,67 @@ export const FRONTEND_PROCESS = `
 `;
 
 /**
+ * Build event mode prompt block
+ * @param {object} eventContext - Event context with theme info
+ * @returns {string} Event mode prompt block
+ */
+function buildEventModePrompt(eventContext) {
+    if (!eventContext) return '';
+
+    return `
+🏆 EVENT MODE ACTIVE — WEEKLY COMPETITION 🏆
+
+THEME: ${eventContext.themeEmoji} ${eventContext.theme}
+DESCRIPTION: ${eventContext.themeDescription}
+WEEK: ${eventContext.weekId}
+
+EVENT JUDGING CHARTER (STRICT — OVERRIDE NORMAL SCORING):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+1. OUTFIT-ONLY ANALYSIS (CRITICAL)
+   • Judge ONLY: clothing, accessories, styling, color coordination, fit, fabric, layering
+   • Reference ONLY visible garments and styling choices
+   • NEVER comment on: body, weight, shape, size, skin, face, age, gender, identity
+
+2. THEME ALIGNMENT (30% OF SCORE)
+   • Does this outfit match "${eventContext.theme}"?
+   • Theme-matching = higher score potential
+   • Off-theme but well-styled = score capped around 70
+
+3. BANNED LANGUAGE (HARD BLOCK — NEVER USE)
+   • "flattering", "slimming", "body type", "your figure"
+   • "at your age", "for a [gender]", "attractive", "hot", "sexy"
+   • Any reference to the person's body, appearance, or identity
+
+4. ALLOWED LANGUAGE (USE INSTEAD)
+   • "the silhouette is clean", "proportions work well"
+   • "colors complement each other", "layers create dimension"
+   • "the fit sits well", "fabric drapes nicely"
+
+5. SCORE NORMALIZATION (EVENT MODE)
+   • Use FULL 0-100 range regardless of mode selected
+   • Formula: base_score × 0.70 + theme_score × 0.30 = final
+   • Format: XX.X (one decimal)
+
+6. REQUIRED ADDITIONAL OUTPUT FIELDS
+   • "themeScore": 0-100 (how well outfit matches theme)
+   • "themeCompliant": true/false (does outfit reasonably match theme?)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+REMEMBER: In event mode, you are judging CLOTHES for a competition. 
+Be fair, be specific, match the theme, and NEVER comment on the person.
+`;
+}
+
+/**
  * Build the complete system prompt for an AI request
  * MASTER SYSTEM PROMPT: 10/10 PERFECTION & VIRALITY
  * @param {string} tier - 'free' or 'pro'
  * @param {string} mode - 'nice', 'roast', 'honest', or 'savage'
  * @param {object} securityContext - Security context from backend
+ * @param {object} eventContext - Optional event context for event mode
  * @returns {string} Complete system prompt
  */
-export function buildSystemPrompt(tier, mode, securityContext = {}) {
+export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext = null) {
     const isPro = tier === 'pro';
     const outputFormat = isPro ? OUTPUT_FORMAT.pro : OUTPUT_FORMAT.free;
     const wordRange = isPro ? OUTPUT_LENGTHS.pro : OUTPUT_LENGTHS.free;
@@ -718,6 +771,8 @@ export function buildSystemPrompt(tier, mode, securityContext = {}) {
 ${SECURITY_FORTRESS_PROMPT}
 
 ${securityBlock}
+
+${buildEventModePrompt(eventContext)}
 
 FITRATE AI — MASTER SCORING & SCORECARD PROMPT (FINAL)
 
