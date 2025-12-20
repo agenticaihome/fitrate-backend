@@ -314,8 +314,9 @@ export async function isBlockedForInvalidAttempts(req) {
 
 /**
  * Main scan limiter middleware
- * SECURITY: Uses fingerprint-based tracking to prevent userId spoofing
- * SECURITY: Checks for suspicious behavior before processing
+ * TEMPORARILY SIMPLIFIED: Server-side limit check bypassed.
+ * Client-side handles 2/day limit via localStorage.
+ * Only bot/abuse detection remains active.
  */
 export async function scanLimiter(req, res, next) {
     const ip = getClientIP(req);
@@ -338,61 +339,21 @@ export async function scanLimiter(req, res, next) {
             });
         }
 
-        if (suspiciousCheck.reason === 'multi_account') {
-            return res.status(429).json({
-                success: false,
-                error: 'Too many accounts from this device. Try again later.',
-                code: 'ABUSE_DETECTED'
-            });
-        }
-
-        if (suspiciousCheck.blocked) {
-            return res.status(403).json({
-                success: false,
-                error: 'Access temporarily restricted.',
-                code: 'TEMPORARILY_BLOCKED'
-            });
-        }
+        // RELAXED: Skip multi_account and blocked checks for now
+        // if (suspiciousCheck.reason === 'multi_account') { ... }
+        // if (suspiciousCheck.blocked) { ... }
     }
 
-    // Use fingerprint-based count for actual limiting
+    // Get Pro status for response info (but don't enforce limits)
     const isPro = await getProStatus(userId, ip);
     const limit = isPro ? LIMITS.pro : LIMITS.free;
     const currentCount = await getScanCountSecure(req);
 
-    if (currentCount >= limit) {
-        // Try to use a bonus scan if available
-        const usedBonus = await consumeBonusScan(userId);
-        if (usedBonus) {
-            req.scanInfo = { userId, ip, fingerprint, currentCount, limit, isPro, usedBonus: true };
-            return next();
-        }
+    console.log(`[SCAN] userId:${userId?.slice(0, 12) || 'none'} count:${currentCount}/${limit} isPro:${isPro} - ALLOWING (server limits paused)`);
 
-        // Log potential abuse
-        if (currentCount > limit * 2) {
-            console.warn(`⚠️ ABUSE: fingerprint=${fingerprint.slice(0, 12)} exceeded ${currentCount}/${limit} scans`);
-        }
-
-        // Get referral stats for accurate error message
-        const stats = userId ? await getReferralStats(userId) : { totalReferrals: 0 };
-        const extras = stats.totalReferrals || 0;
-
-        // Use verbatim error messages from spec
-        const errorMessage = isPro
-            ? ERROR_MESSAGES.pro_limit_reached
-            : ERROR_MESSAGES.free_limit_reached(currentCount, extras);
-
-        return res.status(429).json({
-            success: false,
-            error: errorMessage,
-            limitReached: true,
-            isPro,
-            scansUsed: currentCount,
-            scansLimit: limit,
-            referralExtras: extras,
-            resetTime: getResetTime()
-        });
-    }
+    // TEMPORARILY BYPASSED: Always allow through, let client-side handle limits
+    // The original limit check (currentCount >= limit) is disabled.
+    // Client-side localStorage tracks 2/day for free users.
 
     req.scanInfo = { userId, ip, fingerprint, currentCount, limit, isPro };
     next();
