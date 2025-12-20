@@ -116,8 +116,13 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Origin validation for API routes (skip for webhooks)
-app.use('/api/', validateOrigin);
+// Origin validation for API routes (skip for webhooks and admin)
+app.use('/api/', (req, res, next) => {
+  if (req.path.startsWith('/admin')) {
+    return next(); // Skip origin check for admin endpoints
+  }
+  validateOrigin(req, res, next);
+});
 
 // Cost tracking for expensive endpoints
 app.use('/api/analyze', costTracker('scan'));
