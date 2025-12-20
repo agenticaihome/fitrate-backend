@@ -149,7 +149,8 @@ export async function analyzeOutfit(imageBase64, options = {}) {
       console.log(`[${requestId}] Invalid outfit detected: ${result.error}`);
       return {
         success: false,
-        error: result.error || 'Could not analyze this image'
+        error: result.error || 'Could not analyze this image',
+        code: 'INVALID_OUTFIT'
       };
     }
 

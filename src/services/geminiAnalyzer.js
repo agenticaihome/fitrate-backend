@@ -203,7 +203,8 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                 if (!parsed.isValidOutfit) {
                     return {
                         success: false,
-                        error: parsed.error || 'Could not analyze this image'
+                        error: parsed.error || 'Could not analyze this image',
+                        code: 'INVALID_OUTFIT'
                     };
                 }
 
