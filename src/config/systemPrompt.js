@@ -801,7 +801,21 @@ Women: ${CELEBS.female.slice(0, 6).join(', ')}
 OUTPUT (JSON only, no markdown):
 ${outputFormat}
 
-INVALID IMAGE: {"isValidOutfit": false, "error": "Need to see your outfit! Try a photo showing your clothes 📸"}
+OUTFIT VALIDATION (BE LENIENT):
+✅ ACCEPT if:
+- ANY clothing visible (even just top or bottom)
+- Partial outfit (sitting, mirror selfie, etc.)
+- Jacket/coat only
+- Accessories with minimal clothing
+- Casual/loungewear (hoodies, sweats)
+
+❌ REJECT only if:
+- Zero clothing visible (face only, landscape, object)
+- Pure selfie with no outfit focus
+
+When in doubt, RATE IT. If you can see any clothing, analyze it.
+
+INVALID: {"isValidOutfit": false, "error": "Need to see your outfit! Try a photo showing your clothes 📸"}
 `.trim();
 }
 
