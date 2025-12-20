@@ -26,10 +26,10 @@ const PRO_STATUS_PREFIX = 'fitrate:pro:status:';
 const INVALID_ATTEMPTS_PREFIX = 'fitrate:invalid:'; // Track failed/invalid image submissions
 const REPEAT_OFFENDER_PREFIX = 'fitrate:banned:'; // Permanently banned repeat offenders
 
-// Limits
-const MAX_INVALID_ATTEMPTS = 5; // Max invalid images before temp block
-const INVALID_BLOCK_DURATION = 86400; // 24 hour block (was 1 hour)
-const PERMANENT_BAN_DURATION = 2592000; // 30 days "permanent" ban for repeat offenders
+// Limits - RELAXED for early-stage UX (can tighten later)
+const MAX_INVALID_ATTEMPTS = 20; // Was 5 - more forgiving for legitimate users
+const INVALID_BLOCK_DURATION = 3600; // 1 hour block (was 24 hours)
+const PERMANENT_BAN_DURATION = 604800; // 7 days "permanent" ban (was 30 days)
 
 // Get today's date string for key
 function getTodayKey() {
