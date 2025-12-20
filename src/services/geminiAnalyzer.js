@@ -95,7 +95,7 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
     // Models to try in order (fallback chain) - Dec 2025 stable models
     const models = [
         config.gemini.model || 'gemini-2.0-flash',  // Primary - stable and reliable
-        'gemini-2.0-flash-lite'  // Fallback - lighter version
+        'gemini-1.5-flash'  // Fallback - proven stable model
     ];
 
     // Try each model with retries
