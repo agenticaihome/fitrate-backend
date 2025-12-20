@@ -329,14 +329,18 @@ export async function isBlockedForInvalidAttempts(req) {
 
 /**
  * Main scan limiter middleware
- * SIMPLIFIED: Uses in-memory Map keyed by userId only.
- * - Resets when backend restarts/deploys
- * - 2/day for free, 25/day for pro
- * - No complex fingerprint logic
+ * 
+ * ⚠️ TEMPORARILY DISABLED FOR TESTING - Remove this bypass before production!
+ * TODO: Re-enable limits and fix Redis persistence
  */
 export async function scanLimiter(req, res, next) {
+    // === TEMPORARY: Bypass all limits for testing ===
     const ip = getClientIP(req);
     const userId = req.body?.userId || req.query?.userId;
+    console.log(`[SCAN] ⚠️ LIMITS DISABLED - allowing scan for ${userId?.slice(0, 12) || 'anonymous'}`);
+    req.scanInfo = { userId, ip, currentCount: 0, limit: 9999, isPro: true };
+    return next();
+    // === END TEMPORARY BYPASS ===
 
     // Must have userId
     if (!userId) {
