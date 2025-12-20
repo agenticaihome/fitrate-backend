@@ -681,6 +681,20 @@ export const FRONTEND_PROCESS = `
 function buildEventModePrompt(eventContext) {
     if (!eventContext) return '';
 
+    // Special logic for Ugly Sweater theme
+    const isUglyTheme = eventContext.theme.toLowerCase().includes('ugly');
+    let themeSpecificRules = '';
+
+    if (isUglyTheme) {
+        themeSpecificRules = `
+7. *** SPECIAL THEME OVERRIDE: UGLY SWEATER ***
+   • "UGLIER" IS BETTER. Reward chaos, clashing colors, and tackiness.
+   • 3D elements (bells, tinsel, lights) = BONUS POINTS.
+   • "Stylish/Chic" styling should be penalized unless it enhances the irony.
+   • IGNORE normal "color coordination" penalties.
+   • The goal is MAXIMUM VISUAL IMPACT through "bad" taste.`;
+    }
+
     return `
 🏆 EVENT MODE ACTIVE — WEEKLY COMPETITION 🏆
 
@@ -717,7 +731,7 @@ EVENT JUDGING CHARTER (STRICT — OVERRIDE NORMAL SCORING):
 
 6. REQUIRED ADDITIONAL OUTPUT FIELDS
    • "themeScore": 0-100 (how well outfit matches theme)
-   • "themeCompliant": true/false (does outfit reasonably match theme?)
+   • "themeCompliant": true/false (does outfit reasonably match theme?)${themeSpecificRules}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 REMEMBER: In event mode, you are judging CLOTHES for a competition. 

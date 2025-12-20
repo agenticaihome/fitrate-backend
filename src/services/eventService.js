@@ -21,7 +21,7 @@ const ARCHIVE_PREFIX = 'fitrate:event:archive:';
 // Default themes to rotate through
 const DEFAULT_THEMES = [
     { theme: 'Holiday Glam', emoji: '✨🎄', description: 'Sparkle, velvet, and festive elegance. Show us your holiday party best!' },
-    { theme: 'Cozy Winter', emoji: '❄️🧣', description: 'Layers, knits, and cold-weather comfort done right.' },
+    { theme: 'Ugly Sweater Gala', emoji: '🎄🧶', description: 'The tackier, the better. Clashing colors, 3D elements, and festive chaos.' },
     { theme: 'Monochrome', emoji: '⬛⬜', description: 'Master the art of single-color styling.' },
     { theme: 'Streetwear', emoji: '🔥👟', description: 'Urban edge, oversized fits, sneaker culture.' },
     { theme: 'Office Chic', emoji: '💼✨', description: 'Professional but fashionable — power dressing.' },
