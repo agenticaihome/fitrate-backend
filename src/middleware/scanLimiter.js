@@ -76,6 +76,21 @@ export async function getScanCountFromRequest(req) {
     return getScanCountSecure(req);
 }
 
+/**
+ * SIMPLIFIED increment - uses in-memory Map with userId:date key
+ * Resets when backend restarts/deploys
+ */
+export function incrementScanSimple(userId) {
+    if (!userId) return 0;
+    const today = getTodayKey();
+    const key = `${userId}:${today}`;
+    const data = scanStoreFallback.get(key) || { count: 0 };
+    data.count += 1;
+    scanStoreFallback.set(key, data);
+    console.log(`[SCAN] Incremented ${userId.slice(0, 12)} to ${data.count}`);
+    return data.count;
+}
+
 // Clean up old entries every hour (only for in-memory fallback)
 setInterval(() => {
     if (!isRedisAvailable()) {
@@ -314,48 +329,54 @@ export async function isBlockedForInvalidAttempts(req) {
 
 /**
  * Main scan limiter middleware
- * TEMPORARILY SIMPLIFIED: Server-side limit check bypassed.
- * Client-side handles 2/day limit via localStorage.
- * Only bot/abuse detection remains active.
+ * SIMPLIFIED: Uses in-memory Map keyed by userId only.
+ * - Resets when backend restarts/deploys
+ * - 2/day for free, 25/day for pro
+ * - No complex fingerprint logic
  */
 export async function scanLimiter(req, res, next) {
     const ip = getClientIP(req);
     const userId = req.body?.userId || req.query?.userId;
-    const fingerprint = generateFingerprint(req);
 
-    // SECURITY: Check for suspicious behavior first (bots, multi-account abuse)
-    const { checkSuspiciousBehavior } = await import('../utils/fingerprint.js');
-    const suspiciousCheck = await checkSuspiciousBehavior(req, userId);
-
-    if (suspiciousCheck.suspicious) {
-        console.warn(`🚫 BLOCKED: ${suspiciousCheck.reason} | fp:${fingerprint.slice(0, 12)} | ip:${ip?.slice(-8)}`);
-
-        // Different responses based on reason
-        if (suspiciousCheck.reason === 'bot_ua' || suspiciousCheck.reason === 'missing_ua') {
-            return res.status(403).json({
-                success: false,
-                error: 'Request blocked. Please use a web browser.',
-                code: 'BOT_DETECTED'
-            });
-        }
-
-        // RELAXED: Skip multi_account and blocked checks for now
-        // if (suspiciousCheck.reason === 'multi_account') { ... }
-        // if (suspiciousCheck.blocked) { ... }
+    // Must have userId
+    if (!userId) {
+        console.log(`[SCAN] No userId provided, allowing through`);
+        req.scanInfo = { userId: null, ip, currentCount: 0, limit: LIMITS.free, isPro: false };
+        return next();
     }
 
-    // Get Pro status for response info (but don't enforce limits)
+    // Simple in-memory tracking by userId + today's date
+    const today = getTodayKey();
+    const key = `${userId}:${today}`;
+
+    // Get current count from in-memory store
+    const data = scanStoreFallback.get(key) || { count: 0 };
+    const currentCount = data.count;
+
+    // Check Pro status
     const isPro = await getProStatus(userId, ip);
     const limit = isPro ? LIMITS.pro : LIMITS.free;
-    const currentCount = await getScanCountSecure(req);
 
-    console.log(`[SCAN] userId:${userId?.slice(0, 12) || 'none'} count:${currentCount}/${limit} isPro:${isPro} - ALLOWING (server limits paused)`);
+    console.log(`[SCAN] userId:${userId.slice(0, 12)} count:${currentCount}/${limit} isPro:${isPro}`);
 
-    // TEMPORARILY BYPASSED: Always allow through, let client-side handle limits
-    // The original limit check (currentCount >= limit) is disabled.
-    // Client-side localStorage tracks 2/day for free users.
+    // Enforce limit
+    if (currentCount >= limit) {
+        console.log(`[SCAN] BLOCKED - limit reached`);
+        return res.status(429).json({
+            success: false,
+            error: isPro
+                ? 'Daily Pro limit reached. Come back tomorrow!'
+                : `You've used your ${limit} free scans today. Upgrade to Pro for 25/day!`,
+            code: 'LIMIT_REACHED',
+            limitReached: true,
+            isPro,
+            scansUsed: currentCount,
+            scansLimit: limit,
+            resetTime: getResetTime()
+        });
+    }
 
-    req.scanInfo = { userId, ip, fingerprint, currentCount, limit, isPro };
+    req.scanInfo = { userId, ip, currentCount, limit, isPro };
     next();
 }
 

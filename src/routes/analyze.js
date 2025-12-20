@@ -2,7 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { analyzeWithGemini } from '../services/geminiAnalyzer.js';
 import { analyzeOutfit as analyzeWithOpenAI } from '../services/outfitAnalyzer.js';
-import { scanLimiter, incrementScanCountSecure, getScanCount, getScanCountSecure, LIMITS, getProStatus, trackInvalidAttempt, isBlockedForInvalidAttempts } from '../middleware/scanLimiter.js';
+import { scanLimiter, incrementScanSimple, getScanCount, getScanCountSecure, LIMITS, getProStatus, trackInvalidAttempt, isBlockedForInvalidAttempts } from '../middleware/scanLimiter.js';
 import { getReferralStats, consumeProRoast, hasProRoast } from '../middleware/referralStore.js';
 import { getImageHash, getCachedResult, cacheResult } from '../services/imageHasher.js';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
@@ -266,7 +266,7 @@ router.post('/', scanLimiter, async (req, res) => {
       // This prevents failed/corrupted cache entries from consuming scans
       if (cachedResult.success) {
         const { limit, isPro } = req.scanInfo;
-        const newCount = await incrementScanCountSecure(req);
+        const newCount = incrementScanSimple(req.scanInfo.userId);
         cachedResult.scanInfo = {
           scansUsed: newCount,
           scansLimit: limit,
@@ -366,7 +366,7 @@ router.post('/', scanLimiter, async (req, res) => {
     // Only increment count and cache on successful analysis
     if (result.success) {
       const { limit, isPro } = req.scanInfo;
-      const newCount = await incrementScanCountSecure(req);
+      const newCount = incrementScanSimple(req.scanInfo.userId);
 
       console.log(`[${requestId}] ✅ Success - Scan count: ${newCount}/${limit} (isPro: ${isPro})`);
 
