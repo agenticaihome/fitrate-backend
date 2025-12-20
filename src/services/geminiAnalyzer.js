@@ -62,10 +62,11 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
 
     // Check if API key is configured
     if (!config.gemini.apiKey) {
-        console.error(`[${requestId}] GEMINI_API_KEY not set!`);
+        console.error(`[${requestId}] ❌ CRITICAL: GEMINI_API_KEY not set!`);
         return {
             success: false,
-            error: 'AI service not configured.'
+            error: 'Unable to connect to AI service. Please try again later or contact support.',
+            code: 'AI_SERVICE_UNAVAILABLE'
         };
     }
 
@@ -256,9 +257,10 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
     }
 
     // All models failed
-    console.error(`[${requestId}] All models failed`);
+    console.error(`[${requestId}] ❌ All Gemini models failed after retries`);
     return {
         success: false,
-        error: 'AI is busy right now. Please try again in a moment! 🔄'
+        error: 'Unable to connect to AI service. Please try again in a moment! 🔄',
+        code: 'AI_CONNECTION_FAILED'
     };
 }
