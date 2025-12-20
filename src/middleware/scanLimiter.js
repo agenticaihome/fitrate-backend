@@ -38,18 +38,38 @@ function getTodayKey() {
 
 /**
  * Generate secure tracking key from request
- * SECURITY: Uses fingerprint as primary identifier to prevent userId spoofing
+ * FIXED: Uses userId as PRIMARY identifier to prevent identity collisions.
+ * Fingerprint is now secondary (for abuse detection of multi-account switching).
+ * 
+ * RATIONALE: userId is a crypto-random UUID stored in client localStorage.
+ * It's stable per device. Fingerprint (IP+headers) collides for users on:
+ * - Same mobile carrier (NAT)
+ * - Same corporate proxy
+ * - Same VPN server
+ * - Behind Cloudflare (if cf-connecting-ip not trusted)
  */
 function getSecureKey(req) {
-    const fingerprint = generateFingerprint(req);
     const userId = req?.body?.userId || req?.query?.userId;
-    // Fingerprint is the anchor, userId is secondary
-    return userId ? `${fingerprint}:${userId.slice(0, 12)}` : fingerprint;
+    // userId is PRIMARY - fingerprint only used if no userId (anonymous)
+    if (userId && userId.length >= 16) {
+        return `user:${userId}`;
+    }
+    // Fallback: fingerprint for anonymous users
+    const fingerprint = generateFingerprint(req);
+    return `fp:${fingerprint}`;
 }
 
 // Legacy key generation for backward compatibility with status endpoints
 function getLegacyKey(userId, ip) {
     return userId || ip || 'unknown';
+}
+
+/**
+ * Get scan count from request object (unified identity for all endpoints)
+ * Use this instead of getScanCount() for consistent behavior
+ */
+export async function getScanCountFromRequest(req) {
+    return getScanCountSecure(req);
 }
 
 // Clean up old entries every hour (only for in-memory fallback)

@@ -33,12 +33,15 @@ const statusLimiter = rateLimit({
 });
 
 // Check remaining scans + Pro Roasts
+// FIXED: Use same identity logic as /analyze to prevent inconsistent counts
 router.get('/status', statusLimiter, async (req, res) => {
-  const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+  const ip = req.ip || req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || 'unknown';
   const userId = req.query.userId;
   const isPro = await getProStatus(userId, ip);
   const limit = isPro ? LIMITS.pro : LIMITS.free;
-  const used = await getScanCount(userId, ip);
+
+  // FIXED: Use secure count (same identity as /analyze)
+  const used = await getScanCountSecure(req);
   const stats = userId ? await getReferralStats(userId) : { proRoasts: 0, totalReferrals: 0 };
 
   res.json({

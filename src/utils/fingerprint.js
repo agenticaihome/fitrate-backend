@@ -39,9 +39,16 @@ export function generateFingerprint(req) {
 
 /**
  * Get client IP, handling proxies correctly
+ * PRIORITY: cf-connecting-ip (Cloudflare) > x-forwarded-for > x-real-ip > req.ip
  */
 export function getClientIP(req) {
-    // Railway/Cloudflare set these headers
+    // Cloudflare sets the real client IP here (most reliable behind CF)
+    const cfIP = req.headers['cf-connecting-ip'];
+    if (cfIP) {
+        return cfIP.trim();
+    }
+
+    // Railway/other proxies set these headers
     const forwarded = req.headers['x-forwarded-for'];
     if (forwarded) {
         // Take the first IP (original client)
@@ -50,7 +57,7 @@ export function getClientIP(req) {
 
     const realIp = req.headers['x-real-ip'];
     if (realIp) {
-        return realIp;
+        return realIp.trim();
     }
 
     return req.ip || req.connection?.remoteAddress || 'unknown';
