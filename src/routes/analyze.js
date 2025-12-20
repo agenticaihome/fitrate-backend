@@ -9,6 +9,7 @@ import { redis, isRedisAvailable } from '../services/redisClient.js';
 import { validateAndSanitizeImage, quickImageCheck } from '../utils/imageValidator.js';
 import { ERROR_MESSAGES, MODE_CONFIGS } from '../config/systemPrompt.js';
 import { getActiveEvent, recordEventScore } from '../services/eventService.js';
+import { sanitizeAIResponse, checkEventFreezeWindow } from '../utils/contentSanitizer.js';
 
 const router = express.Router();
 
@@ -320,6 +321,23 @@ router.post('/', scanLimiter, async (req, res) => {
       }
     }
 
+    // SECURITY: Sanitize AI output for banned terms (body, weight, attractiveness)
+    if (result.success) {
+      const { sanitized, hadViolations, logEntry } = sanitizeAIResponse(result);
+      if (hadViolations) {
+        console.warn(`[${requestId}] SECURITY: AI output sanitized for banned content`, logEntry);
+        // Log to Redis for monitoring (silently)
+        if (isRedisAvailable()) {
+          await redis.lpush('fitrate:security:sanitized', JSON.stringify({
+            requestId,
+            ...logEntry
+          }));
+          await redis.ltrim('fitrate:security:sanitized', 0, 999); // Keep last 1000
+        }
+      }
+      result = sanitized;
+    }
+
     // Only increment count and cache on successful analysis
     if (result.success) {
       const { limit, isPro } = req.scanInfo;
@@ -343,17 +361,24 @@ router.post('/', scanLimiter, async (req, res) => {
 
       // Record score for event leaderboard if in event mode
       if (eventContext && result.scores?.overall) {
-        try {
-          const eventResult = await recordEventScore(
-            req.scanInfo.userId,
-            result.scores.overall,
-            result.scores.themeCompliant ?? true,
-            isPro
-          );
-          result.eventStatus = eventResult;
-          console.log(`[${requestId}] Event score recorded: ${result.scores.overall} (${eventResult.action})`);
-        } catch (e) {
-          console.warn(`[${requestId}] Failed to record event score: ${e.message}`);
+        // SECURITY: Check freeze window (last 5 min of week)
+        const freezeStatus = checkEventFreezeWindow();
+        if (freezeStatus.frozen) {
+          console.log(`[${requestId}] Event frozen: ${freezeStatus.reason}`);
+          result.eventStatus = { action: 'frozen', message: freezeStatus.reason };
+        } else {
+          try {
+            const eventResult = await recordEventScore(
+              req.scanInfo.userId,
+              result.scores.overall,
+              result.scores.themeCompliant ?? true,
+              isPro
+            );
+            result.eventStatus = eventResult;
+            console.log(`[${requestId}] Event score recorded: ${result.scores.overall} (${eventResult.action})`);
+          } catch (e) {
+            console.warn(`[${requestId}] Failed to record event score: ${e.message}`);
+          }
         }
       }
     } else {
