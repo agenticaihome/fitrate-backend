@@ -102,7 +102,7 @@ export async function analyzeOutfit(imageBase64, options = {}) {
     const response = await Promise.race([
       openai.chat.completions.create({
         model: config.openai.model,
-        max_tokens: 500,  // Increased for Pro tier's richer 200-300 word output
+        max_tokens: 1000,  // Pro tier needs more tokens for rich analysis
         messages: [
           {
             role: 'system',

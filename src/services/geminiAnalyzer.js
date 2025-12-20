@@ -89,7 +89,7 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
         }],
         generationConfig: {
             temperature: 0.7,
-            maxOutputTokens: 600  // Increased from 300 - enhanced prompt needs more tokens for full JSON
+            maxOutputTokens: 800  // Increased buffer for complex JSON output
         }
     };
 
