@@ -2,7 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { analyzeWithGemini } from '../services/geminiAnalyzer.js';
 import { analyzeOutfit as analyzeWithOpenAI } from '../services/outfitAnalyzer.js';
-import { scanLimiter, incrementScanCountSecure, getScanCount, LIMITS, getProStatus, trackInvalidAttempt, isBlockedForInvalidAttempts } from '../middleware/scanLimiter.js';
+import { scanLimiter, incrementScanCountSecure, getScanCount, getScanCountSecure, LIMITS, getProStatus, trackInvalidAttempt, isBlockedForInvalidAttempts } from '../middleware/scanLimiter.js';
 import { getReferralStats, consumeProRoast, hasProRoast } from '../middleware/referralStore.js';
 import { getImageHash, getCachedResult, cacheResult } from '../services/imageHasher.js';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
@@ -407,7 +407,7 @@ router.post('/', scanLimiter, async (req, res) => {
       console.log(`[${requestId}] ❌ Analysis failed: ${result.error}`);
 
       // IMPORTANT: Failed scans do NOT count against daily limit
-      const currentCount = await getScanCount(req);
+      const currentCount = await getScanCountSecure(req);
       const { limit, isPro } = req.scanInfo;
 
       // Add scan info to show user they didn't lose a scan
