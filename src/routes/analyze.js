@@ -290,17 +290,24 @@ router.post('/', scanLimiter, async (req, res) => {
     // Fetch event context if user opted into event mode
     let eventContext = null;
     if (eventMode) {
-      try {
-        const event = await getActiveEvent();
-        eventContext = {
-          theme: event.theme,
-          themeDescription: event.themeDescription,
-          themeEmoji: event.themeEmoji,
-          weekId: event.weekId
-        };
-        console.log(`[${requestId}] Event mode active - theme: ${event.theme}`);
-      } catch (e) {
-        console.warn(`[${requestId}] Failed to fetch event: ${e.message}`);
+      // SECURITY: Event mode is Pro-only - reject free users trying to bypass frontend
+      if (!isPro) {
+        console.log(`[${requestId}] SECURITY: Free user attempted eventMode`);
+        // Silently ignore eventMode for non-Pro users instead of failing the request
+        // This prevents breaking their scan while still protecting the leaderboard
+      } else {
+        try {
+          const event = await getActiveEvent();
+          eventContext = {
+            theme: event.theme,
+            themeDescription: event.themeDescription,
+            themeEmoji: event.themeEmoji,
+            weekId: event.weekId
+          };
+          console.log(`[${requestId}] Event mode active - theme: ${event.theme}`);
+        } catch (e) {
+          console.warn(`[${requestId}] Failed to fetch event: ${e.message}`);
+        }
       }
     }
 
