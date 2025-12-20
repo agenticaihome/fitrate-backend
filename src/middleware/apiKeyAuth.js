@@ -36,8 +36,8 @@ export function apiKeyAuth(req, res, next) {
  * SECURITY: Uses exact matching and requires origin in production
  */
 export function validateOrigin(req, res, next) {
-    // Skip for webhooks and health checks
-    if (req.path === '/health' || req.path.startsWith('/api/webhook')) {
+    // Skip for webhooks, health checks, and diagnostics
+    if (req.path === '/health' || req.path.startsWith('/api/webhook') || req.path.startsWith('/api/diag')) {
         return next();
     }
 
