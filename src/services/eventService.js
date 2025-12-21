@@ -35,11 +35,12 @@ function getTodayKey() {
 }
 
 // Default themes to rotate through
+// Week 52 (Dec 22-28, 2025) = index 3 = Ugly Sweater Gala
 const DEFAULT_THEMES = [
     { theme: 'Holiday Glam', emoji: '✨🎄', description: 'Sparkle, velvet, and festive elegance. Show us your holiday party best!' },
-    { theme: 'Ugly Sweater Gala', emoji: '🎄🧶', description: 'The tackier, the better. Clashing colors, 3D elements, and festive chaos.' },
     { theme: 'Monochrome', emoji: '⬛⬜', description: 'Master the art of single-color styling.' },
     { theme: 'Streetwear', emoji: '🔥👟', description: 'Urban edge, oversized fits, sneaker culture.' },
+    { theme: 'Ugly Sweater Gala', emoji: '🎄🧶', description: 'The tackier, the better. Clashing colors, 3D elements, and festive chaos.' },
     { theme: 'Office Chic', emoji: '💼✨', description: 'Professional but fashionable — power dressing.' },
     { theme: 'Date Night', emoji: '🌙💋', description: 'Romantic, polished, ready to impress.' },
     { theme: 'Athleisure', emoji: '🏃‍♀️💪', description: 'Sporty meets stylish — gym to street.' },
