@@ -8,7 +8,7 @@ import { getImageHash, getCachedResult, cacheResult } from '../services/imageHas
 import { redis, isRedisAvailable } from '../services/redisClient.js';
 import { validateAndSanitizeImage, quickImageCheck } from '../utils/imageValidator.js';
 import { ERROR_MESSAGES, MODE_CONFIGS } from '../config/systemPrompt.js';
-import { getActiveEvent, recordEventScore } from '../services/eventService.js';
+import { getActiveEvent, recordEventScore, canFreeUserSubmit } from '../services/eventService.js';
 import { sanitizeAIResponse, checkEventFreezeWindow } from '../utils/contentSanitizer.js';
 
 const router = express.Router();
@@ -308,12 +308,17 @@ router.post('/', scanLimiter, async (req, res) => {
     // Fetch event context if user opted into event mode
     let eventContext = null;
     if (eventMode) {
-      // SECURITY: Event mode is Pro-only - reject free users trying to bypass frontend
+      // FREEMIUM: Allow free users if they have their weekly entry available
+      let canSubmitToEvent = isPro;
       if (!isPro) {
-        console.log(`[${requestId}] SECURITY: Free user attempted eventMode`);
-        // Silently ignore eventMode for non-Pro users instead of failing the request
-        // This prevents breaking their scan while still protecting the leaderboard
-      } else {
+        const freeEntryStatus = await canFreeUserSubmit(req.scanInfo.userId);
+        canSubmitToEvent = freeEntryStatus.canSubmit;
+        if (!canSubmitToEvent) {
+          console.log(`[${requestId}] Free user weekly entry exhausted`);
+        }
+      }
+
+      if (canSubmitToEvent) {
         try {
           const event = await getActiveEvent();
           eventContext = {
@@ -322,10 +327,12 @@ router.post('/', scanLimiter, async (req, res) => {
             themeEmoji: event.themeEmoji,
             weekId: event.weekId
           };
-          console.log(`[${requestId}] Event mode active - theme: ${event.theme}`);
+          console.log(`[${requestId}] Event mode active - theme: ${event.theme} (isPro: ${isPro})`);
         } catch (e) {
           console.warn(`[${requestId}] Failed to fetch event: ${e.message}`);
         }
+      } else {
+        console.log(`[${requestId}] Event mode denied - no entries available`);
       }
     }
 

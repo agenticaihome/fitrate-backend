@@ -17,6 +17,13 @@ const CURRENT_EVENT_KEY = 'fitrate:event:current';
 const SCORES_PREFIX = 'fitrate:event:scores:';
 const ENTRIES_PREFIX = 'fitrate:event:entries:';
 const ARCHIVE_PREFIX = 'fitrate:event:archive:';
+const FREE_ENTRIES_PREFIX = 'fitrate:event:free:';  // Track free user weekly entries
+const WINNERS_PREFIX = 'fitrate:event:winners:';     // Track past winners for cooldown
+
+// Freemium limits
+const FREE_EVENT_ENTRIES_WEEKLY = 1;   // Free users get 1 entry per week
+const PRO_EVENT_ENTRIES_DAILY = 5;     // Pro users can submit up to 5/day
+const WINNER_COOLDOWN_WEEKS = 4;       // Previous winners sit out 4 weeks
 
 // Default themes to rotate through
 const DEFAULT_THEMES = [
@@ -231,7 +238,92 @@ export async function getActiveEvent() {
 }
 
 /**
+ * Get user's rank in the leaderboard (1-indexed)
+ */
+export async function getUserRank(weekId, userId) {
+    if (!isRedisAvailable()) return null;
+
+    const scoresKey = `${SCORES_PREFIX}${weekId}`;
+    const rank = await redis.zrevrank(scoresKey, userId);
+
+    if (rank === null) return null;
+    return rank + 1; // Convert to 1-indexed
+}
+
+/**
+ * Get leaderboard (top N users)
+ */
+export async function getLeaderboard(weekId, limit = 5) {
+    if (!isRedisAvailable()) return [];
+
+    const scoresKey = `${SCORES_PREFIX}${weekId}`;
+
+    // Get top N with scores
+    const raw = await redis.zrevrange(scoresKey, 0, limit - 1, 'WITHSCORES');
+
+    const leaderboard = [];
+    for (let i = 0; i < raw.length; i += 2) {
+        const odlUserId = raw[i];
+        const compositeScore = parseFloat(raw[i + 1]);
+        const realScore = extractRealScore(compositeScore);
+        const rank = (i / 2) + 1;
+
+        // Get entry details
+        const entryKey = `${ENTRIES_PREFIX}${weekId}:${odlUserId}`;
+        const entryJson = await redis.get(entryKey);
+        const entry = entryJson ? JSON.parse(entryJson) : {};
+
+        leaderboard.push({
+            rank,
+            userId: odlUserId.slice(0, 8) + '...', // Truncated for privacy
+            score: realScore,
+            displayName: entry.displayName || getDefaultDisplayName(rank),
+            isPro: entry.isPro || false,
+            themeCompliant: entry.themeCompliant ?? true
+        });
+    }
+
+    return leaderboard;
+}
+
+/**
+ * Check if a free user can submit to the event this week
+ * Returns { canSubmit: boolean, entriesUsed: number, entriesLimit: number }
+ */
+export async function canFreeUserSubmit(userId) {
+    if (!userId || !isRedisAvailable()) {
+        return { canSubmit: true, entriesUsed: 0, entriesLimit: FREE_EVENT_ENTRIES_WEEKLY };
+    }
+
+    const weekId = getWeekId();
+    const freeEntryKey = `${FREE_ENTRIES_PREFIX}${weekId}:${userId}`;
+    const entriesUsed = parseInt(await redis.get(freeEntryKey)) || 0;
+
+    return {
+        canSubmit: entriesUsed < FREE_EVENT_ENTRIES_WEEKLY,
+        entriesUsed,
+        entriesLimit: FREE_EVENT_ENTRIES_WEEKLY
+    };
+}
+
+/**
+ * Mark that a free user has used their weekly entry
+ */
+async function markFreeUserEntry(userId, weekId) {
+    if (!isRedisAvailable()) return;
+
+    const freeEntryKey = `${FREE_ENTRIES_PREFIX}${weekId}:${userId}`;
+    await redis.incr(freeEntryKey);
+
+    // Set TTL to expire after the week ends (7 days from Monday)
+    await redis.expire(freeEntryKey, 7 * 24 * 60 * 60);
+}
+
+/**
  * Record a score for a user in the current event
+ * FREEMIUM MODEL:
+ * - Pro users: unlimited entries, decimal precision
+ * - Free users: 1 entry/week, whole number scores
  */
 export async function recordEventScore(userId, score, themeCompliant, isPro) {
     if (!userId || score === undefined) return { action: 'error', message: 'Missing userId or score' };
@@ -247,17 +339,28 @@ export async function recordEventScore(userId, score, themeCompliant, isPro) {
         return { action: 'skipped', message: 'Redis not available' };
     }
 
+    // FREEMIUM: Round score to whole number for free users (Pro gets decimal precision)
+    const finalScore = isPro ? score : Math.round(score);
+    const isFirstSubmission = (await redis.zscore(scoresKey, userId)) === null;
+
+    // FREEMIUM: Mark free user's weekly entry as used (only on first submission)
+    if (!isPro && isFirstSubmission) {
+        await markFreeUserEntry(userId, weekId);
+        console.log(`🎫 Free user ${userId.slice(0, 8)}... used their weekly entry`);
+    }
+
     // Get current best (if any)
     const currentComposite = await redis.zscore(scoresKey, userId);
 
     if (currentComposite === null) {
         // First submission
-        const composite = createCompositeScore(score, timestamp);
+        const composite = createCompositeScore(finalScore, timestamp);
         await redis.zadd(scoresKey, composite, userId);
 
         const entry = {
             userId,
-            bestScore: score,
+            bestScore: finalScore,
+            originalScore: score,  // Keep original for debugging
             themeCompliant,
             submissionCount: 1,
             bestSubmissionAt: now,
@@ -267,10 +370,10 @@ export async function recordEventScore(userId, score, themeCompliant, isPro) {
         };
         await redis.set(entryKey, JSON.stringify(entry));
 
-        console.log(`🏆 New event entry: ${userId.slice(0, 8)}... scored ${score}`);
+        console.log(`🏆 New event entry: ${userId.slice(0, 8)}... scored ${finalScore}${!isPro ? ' (rounded)' : ''}`);
 
         const rank = await getUserRank(weekId, userId);
-        return { action: 'added', score, rank };
+        return { action: 'added', score: finalScore, rank, isPro };
     }
 
     const currentScore = extractRealScore(parseFloat(currentComposite));
@@ -450,6 +553,7 @@ export default {
     getUpcomingEvent,
     getAllThemes,
     recordEventScore,
+    canFreeUserSubmit,
     getUserRank,
     getLeaderboard,
     getUserEventStatus,
