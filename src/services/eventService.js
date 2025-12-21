@@ -11,6 +11,7 @@
  */
 
 import { redis, isRedisAvailable } from './redisClient.js';
+import { EntitlementService } from './entitlements.js';
 
 // Redis key patterns
 const CURRENT_EVENT_KEY = 'fitrate:event:current';
@@ -205,8 +206,19 @@ async function archiveEvent(weekId) {
     // WINNER COOLDOWN: Mark top 5 as winners so they sit out next 4 weeks
     // We need to get the FULL userIds (not truncated) from the raw leaderboard
     const raw = await redis.zrevrange(scoresKey, 0, 4);
+    let prizeGranted = 0;
+
     for (const winnerId of raw) {
         await markWinner(winnerId, weekId);
+
+        // 🎁 PRIZE: Grant 1 Year Pro to winners!
+        try {
+            await EntitlementService.grantPro(winnerId, null, 'event_winner');
+            prizeGranted++;
+            console.log(`🎁 Granted 1Y Pro to winner ${winnerId.slice(0, 8)}...`);
+        } catch (err) {
+            console.error(`❌ Failed to grant Pro to ${winnerId.slice(0, 8)}...:`, err.message);
+        }
     }
 
     // Get total participants
@@ -223,6 +235,7 @@ async function archiveEvent(weekId) {
         leaderboard,
         totalParticipants,
         winnersMarked: raw.length,
+        prizesGranted: prizeGranted,
         archivedAt: new Date().toISOString()
     };
 
@@ -230,7 +243,7 @@ async function archiveEvent(weekId) {
     await redis.set(archiveKey, JSON.stringify(archive));
     await redis.expire(archiveKey, 90 * 24 * 60 * 60);
 
-    console.log(`📦 Archived event ${weekId} with ${totalParticipants} participants, ${raw.length} winners marked`);
+    console.log(`📦 Archived event ${weekId}: ${totalParticipants} participants, ${prizeGranted}/${raw.length} Pro prizes granted`);
     return archive;
 }
 
