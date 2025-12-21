@@ -16,6 +16,7 @@ import diagRoutes from './routes/diag.js';
 import eventRoutes from './routes/event.js';
 import adminRoutes from './routes/admin.js';
 import restoreRoutes from './routes/restore.js';
+import pushRoutes from './routes/push.js';
 
 // Security middleware
 import { validateOrigin, costTracker } from './middleware/apiKeyAuth.js';
@@ -141,6 +142,7 @@ app.use('/api/checkout', checkoutRoutes);
 app.use('/api/event', eventRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/restore', restoreRoutes);
+app.use('/api/push', pushRoutes);
 
 // 404 handler
 app.use((req, res) => {
