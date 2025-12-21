@@ -456,55 +456,6 @@ export async function recordEventScore(userId, score, themeCompliant, isPro) {
 }
 
 /**
- * Get user's rank in the leaderboard (1-indexed)
- */
-export async function getUserRank(weekId, userId) {
-    if (!isRedisAvailable()) return null;
-
-    const scoresKey = `${SCORES_PREFIX}${weekId}`;
-    const rank = await redis.zrevrank(scoresKey, userId);
-
-    if (rank === null) return null;
-    return rank + 1; // Convert to 1-indexed
-}
-
-/**
- * Get leaderboard (top N users)
- */
-export async function getLeaderboard(weekId, limit = 5) {
-    if (!isRedisAvailable()) return [];
-
-    const scoresKey = `${SCORES_PREFIX}${weekId}`;
-
-    // Get top N with scores
-    const raw = await redis.zrevrange(scoresKey, 0, limit - 1, 'WITHSCORES');
-
-    const leaderboard = [];
-    for (let i = 0; i < raw.length; i += 2) {
-        const odlUserId = raw[i];
-        const compositeScore = parseFloat(raw[i + 1]);
-        const realScore = extractRealScore(compositeScore);
-        const rank = (i / 2) + 1;
-
-        // Get entry details
-        const entryKey = `${ENTRIES_PREFIX}${weekId}:${odlUserId}`;
-        const entryJson = await redis.get(entryKey);
-        const entry = entryJson ? JSON.parse(entryJson) : {};
-
-        leaderboard.push({
-            rank,
-            userId: odlUserId.slice(0, 8) + '...', // Truncated for privacy
-            score: realScore,
-            displayName: entry.displayName || getDefaultDisplayName(rank),
-            isPro: entry.isPro || false,
-            themeCompliant: entry.themeCompliant ?? true
-        });
-    }
-
-    return leaderboard;
-}
-
-/**
  * Get user's full event status
  */
 export async function getUserEventStatus(weekId, userId) {
