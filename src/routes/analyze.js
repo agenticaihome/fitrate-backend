@@ -8,7 +8,7 @@ import { getImageHash, getCachedResult, cacheResult } from '../services/imageHas
 import { redis, isRedisAvailable } from '../services/redisClient.js';
 import { validateAndSanitizeImage, quickImageCheck } from '../utils/imageValidator.js';
 import { ERROR_MESSAGES, MODE_CONFIGS } from '../config/systemPrompt.js';
-import { getActiveEvent, recordEventScore, canFreeUserSubmit } from '../services/eventService.js';
+import { getActiveEvent, recordEventScore, canFreeUserSubmit, canProUserSubmit } from '../services/eventService.js';
 import { sanitizeAIResponse, checkEventFreezeWindow } from '../utils/contentSanitizer.js';
 
 const router = express.Router();
@@ -308,9 +308,18 @@ router.post('/', scanLimiter, async (req, res) => {
     // Fetch event context if user opted into event mode
     let eventContext = null;
     if (eventMode) {
-      // FREEMIUM: Allow free users if they have their weekly entry available
-      let canSubmitToEvent = isPro;
-      if (!isPro) {
+      // FREEMIUM: Check entry limits for both free and pro users
+      let canSubmitToEvent = false;
+
+      if (isPro) {
+        // PRO: Check daily limit (5/day)
+        const proEntryStatus = await canProUserSubmit(req.scanInfo.userId);
+        canSubmitToEvent = proEntryStatus.canSubmit;
+        if (!canSubmitToEvent) {
+          console.log(`[${requestId}] Pro user daily event entries exhausted (${proEntryStatus.entriesUsed}/${proEntryStatus.entriesLimit})`);
+        }
+      } else {
+        // FREE: Check weekly limit (1/week)
         const freeEntryStatus = await canFreeUserSubmit(req.scanInfo.userId);
         canSubmitToEvent = freeEntryStatus.canSubmit;
         if (!canSubmitToEvent) {

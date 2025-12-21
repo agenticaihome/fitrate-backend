@@ -18,12 +18,20 @@ const SCORES_PREFIX = 'fitrate:event:scores:';
 const ENTRIES_PREFIX = 'fitrate:event:entries:';
 const ARCHIVE_PREFIX = 'fitrate:event:archive:';
 const FREE_ENTRIES_PREFIX = 'fitrate:event:free:';  // Track free user weekly entries
+const PRO_ENTRIES_PREFIX = 'fitrate:event:pro:';    // Track pro user daily entries
 const WINNERS_PREFIX = 'fitrate:event:winners:';     // Track past winners for cooldown
 
 // Freemium limits
 const FREE_EVENT_ENTRIES_WEEKLY = 1;   // Free users get 1 entry per week
 const PRO_EVENT_ENTRIES_DAILY = 5;     // Pro users can submit up to 5/day
 const WINNER_COOLDOWN_WEEKS = 4;       // Previous winners sit out 4 weeks
+
+/**
+ * Get today's date key (YYYY-MM-DD)
+ */
+function getTodayKey() {
+    return new Date().toISOString().split('T')[0];
+}
 
 // Default themes to rotate through
 const DEFAULT_THEMES = [
@@ -320,6 +328,40 @@ async function markFreeUserEntry(userId, weekId) {
 }
 
 /**
+ * Check if a Pro user can submit to the event today
+ * Returns { canSubmit: boolean, entriesUsed: number, entriesLimit: number }
+ */
+export async function canProUserSubmit(userId) {
+    if (!userId || !isRedisAvailable()) {
+        return { canSubmit: true, entriesUsed: 0, entriesLimit: PRO_EVENT_ENTRIES_DAILY };
+    }
+
+    const today = getTodayKey();
+    const proEntryKey = `${PRO_ENTRIES_PREFIX}${today}:${userId}`;
+    const entriesUsed = parseInt(await redis.get(proEntryKey)) || 0;
+
+    return {
+        canSubmit: entriesUsed < PRO_EVENT_ENTRIES_DAILY,
+        entriesUsed,
+        entriesLimit: PRO_EVENT_ENTRIES_DAILY
+    };
+}
+
+/**
+ * Mark that a Pro user has used an entry today
+ */
+async function markProUserEntry(userId) {
+    if (!isRedisAvailable()) return;
+
+    const today = getTodayKey();
+    const proEntryKey = `${PRO_ENTRIES_PREFIX}${today}:${userId}`;
+    await redis.incr(proEntryKey);
+
+    // Set TTL to expire at end of day (24 hours max)
+    await redis.expire(proEntryKey, 24 * 60 * 60);
+}
+
+/**
  * Record a score for a user in the current event
  * FREEMIUM MODEL:
  * - Pro users: unlimited entries, decimal precision
@@ -347,6 +389,12 @@ export async function recordEventScore(userId, score, themeCompliant, isPro) {
     if (!isPro && isFirstSubmission) {
         await markFreeUserEntry(userId, weekId);
         console.log(`🎫 Free user ${userId.slice(0, 8)}... used their weekly entry`);
+    }
+
+    // PRO LIMIT: Mark Pro user's daily entry (every submission counts)
+    if (isPro) {
+        await markProUserEntry(userId);
+        console.log(`⚡ Pro user ${userId.slice(0, 8)}... used an event entry`);
     }
 
     // Get current best (if any)
@@ -554,6 +602,7 @@ export default {
     getAllThemes,
     recordEventScore,
     canFreeUserSubmit,
+    canProUserSubmit,
     getUserRank,
     getLeaderboard,
     getUserEventStatus,
