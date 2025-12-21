@@ -16,7 +16,7 @@ import { ERROR_MESSAGES, SCAN_LIMITS } from '../config/systemPrompt.js';
 const scanStoreFallback = new Map();
 
 const LIMITS = {
-    free: 2,
+    free: 5,
     pro: 25
 };
 
@@ -329,18 +329,11 @@ export async function isBlockedForInvalidAttempts(req) {
 
 /**
  * Main scan limiter middleware
- * 
- * ⚠️ TEMPORARILY DISABLED FOR TESTING - Remove this bypass before production!
- * TODO: Re-enable limits and fix Redis persistence
+ * Free: 5 scans/day, Pro: 25 scans/day
  */
 export async function scanLimiter(req, res, next) {
-    // === TEMPORARY: Bypass all limits for testing ===
     const ip = getClientIP(req);
     const userId = req.body?.userId || req.query?.userId;
-    console.log(`[SCAN] ⚠️ LIMITS DISABLED - allowing scan for ${userId?.slice(0, 12) || 'anonymous'}`);
-    req.scanInfo = { userId, ip, currentCount: 0, limit: 9999, isPro: false };  // isPro: false to use Gemini
-    return next();
-    // === END TEMPORARY BYPASS ===
 
     // Must have userId
     if (!userId) {
