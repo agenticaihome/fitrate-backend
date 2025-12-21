@@ -7,7 +7,7 @@
  */
 
 import webpush from 'web-push';
-import { getRedisClient } from './redisClient.js';
+import { getRedis } from './redisClient.js';
 
 // Redis key prefix for push subscriptions
 const PUSH_KEY_PREFIX = 'push:sub:';
@@ -43,7 +43,7 @@ export const getPublicKey = () => VAPID_PUBLIC_KEY;
  * @param {object} subscription - PushSubscription object from browser
  */
 export const saveSubscription = async (userId, subscription) => {
-    const redis = getRedisClient();
+    const redis = getRedis();
     if (redis) {
         await redis.set(
             `${PUSH_KEY_PREFIX}${userId}`,
@@ -61,7 +61,7 @@ export const saveSubscription = async (userId, subscription) => {
  * @returns {object|null} PushSubscription or null
  */
 export const getSubscription = async (userId) => {
-    const redis = getRedisClient();
+    const redis = getRedis();
     if (!redis) return null;
 
     const data = await redis.get(`${PUSH_KEY_PREFIX}${userId}`);
@@ -73,7 +73,7 @@ export const getSubscription = async (userId) => {
  * @param {string} userId - User ID
  */
 export const removeSubscription = async (userId) => {
-    const redis = getRedisClient();
+    const redis = getRedis();
     if (redis) {
         await redis.del(`${PUSH_KEY_PREFIX}${userId}`);
     }
@@ -128,7 +128,7 @@ export const sendNotification = async (userId, payload) => {
 export const sendBroadcast = async (payload) => {
     if (!isPushEnabled()) return 0;
 
-    const redis = getRedisClient();
+    const redis = getRedis();
     if (!redis) return 0;
 
     // Get all push subscription keys
