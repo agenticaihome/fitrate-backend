@@ -166,7 +166,6 @@ function getScoreTier(score) {
     return 'low';
 }
 
-// === JSON OUTPUT FORMATS ===
 const OUTPUT_FORMAT = {
     free: `{
   "isValidOutfit": boolean,
@@ -177,7 +176,7 @@ const OUTPUT_FORMAT = {
   "aesthetic": "<style aesthetic name>",
   "text": "<80-120 words, punchy analysis>",
   "verdict": "<5-9 words, screenshot-ready>",
-  "lines": ["<zinger 1>", "<zinger 2>"],
+  "lines": ["<outfit observation>", "<vibe/energy callout>"],
   "tagline": "<2-5 word Instagram stamp>",
   "celebMatch": "<trending celeb>",
   "percentile": <0-99>,
@@ -193,7 +192,7 @@ const OUTPUT_FORMAT = {
   "aesthetic": "<style aesthetic name>",
   "text": "<150-200 words, high-fidelity analysis>",
   "verdict": "<5-9 words, screenshot-ready>",
-  "lines": ["<zinger 1>", "<zinger 2>"],
+  "lines": ["<outfit observation>", "<vibe/energy callout>"],
   "tagline": "<2-5 word stamp>",
   "celebMatch": "<trending celeb>",
   "identityReflection": "<What this fit says about them - 1-2 sentences>",
@@ -273,6 +272,12 @@ Examples: "${verdictStyle.examples.join('", "')}"
 - 85+: End with 🔥 or ✨ or 💅  
 - 60-84: Optional emoji
 - <60: End with 💀 or ☠️ or 😬
+
+📝 LINES (2 quotes for share card):
+${mode === 'nice' ? '- Line 1: Specific compliment about the outfit\n- Line 2: Vibe/energy observation (positive)' :
+            mode === 'roast' ? '- Line 1: Playful roast about a specific piece\n- Line 2: Funny overall assessment' :
+                mode === 'honest' ? '- Line 1: Clinical observation about fit/color\n- Line 2: Styling truth bomb' :
+                    '- Line 1: Brutal one-liner destruction\n- Line 2: Savage finisher (no mercy)'}
 
 BANNED: "giving vibes", "slay", "understood the assignment", body comments, brand guessing, "as an AI"
 
