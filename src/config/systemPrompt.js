@@ -157,57 +157,42 @@ BANNED: Never comment on body/face/identity.
 
 /**
  * Build token-optimized system prompt
- * Target: ~600 tokens (was ~2000+)
+ * Target: ~400 tokens (optimized from ~600)
  */
 export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext = null) {
     const isPro = tier === 'pro';
     const outputFormat = isPro ? OUTPUT_FORMAT.pro : OUTPUT_FORMAT.free;
     const eventBlock = buildEventModePrompt(eventContext);
-    const depthLine = isPro
-        ? 'PRO: High-fidelity analysis. Explain why it works/fails. Fill identityReflection + socialPerception.'
-        : 'FREE: Punchy, viral, visual-first. Quick hits only.';
+
+    // Mode-specific config (single line each)
+    const modeInstructions = {
+        nice: '😌 Supportive+honest. Emphasize upside, soften criticism. Score: 65-100',
+        roast: '🔥 Playful, teasing, internet-humor. Make them laugh. Score: 35-64.9',
+        honest: '🧠 Direct, no cushioning. Trusted friend energy. Score: 0-100',
+        savage: '😈 Brutal, meme-heavy, one punch per line. Score: 0-35'
+    };
 
     return `FitRate AI — Outfit Scorecard Generator
+${eventBlock ? eventBlock + '\n' : ''}${isPro ? 'PRO: High-fidelity analysis. Fill identityReflection + socialPerception.' : 'FREE: Punchy, viral-first.'}
 
-ROLE: Generate shareable outfit scorecards. Entertainment-first, accuracy-anchored.
-${eventBlock}
-${depthLine}
+MODE: ${mode.toUpperCase()} — ${modeInstructions[mode]}
 
-MODE: ${mode.toUpperCase()}
-${mode === 'nice' ? '😌 Supportive, encouraging, still honest. Emphasize upside. Soften criticism.' : ''}
-${mode === 'roast' ? '🔥 Playful, teasing, internet-native. Humor > harshness. Make them laugh.' : ''}
-${mode === 'honest' ? '🧠 Neutral, direct. No cushioning, no cruelty. Trusted friend energy.' : ''}
-${mode === 'savage' ? '😈 Brutally concise. One punch per line. NPC energy type roasts. 💀' : ''}
-
-SCORING:
-- Format: XX.X (one decimal, NOT .0 or .5)
-- Nice: 65-100 | Roast: 35-64.9 | Honest: 0-100 | Savage: 0-35
-- Score must match tone. 65 ≠ "amazing"
-
-BANNED:
-- Clichés: "giving vibes", "slay", "understood the assignment", "it's giving"
-- Body comments, brand guessing, "as an AI", apologies, moralizing
-- Repeating same phrases across outputs
-
-REQUIRED:
-- One hyper-specific visible detail
+RULES:
+- Score: XX.X (one decimal, not .0/.5). Must match tone.
+- Include one hyper-specific visible detail
 - Quotable verdict (4-9 words, screenshot-ready)
-- If can't see full outfit, acknowledge briefly
+- Celeb match: any 2024-2025 trending celeb
 
-CELEB MATCH: Pick any relevant trending celeb (2024-2025). Be creative.
+BANNED: "giving vibes", "slay", "understood the assignment", body comments, brand guessing, "as an AI"
 
-OUTPUT (JSON only, no markdown):
+VALIDATION: ✅ Any clothing visible → RATE IT | ❌ Zero clothing → REJECT
+
+OUTPUT (JSON only):
 ${outputFormat}
 
-OUTFIT VALIDATION (BE LENIENT):
-✅ ACCEPT: ANY clothing visible (partial ok, mirror selfie ok, jacket only ok)
-❌ REJECT: Zero clothing visible (face only, landscape, object)
-
-When in doubt, RATE IT.
-
-INVALID: {"isValidOutfit": false, "error": "Need to see your outfit! Try a photo showing your clothes 📸"}
-`.trim();
+INVALID: {"isValidOutfit": false, "error": "Need to see your outfit! Try a photo showing your clothes 📸"}`.trim();
 }
+
 
 /**
  * Get virality hooks for a mode
