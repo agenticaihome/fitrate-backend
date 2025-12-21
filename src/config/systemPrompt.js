@@ -119,11 +119,21 @@ function buildEventModePrompt(eventContext) {
 
     return `
 🏆 EVENT MODE: ${eventContext.themeEmoji} ${eventContext.theme}
-- Theme alignment = 30% of score
-- Off-theme but stylish = cap ~70
-- NEVER comment on body/face/identity
-- Add: "themeScore": 0-100, "themeCompliant": boolean
-${isUglyTheme ? '- UGLY SWEATER: "Uglier" is better. Reward chaos, clashing colors, 3D elements.' : ''}
+${eventContext.themeDescription ? `THEME CRITERIA: "${eventContext.themeDescription}"` : ''}
+
+JUDGING:
+- Theme alignment = 30% of overall score
+- On-theme + stylish = can hit 100
+- Off-theme but stylish = cap at ~70
+- On-theme but poor execution = cap at ~60
+${isUglyTheme ? '- UGLY SWEATER: "Uglier" is better. Reward chaos, clashing colors, 3D elements, ironic bad taste.' : ''}
+
+REQUIRED OUTPUT (add these fields):
+- "themeScore": 0-100 (how well they nailed the theme)
+- "themeCompliant": boolean (did they attempt the theme?)
+- "themeVerdict": "<1 sentence on theme execution>"
+
+BANNED: Never comment on body/face/identity.
 `;
 }
 
