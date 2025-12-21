@@ -138,15 +138,25 @@ async function isRecentWinner(userId) {
 
     if (!lastWinWeek) return false;
 
-    // Calculate weeks since last win
+    // Parse both year and week for proper comparison across year boundaries
     const currentWeekId = getWeekId();
-    const currentWeekNum = parseInt(currentWeekId.split('-W')[1]);
-    const lastWinWeekNum = parseInt(lastWinWeek.split('-W')[1]);
+    const [currentYear, currentWeekStr] = currentWeekId.split('-W');
+    const [lastWinYear, lastWinWeekStr] = lastWinWeek.split('-W');
 
-    // Handle year rollover (simplified - assumes within same year for now)
-    const weeksSinceWin = currentWeekNum - lastWinWeekNum;
+    const currentYearNum = parseInt(currentYear);
+    const currentWeekNum = parseInt(currentWeekStr);
+    const lastWinYearNum = parseInt(lastWinYear);
+    const lastWinWeekNum = parseInt(lastWinWeekStr);
 
-    return weeksSinceWin >= 0 && weeksSinceWin < WINNER_COOLDOWN_WEEKS;
+    // Calculate total weeks difference accounting for year boundaries
+    // Each year has ~52 weeks (53 in some years, but 52 is close enough for cooldown)
+    const yearDiff = currentYearNum - lastWinYearNum;
+    const weeksSinceWin = (yearDiff * 52) + (currentWeekNum - lastWinWeekNum);
+
+    // If weeksSinceWin is negative, the stored data is corrupted/future - ignore it
+    if (weeksSinceWin < 0) return false;
+
+    return weeksSinceWin < WINNER_COOLDOWN_WEEKS;
 }
 
 /**

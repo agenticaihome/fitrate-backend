@@ -74,10 +74,28 @@ export const VIRALITY_HOOKS = {
     savage: ['Survived perfection? Prove it — #FitRateSavage! 💀', 'Dare friends (and refer for extras)!', 'Only the brave share this']
 };
 
-// === CELEB LISTS ===
+// === CELEB LISTS (20+ per gender for variety) ===
 export const CELEBS = {
-    male: ['Timothée Chalamet', 'Bad Bunny', 'Pedro Pascal', 'Jacob Elordi', 'A$AP Rocky', 'Central Cee', 'BTS Jungkook'],
-    female: ['Zendaya', 'Jenna Ortega', 'Ice Spice', 'Sabrina Carpenter', 'Hailey Bieber', 'Jennie', 'Sydney Sweeney']
+    male: [
+        // Actors
+        'Timothée Chalamet', 'Pedro Pascal', 'Jacob Elordi', 'Austin Butler', 'Barry Keoghan', 'Glen Powell',
+        // Musicians
+        'Bad Bunny', 'A$AP Rocky', 'Tyler the Creator', 'Central Cee', 'Jack Harlow', 'Pharrell', 'Frank Ocean',
+        // K-pop
+        'BTS Jungkook', 'BTS V', 'Stray Kids Felix', 'NCT Taeyong', 'G-Dragon',
+        // Athletes & Influencers
+        'LeBron James', 'Lewis Hamilton', 'Odell Beckham Jr', 'Patrick Mahomes'
+    ],
+    female: [
+        // Actors
+        'Zendaya', 'Jenna Ortega', 'Sydney Sweeney', 'Florence Pugh', 'Anya Taylor-Joy', 'Margot Robbie',
+        // Musicians
+        'Ice Spice', 'Sabrina Carpenter', 'Doja Cat', 'Dua Lipa', 'Cardi B', 'SZA', 'Billie Eilish',
+        // K-pop
+        'Jennie', 'Lisa', 'Rosé', 'IU', 'Jisoo',
+        // Models & Influencers
+        'Hailey Bieber', 'Kendall Jenner', 'Bella Hadid', 'Emily Ratajkowski'
+    ]
 };
 
 // === JSON OUTPUT FORMATS ===
