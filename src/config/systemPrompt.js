@@ -1,7 +1,6 @@
 /**
- * FITRATE.APP AI SYSTEM PROMPT - OPTIMIZED FOR SPEED
- * Token-optimized, backend-only configuration.
- * Removed unused frontend renderer configs for faster AI response times.
+ * FITRATE.APP AI SYSTEM PROMPT - LEGENDARY EDITION
+ * Token-optimized with Verdict Variant System for maximum variety.
  */
 
 // === ERROR MESSAGES ===
@@ -98,22 +97,100 @@ export const CELEBS = {
     ]
 };
 
+// ============================================
+// LEGENDARY VERDICT VARIANT SYSTEM
+// Prevents repetition by rotating verdict styles
+// ============================================
+
+// 6 verdict styles for maximum variety
+const VERDICT_STYLES = [
+    {
+        id: 'statement',
+        instruction: 'Punchy statement (e.g., "Main character material")',
+        examples: ['Main character material', 'This fit chose violence', 'Effortlessly dangerous']
+    },
+    {
+        id: 'comparison',
+        instruction: 'Comparison format (e.g., "GQ meets coffee run")',
+        examples: ['GQ meets coffee run', 'Met Gala after dark', 'Pinterest board escaped']
+    },
+    {
+        id: 'question',
+        instruction: 'Question hook (e.g., "Why aren\'t you famous?")',
+        examples: ["Why aren't you famous?", 'Did anyone survive this?', 'Are you even real?']
+    },
+    {
+        id: 'action',
+        instruction: 'Action phrase (e.g., "Drop the @ immediately")',
+        examples: ['Drop the @ immediately', 'Post this before I do', 'Screenshot and send']
+    },
+    {
+        id: 'internet',
+        instruction: 'Internet-speak (e.g., "NPC energy detected")',
+        examples: ['NPC energy detected', 'The fit is fitting', 'Ate and left no crumbs']
+    },
+    {
+        id: 'reaction',
+        instruction: 'Reaction format (e.g., "Screaming crying throwing up")',
+        examples: ['Obsessed is an understatement', 'The audacity of this fit', 'This is a flex']
+    }
+];
+
+// Score-tier emoji rules for verdict
+const VERDICT_EMOJI_RULES = {
+    legendary: { emojis: ['👑', '💎', '🔥'], position: 'end', required: true },
+    fire: { emojis: ['🔥', '✨', '💅'], position: 'end', required: true },
+    great: { emojis: ['✨', '🎯', '💫'], position: 'end', required: false },
+    good: { emojis: ['👀', '🤔', '📈'], position: 'end', required: false },
+    mid: { emojis: ['😬', '💀', '📉'], position: 'end', required: true },
+    low: { emojis: ['☠️', '🪦', '💀'], position: 'end', required: true }
+};
+
+/**
+ * Get random verdict style for variety
+ */
+function getRandomVerdictStyle() {
+    const index = Math.floor(Math.random() * VERDICT_STYLES.length);
+    return VERDICT_STYLES[index];
+}
+
+/**
+ * Get score tier for emoji rules
+ */
+function getScoreTier(score) {
+    if (score >= 95) return 'legendary';
+    if (score >= 85) return 'fire';
+    if (score >= 75) return 'great';
+    if (score >= 60) return 'good';
+    if (score >= 40) return 'mid';
+    return 'low';
+}
+
 // === JSON OUTPUT FORMATS ===
 const OUTPUT_FORMAT = {
     free: `{
   "isValidOutfit": boolean,
   "overall": <0-100>,
+  "color": <0-100>,
+  "fit": <0-100>,
+  "style": <0-100>,
+  "aesthetic": "<style aesthetic name>",
   "text": "<80-120 words, punchy analysis>",
   "verdict": "<5-9 words, screenshot-ready>",
   "lines": ["<zinger 1>", "<zinger 2>"],
   "tagline": "<2-5 word Instagram stamp>",
   "celebMatch": "<trending celeb>",
+  "percentile": <0-99>,
   "mode": "<nice|roast>",
   "error": string (only if isValidOutfit is false)
 }`,
     pro: `{
   "isValidOutfit": boolean,
   "overall": <0-100>,
+  "color": <0-100>,
+  "fit": <0-100>,
+  "style": <0-100>,
+  "aesthetic": "<style aesthetic name>",
   "text": "<150-200 words, high-fidelity analysis>",
   "verdict": "<5-9 words, screenshot-ready>",
   "lines": ["<zinger 1>", "<zinger 2>"],
@@ -123,6 +200,8 @@ const OUTPUT_FORMAT = {
   "socialPerception": "<How others perceive them - 1-2 sentences>",
   "itemRoasts": { "top": "<roast>", "bottom": "<roast>", "shoes": "<roast>" },
   "proTip": "<One actionable style upgrade>",
+  "savageLevel": <1-10, only for savage mode>,
+  "percentile": <0-99>,
   "mode": "<nice|roast|honest|savage>",
   "error": string (only if isValidOutfit is false)
 }`
@@ -156,13 +235,16 @@ BANNED: Never comment on body/face/identity.
 }
 
 /**
- * Build token-optimized system prompt
- * Target: ~400 tokens (optimized from ~600)
+ * Build token-optimized system prompt with Verdict Variant System
+ * Target: ~450 tokens (includes variety instructions)
  */
 export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext = null) {
     const isPro = tier === 'pro';
     const outputFormat = isPro ? OUTPUT_FORMAT.pro : OUTPUT_FORMAT.free;
     const eventBlock = buildEventModePrompt(eventContext);
+
+    // LEGENDARY: Random verdict style for variety
+    const verdictStyle = getRandomVerdictStyle();
 
     // Mode-specific config (single line each)
     const modeInstructions = {
@@ -179,9 +261,18 @@ MODE: ${mode.toUpperCase()} — ${modeInstructions[mode]}
 
 RULES:
 - Score: XX.X (one decimal, not .0/.5). Must match tone.
+- color/fit/style subscores should roughly average to overall (±10 points variance allowed)
 - Include one hyper-specific visible detail
-- Quotable verdict (4-9 words, screenshot-ready)
 - Celeb match: any 2024-2025 trending celeb
+
+🎯 VERDICT STYLE [${verdictStyle.id.toUpperCase()}]: Use ${verdictStyle.instruction}
+Examples: "${verdictStyle.examples.join('", "')}"
+
+🏷️ EMOJI RULES:
+- 95+: End with 👑 or 💎 or 🔥
+- 85+: End with 🔥 or ✨ or 💅  
+- 60-84: Optional emoji
+- <60: End with 💀 or ☠️ or 😬
 
 BANNED: "giving vibes", "slay", "understood the assignment", body comments, brand guessing, "as an AI"
 
@@ -227,7 +318,11 @@ export default {
     MODE_CONFIGS,
     VIRALITY_HOOKS,
     CELEBS,
+    VERDICT_STYLES,
+    VERDICT_EMOJI_RULES,
     buildSystemPrompt,
     getViralityHooks,
-    enhanceWithViralityHooks
+    enhanceWithViralityHooks,
+    getRandomVerdictStyle,
+    getScoreTier
 };
