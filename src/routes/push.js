@@ -143,4 +143,46 @@ router.post('/broadcast', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/push/daily-ootd
+ * Send daily "Rate your OOTD" notification to all subscribers
+ * Called by Railway cron job at 9am
+ * Body: { adminKey }
+ */
+router.post('/daily-ootd', async (req, res) => {
+    try {
+        const { adminKey } = req.body;
+
+        // Admin key check
+        if (adminKey !== process.env.ADMIN_KEY) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        // Rotating motivational messages
+        const messages = [
+            { title: '🔥 Rate Your OOTD!', body: 'What are you wearing today? Get your fit rated!' },
+            { title: '👀 Fit Check Time!', body: 'Show us what you got — rate your outfit now!' },
+            { title: '✨ Daily Fit Rating', body: 'Your outfit deserves a score. Let\'s see it!' },
+            { title: '📸 OOTD Alert!', body: 'Snap your fit and get rated by AI!' },
+            { title: '🎯 How Hard Is Your Fit?', body: 'Find out your score — tap to rate!' }
+        ];
+
+        const message = messages[Math.floor(Math.random() * messages.length)];
+        const count = await PushService.sendBroadcast({
+            ...message,
+            data: { type: 'daily_ootd', action: 'open_camera' }
+        });
+
+        res.json({
+            success: true,
+            sentCount: count,
+            message: `Daily OOTD sent to ${count} users`,
+            notificationUsed: message.title
+        });
+    } catch (err) {
+        console.error('Daily OOTD error:', err);
+        res.status(500).json({ error: 'Failed to send daily OOTD' });
+    }
+});
+
 export default router;

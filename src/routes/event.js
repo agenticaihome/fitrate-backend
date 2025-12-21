@@ -182,4 +182,50 @@ router.get('/archive/:weekId', eventLimiter, async (req, res) => {
     }
 });
 
+/**
+ * GET /api/event/stats
+ * Get participation statistics for the current event
+ * Used to measure if Weekly Challenge should be kept (Founders Council mandate)
+ * Query params: adminKey (required)
+ */
+router.get('/stats', async (req, res) => {
+    try {
+        const { adminKey } = req.query;
+
+        // Admin key check
+        if (adminKey !== process.env.ADMIN_KEY) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        const event = await getActiveEvent();
+        const leaderboard = await getLeaderboard(event.weekId, 100); // Get all participants
+
+        // Calculate stats
+        const totalParticipants = leaderboard.length;
+        const avgScore = totalParticipants > 0
+            ? Math.round(leaderboard.reduce((sum, p) => sum + p.score, 0) / totalParticipants)
+            : 0;
+        const topScore = totalParticipants > 0 ? leaderboard[0]?.score || 0 : 0;
+
+        res.json({
+            success: true,
+            weekId: event.weekId,
+            theme: event.theme,
+            stats: {
+                totalParticipants,
+                avgScore,
+                topScore,
+                endsAt: event.endDate
+            },
+            // Founders Council mandate: if participation < 5% of active users, consider killing feature
+            recommendation: totalParticipants < 50
+                ? '⚠️ Low participation - consider reviewing feature'
+                : '✅ Healthy participation'
+        });
+    } catch (error) {
+        console.error('Error getting event stats:', error);
+        res.status(500).json({ success: false, error: 'Failed to get stats' });
+    }
+});
+
 export default router;
