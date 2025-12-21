@@ -216,5 +216,126 @@ export const EntitlementService = {
             entitlements: Object.fromEntries(cache.entitlements),
             identityMap: Object.fromEntries(Array.from(cache.identityMap.entries()).map(([k, v]) => [k, Array.from(v)]))
         };
+    },
+
+    /**
+     * Restore Pro by email - SINGLE DEVICE ENFORCEMENT
+     * 1. Check if email has Pro entitlement
+     * 2. Revoke ALL previously linked userIds  
+     * 3. Grant Pro to the new userId only
+     * 
+     * @param {string} newUserId - The new device's userId
+     * @param {string} email - Email to restore Pro from
+     * @returns {object} { success, message, revokedDevices }
+     */
+    async restoreProByEmail(newUserId, email) {
+        if (!newUserId || !email) {
+            return { success: false, message: 'Missing userId or email' };
+        }
+
+        const normalizedEmail = email.toLowerCase().trim();
+
+        // Step 1: Check if this email has Pro
+        let hasPro = false;
+        let oldUserIds = [];
+
+        if (isRedisAvailable()) {
+            const emailEntitlement = await redis.get(`entitlement:pro:${normalizedEmail}`);
+            if (emailEntitlement) {
+                const parsed = JSON.parse(emailEntitlement);
+                hasPro = parsed.active === true;
+            }
+
+            // Get old linked userIds
+            oldUserIds = await redis.smembers(`identity:${normalizedEmail}`) || [];
+        } else {
+            const ent = cache.entitlements.get(normalizedEmail);
+            hasPro = ent && ent.active === true;
+
+            const linkedSet = cache.identityMap.get(normalizedEmail);
+            oldUserIds = linkedSet ? Array.from(linkedSet) : [];
+        }
+
+        if (!hasPro) {
+            console.log(`🚫 Restore failed: ${normalizedEmail} has no Pro entitlement`);
+            return { success: false, message: 'No Pro subscription found for this email' };
+        }
+
+        // Step 2: Revoke ALL old userIds (single device enforcement)
+        const revokedCount = oldUserIds.length;
+
+        if (isRedisAvailable()) {
+            const pipeline = redis.pipeline();
+
+            // Delete all old userId entitlements
+            for (const oldId of oldUserIds) {
+                pipeline.del(`entitlement:pro:${oldId}`);
+            }
+
+            // Clear the identity set and add only the new userId
+            pipeline.del(`identity:${normalizedEmail}`);
+            pipeline.sadd(`identity:${normalizedEmail}`, newUserId);
+
+            // Grant Pro to new userId
+            const now = new Date().toISOString();
+            const entitlement = {
+                active: true,
+                grantedAt: now,
+                source: 'restore',
+                lastVerified: now,
+                restoredFrom: normalizedEmail
+            };
+            pipeline.set(`entitlement:pro:${newUserId}`, JSON.stringify(entitlement));
+
+            await pipeline.exec();
+        } else {
+            // Local cache mode
+            for (const oldId of oldUserIds) {
+                cache.entitlements.delete(oldId);
+            }
+
+            // Clear and reset identity map
+            cache.identityMap.set(normalizedEmail, new Set([newUserId]));
+
+            // Grant to new userId
+            const now = new Date().toISOString();
+            cache.entitlements.set(newUserId, {
+                active: true,
+                grantedAt: now,
+                source: 'restore',
+                lastVerified: now,
+                restoredFrom: normalizedEmail
+            });
+
+            await persist();
+        }
+
+        console.log(`🔄 Pro restored: ${normalizedEmail} → ${newUserId.slice(0, 8)}... (revoked ${revokedCount} old devices)`);
+
+        return {
+            success: true,
+            message: 'Pro restored successfully',
+            revokedDevices: revokedCount
+        };
+    },
+
+    /**
+     * Check if email has active Pro (for restore validation)
+     */
+    async hasProByEmail(email) {
+        if (!email) return false;
+        const normalizedEmail = email.toLowerCase().trim();
+
+        if (isRedisAvailable()) {
+            const data = await redis.get(`entitlement:pro:${normalizedEmail}`);
+            if (data) {
+                const parsed = JSON.parse(data);
+                return parsed.active === true;
+            }
+            return false;
+        } else {
+            const ent = cache.entitlements.get(normalizedEmail);
+            return ent && ent.active === true;
+        }
     }
 };
