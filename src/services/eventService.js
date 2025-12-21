@@ -126,6 +126,45 @@ function getThemeForWeek(weekIndex) {
 }
 
 /**
+ * Check if a user is a recent winner (within cooldown period)
+ * Winners sit out WINNER_COOLDOWN_WEEKS after winning
+ */
+async function isRecentWinner(userId) {
+    if (!isRedisAvailable() || !userId) return false;
+
+    const winnerKey = `${WINNERS_PREFIX}${userId}`;
+    const lastWinWeek = await redis.get(winnerKey);
+
+    if (!lastWinWeek) return false;
+
+    // Calculate weeks since last win
+    const currentWeekId = getWeekId();
+    const currentWeekNum = parseInt(currentWeekId.split('-W')[1]);
+    const lastWinWeekNum = parseInt(lastWinWeek.split('-W')[1]);
+
+    // Handle year rollover (simplified - assumes within same year for now)
+    const weeksSinceWin = currentWeekNum - lastWinWeekNum;
+
+    return weeksSinceWin >= 0 && weeksSinceWin < WINNER_COOLDOWN_WEEKS;
+}
+
+/**
+ * Mark a user as a winner for the current week
+ * Called when archiving event and recording top 5
+ */
+async function markWinner(userId, weekId) {
+    if (!isRedisAvailable() || !userId) return;
+
+    const winnerKey = `${WINNERS_PREFIX}${userId}`;
+    await redis.set(winnerKey, weekId);
+
+    // Set TTL to cover the cooldown period plus buffer (5 weeks)
+    await redis.expire(winnerKey, (WINNER_COOLDOWN_WEEKS + 1) * 7 * 24 * 60 * 60);
+
+    console.log(`🏆 Marked ${userId.slice(0, 8)}... as winner for ${weekId}`);
+}
+
+/**
  * Create a new event for the current week
  */
 async function createNewEvent(weekId) {
@@ -153,15 +192,22 @@ async function createNewEvent(weekId) {
 
 /**
  * Archive an event's leaderboard
- */
+*/
 async function archiveEvent(weekId) {
     if (!isRedisAvailable()) return null;
 
     const scoresKey = `${SCORES_PREFIX}${weekId}`;
     const archiveKey = `${ARCHIVE_PREFIX}${weekId}`;
 
-    // Get final leaderboard
+    // Get final leaderboard (top 5)
     const leaderboard = await getLeaderboard(weekId, 5);
+
+    // WINNER COOLDOWN: Mark top 5 as winners so they sit out next 4 weeks
+    // We need to get the FULL userIds (not truncated) from the raw leaderboard
+    const raw = await redis.zrevrange(scoresKey, 0, 4);
+    for (const winnerId of raw) {
+        await markWinner(winnerId, weekId);
+    }
 
     // Get total participants
     const totalParticipants = await redis.zcard(scoresKey);
@@ -176,6 +222,7 @@ async function archiveEvent(weekId) {
         themeEmoji: event.themeEmoji || '',
         leaderboard,
         totalParticipants,
+        winnersMarked: raw.length,
         archivedAt: new Date().toISOString()
     };
 
@@ -183,7 +230,7 @@ async function archiveEvent(weekId) {
     await redis.set(archiveKey, JSON.stringify(archive));
     await redis.expire(archiveKey, 90 * 24 * 60 * 60);
 
-    console.log(`📦 Archived event ${weekId} with ${totalParticipants} participants`);
+    console.log(`📦 Archived event ${weekId} with ${totalParticipants} participants, ${raw.length} winners marked`);
     return archive;
 }
 
@@ -364,22 +411,58 @@ async function markProUserEntry(userId) {
 /**
  * Record a score for a user in the current event
  * FREEMIUM MODEL:
- * - Pro users: unlimited entries, decimal precision
+ * - Pro users: 5 entries/day, decimal precision
  * - Free users: 1 entry/week, whole number scores
+ * 
+ * SECURITY: Server-side validation of limits (don't trust frontend)
  */
 export async function recordEventScore(userId, score, themeCompliant, isPro) {
     if (!userId || score === undefined) return { action: 'error', message: 'Missing userId or score' };
 
+    if (!isRedisAvailable()) {
+        return { action: 'skipped', message: 'Redis not available' };
+    }
+
     const event = await ensureCurrentEvent();
     const weekId = event.weekId;
+
+    // ============================================
+    // SECURITY: Server-side limit enforcement
+    // ============================================
+
+    // Check winner cooldown (previous winners sit out 4 weeks)
+    const isWinner = await isRecentWinner(userId);
+    if (isWinner) {
+        console.log(`🚫 Blocked recent winner ${userId.slice(0, 8)}... from event`);
+        return { action: 'blocked', message: 'Previous winners sit out 4 weeks', reason: 'winner_cooldown' };
+    }
+
+    // Check free user weekly limit
+    if (!isPro) {
+        const freeStatus = await canFreeUserSubmit(userId);
+        if (!freeStatus.canSubmit) {
+            console.log(`🚫 Blocked free user ${userId.slice(0, 8)}... weekly limit reached`);
+            return { action: 'blocked', message: 'Weekly entry limit reached', reason: 'free_limit' };
+        }
+    }
+
+    // Check pro user daily limit
+    if (isPro) {
+        const proStatus = await canProUserSubmit(userId);
+        if (!proStatus.canSubmit) {
+            console.log(`🚫 Blocked Pro user ${userId.slice(0, 8)}... daily limit reached`);
+            return { action: 'blocked', message: 'Daily entry limit reached', reason: 'pro_limit' };
+        }
+    }
+
+    // ============================================
+    // Score recording logic
+    // ============================================
+
     const scoresKey = `${SCORES_PREFIX}${weekId}`;
     const entryKey = `${ENTRIES_PREFIX}${weekId}:${userId}`;
     const timestamp = Date.now();
     const now = new Date().toISOString();
-
-    if (!isRedisAvailable()) {
-        return { action: 'skipped', message: 'Redis not available' };
-    }
 
     // FREEMIUM: Round score to whole number for free users (Pro gets decimal precision)
     const finalScore = isPro ? score : Math.round(score);
