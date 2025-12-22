@@ -30,7 +30,7 @@ export const OUTPUT_LENGTHS = {
 // === MODEL ROUTING ===
 export const MODEL_ROUTING = {
     free: { model: 'gemini', modes: ['nice', 'roast'] },
-    pro: { model: 'gpt-4o', modes: ['nice', 'roast', 'honest', 'savage'] }
+    pro: { model: 'gpt-4o', modes: ['nice', 'roast', 'honest', 'savage', 'rizz', 'celeb', 'aura', 'chaos'] }
 };
 
 // === MODE CONFIGURATIONS ===
@@ -62,6 +62,35 @@ export const MODE_CONFIGS = {
         goal: 'One punch per line. Elite destruction.',
         shareHook: 'Survived perfection? Prove it — #FitRateSavage!',
         challenge: 'Dare friends (and refer for extras)! 💀'
+    },
+    // === NEW PRO MODES ===
+    rizz: {
+        name: 'Rizz', tier: 'pro', scoreRange: [0, 100], emojis: '😏💋🌡️',
+        tone: 'Dating-focused, flirty, social game analysis',
+        goal: 'Rate attraction potential and dating app success. Be playful.',
+        shareHook: "What's your rizz score? 😏 #FitRateRizz",
+        challenge: 'Challenge your crush! 💋'
+    },
+    celeb: {
+        name: 'Celebrity', tier: 'pro', scoreRange: [0, 100], emojis: '🎭👑⭐',
+        tone: 'Impersonating a celebrity fashion judge with their exact voice',
+        goal: 'BE the celebrity. Rate as they would. Match their personality exactly.',
+        shareHook: 'What would Anna Wintour say? 👑 #FitRateCeleb',
+        challenge: 'Get judged by a legend! 🎭'
+    },
+    aura: {
+        name: 'Aura', tier: 'pro', scoreRange: [0, 100], emojis: '🔮✨🌈',
+        tone: 'Mystical, energy-reader, spiritual fashion analysis',
+        goal: 'Read their vibe, aura color, and energy. Be mystical but fun.',
+        shareHook: "What's your aura? 🔮 #FitRateAura",
+        challenge: 'Compare auras with friends! ✨'
+    },
+    chaos: {
+        name: 'Chaos', tier: 'pro', scoreRange: [0, 100], emojis: '🎪🤡🌀',
+        tone: 'Absurdist, unpredictable, surreal humor, unhinged',
+        goal: 'Be UNHINGED. Wild comparisons. Chaotic energy. Surprise them.',
+        shareHook: 'The AI went feral 🎪 #FitRateChaos',
+        challenge: 'Dare friends to survive chaos! 🌀'
     }
 };
 
@@ -70,7 +99,11 @@ export const VIRALITY_HOOKS = {
     nice: ["You're perfection! Share #FitRateNice 💫", 'Challenge friends to match this glow!', 'Tag your style twin 👯‍♀️'],
     roast: ['Roasted to perfection? Tag squad — #FitRateRoast! 🔥', 'Start a chain for referral rewards!', 'Dare friends to survive this!'],
     honest: ['Truth unlocked — share your journey #FitRateHonest 💡', 'Pro perfection pays off!', 'Real feedback, real growth 💪'],
-    savage: ['Survived perfection? Prove it — #FitRateSavage! 💀', 'Dare friends (and refer for extras)!', 'Only the brave share this']
+    savage: ['Survived perfection? Prove it — #FitRateSavage! 💀', 'Dare friends (and refer for extras)!', 'Only the brave share this'],
+    rizz: ["What's YOUR rizz score? 😏 #FitRateRizz", 'Challenge your crush!', 'Dating app audit complete 💋'],
+    celeb: ['Judged by a legend 👑 #FitRateCeleb', 'What would YOUR celeb say?', 'Celebrity verdict is in 🎭'],
+    aura: ['Your aura has been read 🔮 #FitRateAura', 'Compare vibes with friends!', 'Main character or NPC? ✨'],
+    chaos: ['The AI went FERAL 🎪 #FitRateChaos', 'Dare friends to try chaos mode!', 'Unhinged rating unlocked 🌀']
 };
 
 // === CELEB LISTS (20+ per gender for variety) ===
@@ -204,7 +237,26 @@ const OUTPUT_FORMAT = {
   "proTip": "<One actionable style upgrade>",
   "savageLevel": <1-10, only for savage mode>,
   "percentile": <0-99>,
-  "mode": "<nice|roast|honest|savage>",
+  "mode": "<nice|roast|honest|savage|rizz|celeb|aura|chaos>",
+  // === RIZZ MODE FIELDS (only for rizz mode) ===
+  "rizzType": "<Unspoken Rizz | W Rizz | L Rizz | Subtle Rizz>",
+  "pullProbability": <0-100>,
+  "pickupLine": "<outfit-appropriate pickup line>",
+  "datingApps": { "tinder": <1-10>, "hinge": <1-10>, "bumble": <1-10> },
+  // === CELEB MODE FIELDS (only for celeb mode) ===
+  "celebrityJudge": "<Anna Wintour | Kanye | Rihanna | Karl Lagerfeld | Zendaya>",
+  "celebQuote": "<in-character quote about the outfit>",
+  "wouldTheyWear": <boolean>,
+  // === AURA MODE FIELDS (only for aura mode) ===
+  "auraColor": "<Gold | Purple | Red | Blue | Green | Silver | Rainbow | Black>",
+  "energyLevel": <0-100>,
+  "vibeAssessment": "<Main Character | NPC | Side Quest | Final Boss | Protagonist>",
+  "spiritualRoast": "<mystical fashion critique, 1 sentence>",
+  // === CHAOS MODE FIELDS (only for chaos mode) ===
+  "chaosLevel": <1-10>,
+  "absurdComparison": "<wild surreal comparison>",
+  "alternateReality": "<what this outfit is in a parallel universe>",
+  // === EVENT FIELDS ===
   "themeScore": <0-100, only in event mode>,
   "themeCompliant": <boolean, only in event mode>,
   "themeVerdict": "<1 sentence on theme execution, only in event mode>",
@@ -253,10 +305,26 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
 
     // Mode-specific config (single line each)
     const modeInstructions = {
-        nice: '😌 Supportive+honest. Emphasize upside, soften criticism. Score: 65-100',
+        nice: '😌 Supportive+honest. Emphasize upside, soften criticism. Score: 70-100',
         roast: '🔥 Playful, teasing, internet-humor. Make them laugh. Score: 35-64.9',
         honest: '🧠 Direct, no cushioning. Trusted friend energy. Score: 0-100',
-        savage: '😈 Brutal, meme-heavy, one punch per line. Score: 0-35'
+        savage: '😈 Brutal, meme-heavy, one punch per line. Score: 0-35',
+        rizz: '😏 DATING GURU mode. Rate attraction/rizz potential. Fill: rizzType, pullProbability, pickupLine, datingApps. Score: 0-100',
+        celeb: '🎭 BE A CELEBRITY JUDGE. Pick ONE: Anna Wintour (ice queen), Kanye (chaotic genius), Rihanna (bold queen), Zendaya (graceful). Fill: celebrityJudge, celebQuote (in their voice), wouldTheyWear. Score: 0-100',
+        aura: '🔮 MYSTICAL VIBE READER. Read their energy/aura. Fill: auraColor, energyLevel, vibeAssessment (Main Character/NPC/Side Quest/Final Boss), spiritualRoast. Score: 0-100',
+        chaos: '🎪 UNHINGED MODE. Be CHAOTIC. Wild tangents, absurd logic, surreal comparisons. Fill: chaosLevel, absurdComparison ("This outfit has 3am gas station energy"), alternateReality. Score: 0-100'
+    };
+
+    // Mode-specific LINES instructions
+    const linesInstructions = {
+        nice: '- Line 1: Specific compliment about the outfit\n- Line 2: Vibe/energy observation (positive)',
+        roast: '- Line 1: Playful roast about a specific piece\n- Line 2: Funny overall assessment',
+        honest: '- Line 1: Clinical observation about fit/color\n- Line 2: Styling truth bomb',
+        savage: '- Line 1: Brutal one-liner destruction\n- Line 2: Savage finisher (no mercy)',
+        rizz: '- Line 1: Flirty observation about their style appeal\n- Line 2: Dating potential assessment',
+        celeb: '- Line 1: Celebrity\'s first impression (in their voice)\n- Line 2: Their verdict/advice (stay in character)',
+        aura: '- Line 1: Mystical energy reading\n- Line 2: Vibe/aura revelation',
+        chaos: '- Line 1: Unhinged observation (be weird)\n- Line 2: Chaotic verdict (surprise them)'
     };
 
     return `FitRate AI — Outfit Scorecard Generator
@@ -280,10 +348,7 @@ Examples: "${verdictStyle.examples.join('", "')}"
 - <60: End with 💀 or ☠️ or 😬
 
 📝 LINES (2 quotes for share card):
-${mode === 'nice' ? '- Line 1: Specific compliment about the outfit\n- Line 2: Vibe/energy observation (positive)' :
-            mode === 'roast' ? '- Line 1: Playful roast about a specific piece\n- Line 2: Funny overall assessment' :
-                mode === 'honest' ? '- Line 1: Clinical observation about fit/color\n- Line 2: Styling truth bomb' :
-                    '- Line 1: Brutal one-liner destruction\n- Line 2: Savage finisher (no mercy)'}
+${linesInstructions[mode] || linesInstructions.nice}
 
 BANNED: "giving vibes", "slay", "understood the assignment", body comments, brand guessing, "as an AI"
 
