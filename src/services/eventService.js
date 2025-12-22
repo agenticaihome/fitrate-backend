@@ -214,29 +214,20 @@ async function archiveEvent(weekId) {
     // Get final leaderboard (top 5)
     const leaderboard = await getLeaderboard(weekId, 5);
 
-    // WINNER COOLDOWN: Mark top 5 as winners so they sit out next 4 weeks
-    // We need to get the FULL userIds (not truncated) from the raw leaderboard
+    // Get top 5 user IDs for logging
     const raw = await redis.zrevrange(scoresKey, 0, 4);
     let prizeGranted = 0;
 
-    for (let i = 0; i < raw.length; i++) {
-        const winnerId = raw[i];
-        const rank = i + 1;
-
-        // All top 5 get marked for cooldown
-        await markWinner(winnerId, weekId);
-
-        // 🎁 PRIZE: Only #1 gets 1 Year Pro!
-        if (rank === 1) {
-            try {
-                await EntitlementService.grantPro(winnerId, null, 'event_winner');
-                prizeGranted++;
-                console.log(`🏆 Granted 1Y Pro to #1 WINNER ${winnerId.slice(0, 8)}...`);
-            } catch (err) {
-                console.error(`❌ Failed to grant Pro to ${winnerId.slice(0, 8)}...:`, err.message);
-            }
-        } else {
-            console.log(`🥈 Top ${rank} ${winnerId.slice(0, 8)}... marked for cooldown (no prize)`);
+    // 🎁 PRIZE: Only #1 gets 1 Year Pro!
+    if (raw.length > 0) {
+        const winnerId = raw[0];
+        try {
+            await EntitlementService.grantPro(winnerId, null, 'event_winner');
+            prizeGranted++;
+            console.log(`🏆 Granted 1Y Pro to #1 WINNER ${winnerId.slice(0, 8)}...`);
+        } catch (err) {
+            // If they already have Pro, that's fine - they just keep it!
+            console.log(`⚠️ Winner ${winnerId.slice(0, 8)}... already has Pro or error: ${err.message}`);
         }
     }
 
@@ -253,7 +244,6 @@ async function archiveEvent(weekId) {
         themeEmoji: event.themeEmoji || '',
         leaderboard,
         totalParticipants,
-        winnersMarked: raw.length,
         prizesGranted: prizeGranted,
         archivedAt: new Date().toISOString()
     };
