@@ -384,6 +384,11 @@ export async function isBlockedForInvalidAttempts(req) {
  * Main scan limiter middleware
  * HYBRID MODEL: Free users get 1 Pro Preview (GPT-4o) + 1 Free (Gemini) = 2/day
  * Pro users: 25 scans/day (all GPT-4o)
+ * 
+ * NEW: Frontend can send useProScan to let user CONSCIOUSLY choose:
+ *   - useProScan: true  → Use Pro Preview (GPT-4o) for this scan
+ *   - useProScan: false → Skip Pro Preview, use Free (Gemini)
+ *   - useProScan: undefined → Auto behavior (use Pro if available)
  */
 export async function scanLimiter(req, res, next) {
     const ip = getClientIP(req);
@@ -411,7 +416,24 @@ export async function scanLimiter(req, res, next) {
     // PRO PREVIEW: Check if first scan (eligible for GPT-4o taste)
     const proPreviewAvailable = !isPro && await shouldUseProPreview(userId);
 
-    console.log(`[SCAN] userId:${userId.slice(0, 12)} count:${currentCount}/${limit} isPro:${isPro} proPreview:${proPreviewAvailable}`);
+    // USER CHOICE: Respect frontend's conscious choice if provided
+    // - useProScan === true: User explicitly chose Pro scan
+    // - useProScan === false: User explicitly chose Free scan (skip Pro Preview)
+    // - useProScan === undefined: Auto behavior (use Pro if available)
+    const frontendChoice = req.body?.useProScan;
+    let actuallyUseProPreview = proPreviewAvailable;
+
+    if (frontendChoice === false) {
+        // User explicitly chose FREE scan - skip Pro Preview even if available
+        actuallyUseProPreview = false;
+        console.log(`[SCAN] User chose FREE scan - skipping Pro Preview`);
+    } else if (frontendChoice === true && proPreviewAvailable) {
+        // User explicitly chose PRO scan - use it
+        actuallyUseProPreview = true;
+        console.log(`[SCAN] User chose PRO scan - using Pro Preview`);
+    }
+
+    console.log(`[SCAN] userId:${userId.slice(0, 12)} count:${currentCount}/${limit} isPro:${isPro} proPreview:${actuallyUseProPreview} (available:${proPreviewAvailable}, choice:${frontendChoice})`);
 
     // Enforce limit
     if (currentCount >= limit) {
@@ -438,7 +460,7 @@ export async function scanLimiter(req, res, next) {
         currentCount,
         limit,
         isPro,
-        useProPreview: proPreviewAvailable // TRUE = route to GPT-4o for "taste"
+        useProPreview: actuallyUseProPreview // TRUE = route to GPT-4o for "taste"
     };
     next();
 }
