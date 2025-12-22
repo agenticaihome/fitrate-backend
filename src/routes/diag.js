@@ -32,8 +32,56 @@ router.get('/', (req, res) => {
             GEMINI_API_KEY: !!process.env.GEMINI_API_KEY,
             ALLOWED_ORIGINS: !!process.env.ALLOWED_ORIGINS,
             STRIPE_SECRET_KEY: !!process.env.STRIPE_SECRET_KEY,
+            REDIS_URL: !!process.env.REDIS_URL,
         }
     });
+});
+
+/**
+ * Test Redis connection and status
+ * GET /api/diag/redis
+ */
+router.get('/redis', async (req, res) => {
+    try {
+        const { redis, isRedisAvailable } = await import('../services/redisClient.js');
+
+        const result = {
+            redisUrlSet: !!process.env.REDIS_URL,
+            redisClientNull: redis === null,
+            redisStatus: redis?.status || 'null',
+            isAvailable: isRedisAvailable(),
+        };
+
+        // If Redis is available, try a simple operation
+        if (isRedisAvailable()) {
+            try {
+                await redis.set('fitrate:diag:test', 'ok', 'EX', 10);
+                const testValue = await redis.get('fitrate:diag:test');
+                result.testWrite = testValue === 'ok';
+
+                // Check current event key
+                const eventKey = await redis.get('fitrate:event:current');
+                result.hasEventKey = !!eventKey;
+                if (eventKey) {
+                    const event = JSON.parse(eventKey);
+                    result.currentTheme = event.theme;
+                    result.currentWeekId = event.weekId;
+                }
+
+                // Check leaderboard entries
+                const weekId = result.currentWeekId || 'unknown';
+                const leaderboardSize = await redis.zcard(`fitrate:event:scores:${weekId}`);
+                result.leaderboardSize = leaderboardSize;
+
+            } catch (opError) {
+                result.operationError = opError.message;
+            }
+        }
+
+        res.json({ success: true, redis: result });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 /**
