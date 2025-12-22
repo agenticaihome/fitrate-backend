@@ -219,16 +219,24 @@ async function archiveEvent(weekId) {
     const raw = await redis.zrevrange(scoresKey, 0, 4);
     let prizeGranted = 0;
 
-    for (const winnerId of raw) {
+    for (let i = 0; i < raw.length; i++) {
+        const winnerId = raw[i];
+        const rank = i + 1;
+
+        // All top 5 get marked for cooldown
         await markWinner(winnerId, weekId);
 
-        // 🎁 PRIZE: Grant 1 Year Pro to winners!
-        try {
-            await EntitlementService.grantPro(winnerId, null, 'event_winner');
-            prizeGranted++;
-            console.log(`🎁 Granted 1Y Pro to winner ${winnerId.slice(0, 8)}...`);
-        } catch (err) {
-            console.error(`❌ Failed to grant Pro to ${winnerId.slice(0, 8)}...:`, err.message);
+        // 🎁 PRIZE: Only #1 gets 1 Year Pro!
+        if (rank === 1) {
+            try {
+                await EntitlementService.grantPro(winnerId, null, 'event_winner');
+                prizeGranted++;
+                console.log(`🏆 Granted 1Y Pro to #1 WINNER ${winnerId.slice(0, 8)}...`);
+            } catch (err) {
+                console.error(`❌ Failed to grant Pro to ${winnerId.slice(0, 8)}...:`, err.message);
+            }
+        } else {
+            console.log(`🥈 Top ${rank} ${winnerId.slice(0, 8)}... marked for cooldown (no prize)`);
         }
     }
 
