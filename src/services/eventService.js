@@ -264,14 +264,16 @@ async function archiveEvent(weekId) {
  */
 export async function ensureCurrentEvent() {
     const currentWeekId = getWeekId();
+    const weekIndex = parseInt(currentWeekId.split('-W')[1]) - 1;
+    const themeConfig = getThemeForWeek(weekIndex);
 
     if (!isRedisAvailable()) {
-        // Fallback for local dev without Redis
+        // Fallback for local dev without Redis - STILL calculate correct theme
         return {
             weekId: currentWeekId,
-            theme: DEFAULT_THEMES[0].theme,
-            themeDescription: DEFAULT_THEMES[0].description,
-            themeEmoji: DEFAULT_THEMES[0].emoji,
+            theme: themeConfig.theme,
+            themeDescription: themeConfig.description,
+            themeEmoji: themeConfig.emoji,
             startDate: getWeekStart().toISOString(),
             endDate: getWeekEnd().toISOString(),
             status: 'active',
