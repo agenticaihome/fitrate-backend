@@ -15,18 +15,20 @@ router.post('/reset-event', async (req, res) => {
     }
 
     try {
-        if (!isRedisAvailable()) {
-            return res.status(500).json({ error: 'Redis not available' });
+        // Try to get current state (may fail if Redis not ready)
+        let currentEvent = null;
+        try {
+            if (redis) {
+                const currentEventJson = await redis.get('fitrate:event:current');
+                currentEvent = currentEventJson ? JSON.parse(currentEventJson) : null;
+                // Delete the current event key
+                await redis.del('fitrate:event:current');
+            }
+        } catch (redisErr) {
+            console.warn('Redis get/del failed, continuing anyway:', redisErr.message);
         }
 
-        // Get current state for logging
-        const currentEventJson = await redis.get('fitrate:event:current');
-        const currentEvent = currentEventJson ? JSON.parse(currentEventJson) : null;
-
-        // Delete the current event key
-        await redis.del('fitrate:event:current');
-
-        // Force regeneration of event
+        // Force regeneration of event (this has its own Redis handling)
         const newEvent = await ensureCurrentEvent();
         const currentWeekId = getWeekId();
 
@@ -40,7 +42,7 @@ router.post('/reset-event', async (req, res) => {
         });
     } catch (error) {
         console.error('Reset event error:', error);
-        return res.status(500).json({ error: 'Failed to reset event' });
+        return res.status(500).json({ error: 'Failed to reset event', details: error.message });
     }
 });
 
