@@ -118,10 +118,11 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Origin validation for API routes (skip for webhooks, admin, and diag)
+// Origin validation for API routes (skip for webhooks, admin, diag, and event)
 app.use('/api/', (req, res, next) => {
-  if (req.path.startsWith('/admin') || req.path.startsWith('/diag')) {
-    return next(); // Skip origin check for admin and diag endpoints
+  // Skip origin check for public read-only endpoints
+  if (req.path.startsWith('/admin') || req.path.startsWith('/diag') || req.path.startsWith('/event')) {
+    return next();
   }
   validateOrigin(req, res, next);
 });
