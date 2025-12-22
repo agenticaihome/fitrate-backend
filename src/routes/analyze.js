@@ -2,7 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { analyzeWithGemini } from '../services/geminiAnalyzer.js';
 import { analyzeOutfit as analyzeWithOpenAI } from '../services/outfitAnalyzer.js';
-import { scanLimiter, incrementScanSimple, getScanCount, getScanCountSecure, LIMITS, getProStatus, trackInvalidAttempt, isBlockedForInvalidAttempts } from '../middleware/scanLimiter.js';
+import { scanLimiter, incrementScanSimple, getScanCount, getScanCountSecure, LIMITS, getProStatus, trackInvalidAttempt, isBlockedForInvalidAttempts, markProPreviewUsed } from '../middleware/scanLimiter.js';
 import { getReferralStats, consumeProRoast, hasProRoast } from '../middleware/referralStore.js';
 import { getImageHash, getCachedResult, cacheResult } from '../services/imageHasher.js';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
@@ -300,10 +300,15 @@ router.post('/', scanLimiter, async (req, res) => {
       suspiciousFlag: false // Backend middleware already handles this, but AI acts as backup
     };
 
-    // Route to appropriate AI based on user tier
-    const analyzer = isPro ? analyzeWithOpenAI : analyzeWithGemini;
-    const serviceName = isPro ? 'OpenAI GPT-4o' : 'Gemini';
-    console.log(`[${requestId}] Using ${serviceName} (isPro: ${isPro})`);
+    // HYBRID MODEL: Route to appropriate AI
+    // - Pro users: Always GPT-4o
+    // - Free users: First scan = GPT-4o "taste" (Pro Preview), then Gemini
+    const useProPreview = req.scanInfo?.useProPreview || false;
+    const useOpenAI = isPro || useProPreview;
+    const analyzer = useOpenAI ? analyzeWithOpenAI : analyzeWithGemini;
+    const serviceName = useOpenAI ? 'OpenAI GPT-4o' : 'Gemini';
+    const scanType = isPro ? 'PRO' : (useProPreview ? '🌟 PRO PREVIEW' : 'FREE');
+    console.log(`[${requestId}] Using ${serviceName} [${scanType}] (isPro: ${isPro}, proPreview: ${useProPreview})`);
 
     // Fetch event context if user opted into event mode
     let eventContext = null;
@@ -393,12 +398,20 @@ router.post('/', scanLimiter, async (req, res) => {
       result.resultId = requestId;
 
       // Add scan info to response
+      const usedProPreview = req.scanInfo?.useProPreview || false;
       result.scanInfo = {
         scansUsed: newCount,
         scansLimit: limit,
         scansRemaining: Math.max(0, limit - newCount),
-        isPro
+        isPro,
+        wasProPreview: usedProPreview // Tell frontend this was a Pro taste scan
       };
+
+      // Mark Pro Preview as consumed (for free users)
+      if (usedProPreview && !isPro) {
+        await markProPreviewUsed(req.scanInfo.userId);
+        console.log(`[${requestId}] 🌟 Pro Preview consumed - next scan will use Gemini`);
+      }
 
       // Record score for event leaderboard if in event mode
       if (eventContext && result.scores?.overall) {

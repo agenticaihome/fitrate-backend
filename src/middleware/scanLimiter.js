@@ -14,22 +14,25 @@ import { ERROR_MESSAGES, SCAN_LIMITS } from '../config/systemPrompt.js';
 
 // In-memory fallback for local dev
 const scanStoreFallback = new Map();
+const proPreviewStoreFallback = new Map(); // Track Pro Preview usage per user per day
 
+// NEW: 1 Pro Preview (GPT-4o) + 1 Free (Gemini) = 2 total per day
 const LIMITS = {
-    free: 5,
+    free: 2,   // Total scans (1 Pro Preview + 1 Free)
     pro: 25
 };
 
 // Redis key patterns
 const SCAN_KEY_PREFIX = 'fitrate:scans:';
+const PRO_PREVIEW_PREFIX = 'fitrate:propreview:'; // NEW: Track Pro Preview usage
 const PRO_STATUS_PREFIX = 'fitrate:pro:status:';
-const INVALID_ATTEMPTS_PREFIX = 'fitrate:invalid:'; // Track failed/invalid image submissions
-const REPEAT_OFFENDER_PREFIX = 'fitrate:banned:'; // Permanently banned repeat offenders
+const INVALID_ATTEMPTS_PREFIX = 'fitrate:invalid:';
+const REPEAT_OFFENDER_PREFIX = 'fitrate:banned:';
 
-// Limits - RELAXED for early-stage UX (can tighten later)
-const MAX_INVALID_ATTEMPTS = 20; // Was 5 - more forgiving for legitimate users
-const INVALID_BLOCK_DURATION = 3600; // 1 hour block (was 24 hours)
-const PERMANENT_BAN_DURATION = 604800; // 7 days "permanent" ban (was 30 days)
+// Limits - RELAXED for early-stage UX
+const MAX_INVALID_ATTEMPTS = 20;
+const INVALID_BLOCK_DURATION = 3600;
+const PERMANENT_BAN_DURATION = 604800;
 
 // Get today's date string for key
 function getTodayKey() {
@@ -91,6 +94,49 @@ export function incrementScanSimple(userId) {
     return data.count;
 }
 
+/**
+ * PRO PREVIEW SYSTEM - First scan of day uses GPT-4o for "taste"
+ * Check if user has used their daily Pro Preview
+ */
+export async function hasUsedProPreview(userId) {
+    if (!userId) return false;
+    const today = getTodayKey();
+    const key = `${userId}:${today}`;
+
+    if (isRedisAvailable()) {
+        const used = await redis.get(`${PRO_PREVIEW_PREFIX}${key}`);
+        return used === '1';
+    } else {
+        return proPreviewStoreFallback.get(key) === true;
+    }
+}
+
+/**
+ * Mark Pro Preview as used for today
+ */
+export async function markProPreviewUsed(userId) {
+    if (!userId) return;
+    const today = getTodayKey();
+    const key = `${userId}:${today}`;
+
+    if (isRedisAvailable()) {
+        await redis.set(`${PRO_PREVIEW_PREFIX}${key}`, '1');
+        await redis.expire(`${PRO_PREVIEW_PREFIX}${key}`, 86400); // 24h TTL
+    } else {
+        proPreviewStoreFallback.set(key, true);
+    }
+    console.log(`[PRO_PREVIEW] Marked used for ${userId.slice(0, 12)}`);
+}
+
+/**
+ * Check if next scan should use Pro Preview (GPT-4o)
+ * Returns true if Pro Preview is available (not yet used today)
+ */
+export async function shouldUseProPreview(userId) {
+    const used = await hasUsedProPreview(userId);
+    return !used; // First scan of day = Pro Preview
+}
+
 // Clean up old entries every hour (only for in-memory fallback)
 setInterval(() => {
     if (!isRedisAvailable()) {
@@ -98,6 +144,13 @@ setInterval(() => {
         for (const [key, data] of scanStoreFallback.entries()) {
             if (data.date !== today) {
                 scanStoreFallback.delete(key);
+            }
+        }
+        // Also clean proPreviewStoreFallback
+        const todayKey = getTodayKey();
+        for (const key of proPreviewStoreFallback.keys()) {
+            if (!key.includes(todayKey)) {
+                proPreviewStoreFallback.delete(key);
             }
         }
     }
@@ -329,7 +382,8 @@ export async function isBlockedForInvalidAttempts(req) {
 
 /**
  * Main scan limiter middleware
- * Free: 5 scans/day, Pro: 25 scans/day
+ * HYBRID MODEL: Free users get 1 Pro Preview (GPT-4o) + 1 Free (Gemini) = 2/day
+ * Pro users: 25 scans/day (all GPT-4o)
  */
 export async function scanLimiter(req, res, next) {
     const ip = getClientIP(req);
@@ -338,7 +392,7 @@ export async function scanLimiter(req, res, next) {
     // Must have userId
     if (!userId) {
         console.log(`[SCAN] No userId provided, allowing through`);
-        req.scanInfo = { userId: null, ip, currentCount: 0, limit: LIMITS.free, isPro: false };
+        req.scanInfo = { userId: null, ip, currentCount: 0, limit: LIMITS.free, isPro: false, useProPreview: false };
         return next();
     }
 
@@ -354,7 +408,10 @@ export async function scanLimiter(req, res, next) {
     const isPro = await getProStatus(userId, ip);
     const limit = isPro ? LIMITS.pro : LIMITS.free;
 
-    console.log(`[SCAN] userId:${userId.slice(0, 12)} count:${currentCount}/${limit} isPro:${isPro}`);
+    // PRO PREVIEW: Check if first scan (eligible for GPT-4o taste)
+    const proPreviewAvailable = !isPro && await shouldUseProPreview(userId);
+
+    console.log(`[SCAN] userId:${userId.slice(0, 12)} count:${currentCount}/${limit} isPro:${isPro} proPreview:${proPreviewAvailable}`);
 
     // Enforce limit
     if (currentCount >= limit) {
@@ -363,17 +420,26 @@ export async function scanLimiter(req, res, next) {
             success: false,
             error: isPro
                 ? 'Daily Pro limit reached. Come back tomorrow!'
-                : `You've used your ${limit} free scans today. Upgrade to Pro for 25/day!`,
+                : `You've used your 2 daily scans (1 Pro + 1 Free). Upgrade for unlimited Pro quality!`,
             code: 'LIMIT_REACHED',
             limitReached: true,
             isPro,
             scansUsed: currentCount,
             scansLimit: limit,
+            proPreviewUsed: !proPreviewAvailable,
             resetTime: getResetTime()
         });
     }
 
-    req.scanInfo = { userId, ip, currentCount, limit, isPro };
+    // Attach info for route handler - useProPreview tells analyze route to use GPT-4o
+    req.scanInfo = {
+        userId,
+        ip,
+        currentCount,
+        limit,
+        isPro,
+        useProPreview: proPreviewAvailable // TRUE = route to GPT-4o for "taste"
+    };
     next();
 }
 
