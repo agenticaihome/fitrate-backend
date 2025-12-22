@@ -223,11 +223,11 @@ function buildEventModePrompt(eventContext) {
 🏆 EVENT MODE: ${eventContext.themeEmoji} ${eventContext.theme}
 ${eventContext.themeDescription ? `THEME CRITERIA: "${eventContext.themeDescription}"` : ''}
 
-JUDGING:
-- Theme alignment = 30% of overall score
+JUDGING (Theme is MOST important - 50% of score!):
+- Theme alignment = 50% of overall score
 - On-theme + stylish = can hit 100
-- Off-theme but stylish = cap at ~70
-- On-theme but poor execution = cap at ~60
+- Off-theme but stylish = cap at ~55 (theme matters most!)
+- On-theme but poor execution = cap at ~65
 ${isUglyTheme ? '- UGLY SWEATER: "Uglier" is better. Reward chaos, clashing colors, 3D elements, ironic bad taste.' : ''}
 
 REQUIRED OUTPUT (add these fields):
