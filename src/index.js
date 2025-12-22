@@ -7,7 +7,6 @@ import rateLimit from 'express-rate-limit';
 
 import { config } from './config/index.js';
 import analyzeRoutes from './routes/analyze.js';
-import battleRoutes from './routes/battle.js';
 import webhookRoutes from './routes/webhook.js';
 import proRoutes from './routes/pro.js';
 import referralRoutes from './routes/referral.js';
@@ -129,13 +128,11 @@ app.use('/api/', (req, res, next) => {
 
 // Cost tracking for expensive endpoints
 app.use('/api/analyze', costTracker('scan'));
-app.use('/api/battle', costTracker('battle'));
 
 // Routes
 // TEMPORARILY OPEN: Diag route for debugging (no admin key required)
 app.use('/api/diag', diagRoutes);
 app.use('/api/analyze', analyzeRoutes);
-app.use('/api/battle', battleRoutes);
 app.use('/api/webhook', webhookRoutes);
 app.use('/api/pro', proRoutes);
 app.use('/api/referral', referralRoutes);

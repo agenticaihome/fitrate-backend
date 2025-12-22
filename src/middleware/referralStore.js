@@ -12,16 +12,17 @@ const referralStatsFallback = new Map();
 const processedReferralsFallback = new Set();
 const proRoastStoreFallback = new Map();
 
-// Redis key patterns
 const REFERRAL_STATS_PREFIX = 'fitrate:referral:stats:';
 const PROCESSED_REFERRALS_KEY = 'fitrate:referral:processed';
 const PRO_ROAST_PREFIX = 'fitrate:proroast:';
 const FINGERPRINT_REFERRER_KEY = 'fitrate:referral:fingerprints:';
 
-const MAX_REFERRAL_REWARDS = 5;
+// New model: 3 shares = 1 Savage Roast
+const SHARES_PER_REWARD = 3;
+const MAX_REFERRAL_REWARDS = 100; // Effectively no cap
 
 /**
- * Add a referral claim - rewards a PRO ROAST (OpenAI)
+ * Add a referral claim - rewards a SAVAGE ROAST (GPT-4o) for every 3 referrals
  * SECURITY: Uses fingerprint to prevent VPN abuse
  * @param {string} referrerId - The user who shared the link
  * @param {string} refereeFingerprint - Device fingerprint of the person clicking
@@ -58,9 +59,9 @@ export async function addReferral(referrerId, refereeFingerprint, refereeUserId 
     let stats;
     if (isRedisAvailable()) {
         const data = await redis.get(`${REFERRAL_STATS_PREFIX}${referrerId}`);
-        stats = data ? JSON.parse(data) : { proRoasts: 0, totalReferrals: 0, bonusScans: 0 };
+        stats = data ? JSON.parse(data) : { proRoasts: 0, totalReferrals: 0 };
     } else {
-        stats = referralStatsFallback.get(referrerId) || { proRoasts: 0, totalReferrals: 0, bonusScans: 0 };
+        stats = referralStatsFallback.get(referrerId) || { proRoasts: 0, totalReferrals: 0 };
     }
 
     // Check cap
@@ -69,16 +70,15 @@ export async function addReferral(referrerId, refereeFingerprint, refereeUserId 
         return { success: false, reason: 'cap_reached' };
     }
 
-    // Mark as processed and update stats
-    stats.proRoasts += 1;
+    // Increment total referrals
     stats.totalReferrals += 1;
 
-    // BONUS: Grant 15 free scans when reaching 3 referrals
-    let bonusScansGranted = false;
-    if (stats.totalReferrals === 3) {
-        await addPurchasedScans(referrerId, 15);
-        bonusScansGranted = true;
-        console.log(`🎁 BONUS: ${referrerId} reached 3 referrals -> +15 free scans!`);
+    // NEW MODEL: Grant 1 Savage Roast for every 3 referrals
+    let newRoastEarned = false;
+    if (stats.totalReferrals % SHARES_PER_REWARD === 0) {
+        stats.proRoasts += 1;
+        newRoastEarned = true;
+        console.log(`🔥 SAVAGE ROAST UNLOCKED: ${referrerId} reached ${stats.totalReferrals} referrals -> +1 Savage Roast!`);
     }
 
     if (isRedisAvailable()) {
@@ -91,8 +91,16 @@ export async function addReferral(referrerId, refereeFingerprint, refereeUserId 
         referralStatsFallback.set(referrerId, stats);
     }
 
-    console.log(`🎉 Referral: ${referrerId} referred ${refereeFingerprint.slice(0, 12)}... -> +1 Pro Roast (${stats.proRoasts}/${MAX_REFERRAL_REWARDS})`);
-    return { success: true, proRoasts: stats.proRoasts, totalReferrals: stats.totalReferrals, bonusScansGranted };
+    const sharesUntilNext = SHARES_PER_REWARD - (stats.totalReferrals % SHARES_PER_REWARD);
+    console.log(`🎉 Referral: ${referrerId} -> ${stats.totalReferrals} total (${sharesUntilNext} more for next Savage Roast)`);
+
+    return {
+        success: true,
+        proRoasts: stats.proRoasts,
+        totalReferrals: stats.totalReferrals,
+        newRoastEarned,
+        sharesUntilNext: sharesUntilNext === SHARES_PER_REWARD ? 0 : sharesUntilNext
+    };
 }
 
 /**
