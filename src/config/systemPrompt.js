@@ -181,6 +181,9 @@ const OUTPUT_FORMAT = {
   "celebMatch": "<trending celeb>",
   "percentile": <0-99>,
   "mode": "<nice|roast>",
+  "themeScore": <0-100, only in event mode>,
+  "themeCompliant": <boolean, only in event mode>,
+  "themeVerdict": "<1 sentence on theme execution, only in event mode>",
   "error": string (only if isValidOutfit is false)
 }`,
     pro: `{
@@ -202,6 +205,9 @@ const OUTPUT_FORMAT = {
   "savageLevel": <1-10, only for savage mode>,
   "percentile": <0-99>,
   "mode": "<nice|roast|honest|savage>",
+  "themeScore": <0-100, only in event mode>,
+  "themeCompliant": <boolean, only in event mode>,
+  "themeVerdict": "<1 sentence on theme execution, only in event mode>",
   "error": string (only if isValidOutfit is false)
 }`
 };
