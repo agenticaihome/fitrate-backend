@@ -421,6 +421,14 @@ router.post('/', scanLimiter, async (req, res) => {
             console.warn(`[${requestId}] Failed to record event score: ${e.message}`);
           }
         }
+
+        // Include event theme data in response so frontend can display the challenge card
+        result.eventInfo = {
+          theme: eventContext.theme,
+          themeDescription: eventContext.themeDescription,
+          themeEmoji: eventContext.themeEmoji,
+          weekId: eventContext.weekId
+        };
       }
     } else {
       console.log(`[${requestId}] ❌ Analysis failed: ${result.error}`);
