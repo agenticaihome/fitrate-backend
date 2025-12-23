@@ -300,15 +300,14 @@ router.post('/', scanLimiter, async (req, res) => {
       suspiciousFlag: false // Backend middleware already handles this, but AI acts as backup
     };
 
-    // HYBRID MODEL: Route to appropriate AI
-    // - Pro users: Always GPT-4o
-    // - Free users: First scan = GPT-4o "taste" (Pro Preview), then Gemini
-    const useProPreview = req.scanInfo?.useProPreview || false;
-    const useOpenAI = isPro || useProPreview;
+    // SIMPLIFIED MODEL: Route to appropriate AI by tier only
+    // - Pro users: Always GPT-4o (all 8 modes)
+    // - Free users: Always Gemini (nice/roast modes only)
+    const useOpenAI = isPro;
     const analyzer = useOpenAI ? analyzeWithOpenAI : analyzeWithGemini;
-    const serviceName = useOpenAI ? 'OpenAI GPT-4o' : 'Gemini';
-    const scanType = isPro ? 'PRO' : (useProPreview ? '🌟 PRO PREVIEW' : 'FREE');
-    console.log(`[${requestId}] Using ${serviceName} [${scanType}] (isPro: ${isPro}, proPreview: ${useProPreview})`);
+    const serviceName = useOpenAI ? 'OpenAI GPT-4o' : 'Gemini Flash';
+    const scanType = isPro ? 'PRO' : 'FREE';
+    console.log(`[${requestId}] Using ${serviceName} [${scanType}]`);
 
     // Fetch event context if user opted into event mode
     let eventContext = null;
@@ -397,21 +396,13 @@ router.post('/', scanLimiter, async (req, res) => {
       // Add result ID for feedback
       result.resultId = requestId;
 
-      // Add scan info to response
-      const usedProPreview = req.scanInfo?.useProPreview || false;
+      // Add scan info to response (simplified - no Pro Preview)
       result.scanInfo = {
         scansUsed: newCount,
         scansLimit: limit,
         scansRemaining: Math.max(0, limit - newCount),
-        isPro,
-        wasProPreview: usedProPreview // Tell frontend this was a Pro taste scan
+        isPro
       };
-
-      // Mark Pro Preview as consumed (for free users)
-      if (usedProPreview && !isPro) {
-        await markProPreviewUsed(req.scanInfo.userId);
-        console.log(`[${requestId}] 🌟 Pro Preview consumed - next scan will use Gemini`);
-      }
 
       // Record score for event leaderboard if in event mode
       if (eventContext && result.scores?.overall) {
