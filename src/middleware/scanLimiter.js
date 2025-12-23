@@ -7,7 +7,7 @@
  */
 
 import { redis, isRedisAvailable } from '../services/redisClient.js';
-import { consumeBonusScan, getReferralStats } from './referralStore.js';
+import { consumeBonusScan, getReferralStats, getPurchasedScans, consumePurchasedScan } from './referralStore.js';
 import { generateFingerprint, getClientIP } from '../utils/fingerprint.js';
 import { EntitlementService } from '../services/entitlements.js';
 import { ERROR_MESSAGES, SCAN_LIMITS } from '../config/systemPrompt.js';
@@ -418,31 +418,55 @@ export async function scanLimiter(req, res, next) {
 
     console.log(`[SCAN] userId:${userId.slice(0, 12)} count:${currentCount}/${limit} isPro:${isPro}`);
 
-    // Enforce limit
+    // Check if daily limit reached
     if (currentCount >= limit) {
-        console.log(`[SCAN] BLOCKED - limit reached`);
+        // OVERFLOW MODEL: Check if user has purchased scans before blocking
+        const purchasedScans = await getPurchasedScans(userId);
+
+        if (purchasedScans > 0) {
+            // User has purchased scans - allow through and mark for consumption
+            console.log(`[SCAN] Daily limit reached but user has ${purchasedScans} purchased scans - allowing overflow`);
+            req.scanInfo = {
+                userId,
+                ip,
+                currentCount,
+                limit,
+                isPro,
+                useProPreview: false,
+                usePurchasedScan: true,  // Flag to consume purchased scan in analyze.js
+                purchasedScansRemaining: purchasedScans
+            };
+            return next();
+        }
+
+        // No purchased scans - block the request
+        console.log(`[SCAN] BLOCKED - limit reached, no purchased scans`);
         return res.status(429).json({
             success: false,
             error: isPro
-                ? 'Daily Pro limit reached. Come back tomorrow!'
-                : `You've used your 2 free daily scans. Refer friends or upgrade for more!`,
+                ? 'Daily Pro limit reached. Buy a scan pack or come back tomorrow!'
+                : `You've used your 2 free daily scans. Buy a scan pack or upgrade for more!`,
             code: 'LIMIT_REACHED',
             limitReached: true,
             isPro,
             scansUsed: currentCount,
             scansLimit: limit,
+            purchasedScansRemaining: 0,
             resetTime: getResetTime()
         });
     }
 
-    // Attach info for route handler - useProPreview always false (no more Pro Preview)
+    // Attach info for route handler
+    const purchasedScans = await getPurchasedScans(userId);
     req.scanInfo = {
         userId,
         ip,
         currentCount,
         limit,
         isPro,
-        useProPreview: false // Simplified - all free scans use Gemini
+        useProPreview: false,
+        usePurchasedScan: false,
+        purchasedScansRemaining: purchasedScans
     };
     next();
 }

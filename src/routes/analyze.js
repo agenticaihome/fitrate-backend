@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { analyzeWithGemini } from '../services/geminiAnalyzer.js';
 import { analyzeOutfit as analyzeWithOpenAI } from '../services/outfitAnalyzer.js';
 import { scanLimiter, incrementScanSimple, getScanCount, getScanCountSecure, LIMITS, getProStatus, trackInvalidAttempt, isBlockedForInvalidAttempts } from '../middleware/scanLimiter.js';
-import { getReferralStats, consumeProRoast, hasProRoast } from '../middleware/referralStore.js';
+import { getReferralStats, consumeProRoast, hasProRoast, consumePurchasedScan, getPurchasedScans } from '../middleware/referralStore.js';
 import { getImageHash, getCachedResult, cacheResult } from '../services/imageHasher.js';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
 import { validateAndSanitizeImage, quickImageCheck } from '../utils/imageValidator.js';
@@ -50,7 +50,8 @@ router.get('/status', statusLimiter, async (req, res) => {
     scansRemaining: Math.max(0, limit - used),
     isPro,
     proRoasts: stats.proRoasts,
-    referrals: stats.totalReferrals
+    referrals: stats.totalReferrals,
+    purchasedScansRemaining: userId ? await getPurchasedScans(userId) : 0
   });
 });
 
@@ -390,18 +391,30 @@ router.post('/', scanLimiter, async (req, res) => {
 
       console.log(`[${requestId}] ✅ Success - Scan count: ${newCount}/${limit} (isPro: ${isPro})`);
 
+      // OVERFLOW MODEL: If using purchased scan, consume it
+      let purchasedScansRemaining = req.scanInfo.purchasedScansRemaining || 0;
+      let usedPurchasedScan = false;
+      if (req.scanInfo.usePurchasedScan) {
+        await consumePurchasedScan(req.scanInfo.userId);
+        purchasedScansRemaining = Math.max(0, purchasedScansRemaining - 1);
+        usedPurchasedScan = true;
+        console.log(`[${requestId}] 💰 Consumed purchased scan - ${purchasedScansRemaining} remaining`);
+      }
+
       // Cache the result for future duplicate requests
       await cacheResult(cacheKey, result);
 
       // Add result ID for feedback
       result.resultId = requestId;
 
-      // Add scan info to response (simplified - no Pro Preview)
+      // Add scan info to response (includes purchased scan balance)
       result.scanInfo = {
         scansUsed: newCount,
         scansLimit: limit,
         scansRemaining: Math.max(0, limit - newCount),
-        isPro
+        isPro,
+        purchasedScansRemaining,
+        usedPurchasedScan
       };
 
       // Record score for event leaderboard if in event mode
