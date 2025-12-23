@@ -16,6 +16,7 @@ import eventRoutes from './routes/event.js';
 import adminRoutes from './routes/admin.js';
 import restoreRoutes from './routes/restore.js';
 import pushRoutes from './routes/push.js';
+import showRoutes from './routes/show.js';
 
 // Security middleware
 import { validateOrigin, costTracker } from './middleware/apiKeyAuth.js';
@@ -120,7 +121,7 @@ app.get('/health', (req, res) => {
 // Origin validation for API routes (skip for webhooks, admin, diag, and event)
 app.use('/api/', (req, res, next) => {
   // Skip origin check for public read-only endpoints
-  if (req.path.startsWith('/admin') || req.path.startsWith('/diag') || req.path.startsWith('/event')) {
+  if (req.path.startsWith('/admin') || req.path.startsWith('/diag') || req.path.startsWith('/event') || req.path.startsWith('/show')) {
     return next();
   }
   validateOrigin(req, res, next);
@@ -141,6 +142,7 @@ app.use('/api/event', eventRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/restore', restoreRoutes);
 app.use('/api/push', pushRoutes);
+app.use('/api/show', showRoutes);  // Fashion Show
 
 // 404 handler
 app.use((req, res) => {

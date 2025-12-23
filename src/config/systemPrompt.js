@@ -386,6 +386,72 @@ export function enhanceWithViralityHooks(result, mode) {
     };
 }
 
+// ============================================
+// FASHION SHOW GROUP CONTEXT
+// Group-aware AI responses for Fashion Show mode
+// ============================================
+
+/**
+ * Build Fashion Show context block for group-aware responses
+ * @param {Object} showContext - Fashion Show context
+ * @returns {string} Prompt block for Fashion Show
+ */
+export function buildFashionShowPrompt(showContext) {
+    if (!showContext) return '';
+
+    const { name, vibe, familySafe, currentRank, totalParticipants } = showContext;
+
+    // Family Safe enforcement
+    const familySafeRules = familySafe ? `
+🔒 FAMILY SAFE MODE ACTIVE — THIS IS CRITICAL:
+- NO profanity, cursing, or adult language
+- NO body/weight/appearance insults
+- NO sexual references or innuendo
+- ONLY wholesome, fun humor (think Disney Channel)
+- Keep it school-appropriate and parent-friendly
+` : '';
+
+    // Group-aware reactions based on rank
+    let groupLine = '';
+    if (currentRank && totalParticipants) {
+        if (currentRank === 1) {
+            groupLine = '👑 They just took #1! Make them feel like a champion.';
+        } else if (currentRank <= 3) {
+            groupLine = `🔥 They're #${currentRank} of ${totalParticipants}. Acknowledge the heat.`;
+        } else if (currentRank === totalParticipants) {
+            groupLine = `📈 They're last place... for now. Encourage a comeback arc.`;
+        } else {
+            groupLine = `👀 They're #${currentRank} of ${totalParticipants}. Call out the competition.`;
+        }
+    }
+
+    return `
+🎭 FASHION SHOW MODE: "${name}"
+VIBE: ${vibe?.toUpperCase() || 'NICE'}
+${familySafeRules}
+${groupLine ? `\nGROUP CONTEXT: ${groupLine}` : ''}
+
+FASHION SHOW SPECIAL INSTRUCTIONS:
+- Add a "groupLine" field to your response: a fun, competitive comment about their rank
+- Examples: "The runway just got shook 👑", "Only 2 points behind the lead 👀", "Main character energy detected"
+- Make it feel like a COMPETITION — acknowledge other participants exist
+- The verdict should work great as a group chat screenshot
+`;
+}
+
+/**
+ * Map Fashion Show vibe to FitRate mode
+ */
+export function vibeToMode(vibe) {
+    const mapping = {
+        'nice': 'nice',
+        'roast': 'roast',
+        'savage': 'savage',
+        'chaos': 'chaos'
+    };
+    return mapping[vibe] || 'nice';
+}
+
 export default {
     ERROR_MESSAGES,
     SCAN_LIMITS,
@@ -400,5 +466,7 @@ export default {
     getViralityHooks,
     enhanceWithViralityHooks,
     getRandomVerdictStyle,
-    getScoreTier
+    getScoreTier,
+    buildFashionShowPrompt,
+    vibeToMode
 };
