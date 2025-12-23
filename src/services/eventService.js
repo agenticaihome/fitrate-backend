@@ -25,7 +25,7 @@ const THUMBS_PREFIX = 'fitrate:event:thumbs:';       // Store outfit thumbnails 
 
 // Freemium limits
 const FREE_EVENT_ENTRIES_WEEKLY = 1;   // Free users get 1 entry per week
-const PRO_EVENT_ENTRIES_DAILY = 5;     // Pro users can submit up to 5/day
+const PRO_EVENT_ENTRIES_DAILY = 1;     // Pro users get 1 entry per day
 const WINNER_COOLDOWN_WEEKS = 4;       // Previous winners sit out 4 weeks
 const TOP_5_THUMBNAIL_LIMIT = 5;       // Only store thumbnails for top 5
 
