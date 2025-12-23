@@ -266,7 +266,8 @@ export async function getScoreboard(showId) {
             emoji: entryData.emoji,
             score,
             verdict: entryData.verdict,
-            walkedAt: entryData.walkedAt
+            walkedAt: entryData.walkedAt,
+            imageThumb: entryData.imageThumb || null  // Include outfit thumbnail
         });
     }
 
@@ -285,7 +286,8 @@ export async function recordWalk(showId, {
     emoji,
     score,
     verdict,
-    isPro = false
+    isPro = false,
+    imageThumb = null
 }) {
     const show = await getShow(showId);
 
@@ -321,7 +323,8 @@ export async function recordWalk(showId, {
         emoji,
         verdict,
         walkedAt: Date.now(),
-        walkNumber: walksUsed
+        walkNumber: walksUsed,
+        imageThumb: imageThumb || null  // Store outfit thumbnail for leaderboard
     });
 
     // Add to sorted set (score is the outfit score)

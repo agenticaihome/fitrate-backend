@@ -187,7 +187,7 @@ router.post('/', scanLimiter, async (req, res) => {
 
   try {
     console.log(`[${requestId}] POST /api/analyze - IP: ${req.ip || 'unknown'}`);
-    const { image, roastMode, mode: modeParam, occasion, eventMode } = req.body;
+    const { image, roastMode, mode: modeParam, occasion, eventMode, imageThumb } = req.body;
     // Support both new mode string and legacy roastMode boolean
     const mode = modeParam || (roastMode ? 'roast' : 'nice');
 
@@ -432,7 +432,8 @@ router.post('/', scanLimiter, async (req, res) => {
               req.scanInfo.userId,
               result.scores.overall,
               result.scores.themeCompliant ?? true,
-              isPro
+              isPro,
+              imageThumb  // Pass thumbnail for top-5 storage
             );
             result.eventStatus = eventResult;
             console.log(`[${requestId}] Event score recorded: ${result.scores.overall} (${eventResult.action})`);

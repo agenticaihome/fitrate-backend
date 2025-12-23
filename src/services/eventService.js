@@ -21,11 +21,13 @@ const ARCHIVE_PREFIX = 'fitrate:event:archive:';
 const FREE_ENTRIES_PREFIX = 'fitrate:event:free:';  // Track free user weekly entries
 const PRO_ENTRIES_PREFIX = 'fitrate:event:pro:';    // Track pro user daily entries
 const WINNERS_PREFIX = 'fitrate:event:winners:';     // Track past winners for cooldown
+const THUMBS_PREFIX = 'fitrate:event:thumbs:';       // Store outfit thumbnails (top 5 only)
 
 // Freemium limits
 const FREE_EVENT_ENTRIES_WEEKLY = 1;   // Free users get 1 entry per week
 const PRO_EVENT_ENTRIES_DAILY = 5;     // Pro users can submit up to 5/day
 const WINNER_COOLDOWN_WEEKS = 4;       // Previous winners sit out 4 weeks
+const TOP_5_THUMBNAIL_LIMIT = 5;       // Only store thumbnails for top 5
 
 /**
  * Get today's date key (YYYY-MM-DD)
@@ -352,13 +354,20 @@ export async function getLeaderboard(weekId, limit = 5) {
         const entryJson = await redis.get(entryKey);
         const entry = entryJson ? JSON.parse(entryJson) : {};
 
+        // Fetch thumbnail only for top 5 entries
+        let imageThumb = null;
+        if (rank <= TOP_5_THUMBNAIL_LIMIT) {
+            imageThumb = await getEventThumbnail(weekId, odlUserId);
+        }
+
         leaderboard.push({
             rank,
             userId: odlUserId.slice(0, 8) + '...', // Truncated for privacy
             score: realScore,
             displayName: entry.displayName || getDefaultDisplayName(rank),
             isPro: entry.isPro || false,
-            themeCompliant: entry.themeCompliant ?? true
+            themeCompliant: entry.themeCompliant ?? true,
+            imageThumb  // Include thumbnail (may be null)
         });
     }
 
@@ -432,6 +441,76 @@ async function markProUserEntry(userId) {
     await redis.expire(proEntryKey, 24 * 60 * 60);
 }
 
+// ============================================
+// THUMBNAIL FUNCTIONS (Top 5 only)
+// ============================================
+
+/**
+ * Store outfit thumbnail for a user
+ * @param {string} weekId - Week identifier
+ * @param {string} userId - User ID
+ * @param {string} imageThumb - Base64 thumbnail
+ */
+async function storeEventThumbnail(weekId, userId, imageThumb) {
+    if (!isRedisAvailable() || !imageThumb) return;
+
+    const thumbsKey = `${THUMBS_PREFIX}${weekId}`;
+    await redis.hset(thumbsKey, userId, imageThumb);
+
+    // Set TTL to match week expiry (7 days)
+    await redis.expire(thumbsKey, 7 * 24 * 60 * 60);
+
+    console.log(`📸 Stored thumbnail for ${userId.slice(0, 8)}...`);
+}
+
+/**
+ * Get thumbnail for a user
+ */
+async function getEventThumbnail(weekId, userId) {
+    if (!isRedisAvailable()) return null;
+
+    const thumbsKey = `${THUMBS_PREFIX}${weekId}`;
+    return await redis.hget(thumbsKey, userId);
+}
+
+/**
+ * Delete thumbnail for a user (when knocked out of top 5)
+ */
+async function deleteEventThumbnail(weekId, userId) {
+    if (!isRedisAvailable()) return;
+
+    const thumbsKey = `${THUMBS_PREFIX}${weekId}`;
+    await redis.hdel(thumbsKey, userId);
+
+    console.log(`🗑️ Deleted thumbnail for ${userId.slice(0, 8)}... (knocked out of top 5)`);
+}
+
+/**
+ * Clean up thumbnails for users not in top 5
+ * Called after score updates to maintain only top 5 images
+ */
+async function cleanupNonTop5Thumbnails(weekId) {
+    if (!isRedisAvailable()) return;
+
+    const scoresKey = `${SCORES_PREFIX}${weekId}`;
+    const thumbsKey = `${THUMBS_PREFIX}${weekId}`;
+
+    // Get current top 5 user IDs
+    const top5 = await redis.zrevrange(scoresKey, 0, TOP_5_THUMBNAIL_LIMIT - 1);
+    const top5Set = new Set(top5);
+
+    // Get all stored thumbnails
+    const allThumbs = await redis.hkeys(thumbsKey);
+
+    // Delete thumbnails for users not in top 5
+    for (const thumbUserId of allThumbs) {
+        if (!top5Set.has(thumbUserId)) {
+            await redis.hdel(thumbsKey, thumbUserId);
+            console.log(`🗑️ Cleaned up thumbnail for ${thumbUserId.slice(0, 8)}... (no longer top 5)`);
+        }
+    }
+}
+
 /**
  * Record a score for a user in the current event
  * FREEMIUM MODEL:
@@ -439,8 +518,10 @@ async function markProUserEntry(userId) {
  * - Free users: 1 entry/week, whole number scores
  * 
  * SECURITY: Server-side validation of limits (don't trust frontend)
+ * 
+ * @param {string} imageThumb - Optional outfit thumbnail (only stored for top 5)
  */
-export async function recordEventScore(userId, score, themeCompliant, isPro) {
+export async function recordEventScore(userId, score, themeCompliant, isPro, imageThumb = null) {
     if (!userId || score === undefined) return { action: 'error', message: 'Missing userId or score' };
 
     if (!isRedisAvailable()) {
@@ -528,6 +609,16 @@ export async function recordEventScore(userId, score, themeCompliant, isPro) {
         console.log(`🏆 New event entry: ${userId.slice(0, 8)}... scored ${finalScore}${!isPro ? ' (rounded)' : ''}`);
 
         const rank = await getUserRank(weekId, userId);
+
+        // Store thumbnail if provided and user is in top 5
+        if (imageThumb && rank <= TOP_5_THUMBNAIL_LIMIT) {
+            await storeEventThumbnail(weekId, userId, imageThumb);
+            console.log(`📷 Stored thumbnail for top ${rank} user ${userId.slice(0, 8)}...`);
+        }
+
+        // Cleanup thumbnails for users no longer in top 5
+        await cleanupNonTop5Thumbnails(weekId);
+
         return { action: 'added', score: finalScore, rank, isPro };
     }
 
@@ -550,6 +641,16 @@ export async function recordEventScore(userId, score, themeCompliant, isPro) {
         console.log(`📈 Score improved: ${userId.slice(0, 8)}... ${currentScore} → ${score}`);
 
         const rank = await getUserRank(weekId, userId);
+
+        // Store/update thumbnail if provided and user is in top 5
+        if (imageThumb && rank <= TOP_5_THUMBNAIL_LIMIT) {
+            await storeEventThumbnail(weekId, userId, imageThumb);
+            console.log(`📷 Updated thumbnail for top ${rank} user ${userId.slice(0, 8)}...`);
+        }
+
+        // Cleanup thumbnails for users no longer in top 5
+        await cleanupNonTop5Thumbnails(weekId);
+
         return { action: 'improved', oldScore: currentScore, newScore: score, rank };
     }
 

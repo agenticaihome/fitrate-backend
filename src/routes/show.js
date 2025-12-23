@@ -220,7 +220,7 @@ router.get('/:showId/activity', async (req, res) => {
 router.post('/:showId/walk', async (req, res) => {
     try {
         const { showId } = req.params;
-        const { userId, nickname, emoji, score, verdict } = req.body;
+        const { userId, nickname, emoji, score, verdict, imageThumb } = req.body;
 
         if (!userId || !nickname || score === undefined) {
             return res.status(400).json({
@@ -228,17 +228,28 @@ router.post('/:showId/walk', async (req, res) => {
             });
         }
 
+        // Validate imageThumb size (max 70KB base64 = ~50KB actual)
+        let validatedThumb = null;
+        if (imageThumb && typeof imageThumb === 'string') {
+            if (imageThumb.length > 70000) {
+                console.warn(`[FashionShow] Image too large (${Math.round(imageThumb.length / 1024)}KB), skipping`);
+            } else if (imageThumb.startsWith('data:image/')) {
+                validatedThumb = imageThumb;
+            }
+        }
+
         // Check Pro status
         const isPro = await getProStatus(userId);
 
-        // Record the walk
+        // Record the walk with optional thumbnail
         const result = await recordWalk(showId, {
             userId,
             nickname,
             emoji: emoji || '😎',
             score: parseFloat(score),
             verdict: verdict || '',
-            isPro
+            isPro,
+            imageThumb: validatedThumb
         });
 
         res.json({
