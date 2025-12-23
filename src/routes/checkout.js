@@ -47,7 +47,8 @@ router.post('/create-session', async (req, res) => {
     try {
         const session = await stripe.checkout.sessions.create({
             mode: isSubscription ? 'subscription' : 'payment',
-            payment_method_types: ['card'],
+            // Removed payment_method_types to let Stripe auto-show Apple Pay / Google Pay
+            // on supported devices. Stripe will automatically detect the best options.
             line_items: [
                 {
                     price: priceId,
