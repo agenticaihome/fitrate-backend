@@ -413,27 +413,10 @@ export async function scanLimiter(req, res, next) {
     const isPro = await getProStatus(userId, ip);
     const limit = isPro ? LIMITS.pro : LIMITS.free;
 
-    // PRO PREVIEW: Check if first scan (eligible for GPT-4o taste)
-    const proPreviewAvailable = !isPro && await shouldUseProPreview(userId);
+    // SIMPLIFIED: No more Pro Preview - just 2 free Gemini scans/day
+    // Pro scans are earned via referrals (handled by proRoasts in analyze route)
 
-    // USER CHOICE: Respect frontend's conscious choice if provided
-    // - useProScan === true: User explicitly chose Pro scan
-    // - useProScan === false: User explicitly chose Free scan (skip Pro Preview)
-    // - useProScan === undefined: Auto behavior (use Pro if available)
-    const frontendChoice = req.body?.useProScan;
-    let actuallyUseProPreview = proPreviewAvailable;
-
-    if (frontendChoice === false) {
-        // User explicitly chose FREE scan - skip Pro Preview even if available
-        actuallyUseProPreview = false;
-        console.log(`[SCAN] User chose FREE scan - skipping Pro Preview`);
-    } else if (frontendChoice === true && proPreviewAvailable) {
-        // User explicitly chose PRO scan - use it
-        actuallyUseProPreview = true;
-        console.log(`[SCAN] User chose PRO scan - using Pro Preview`);
-    }
-
-    console.log(`[SCAN] userId:${userId.slice(0, 12)} count:${currentCount}/${limit} isPro:${isPro} proPreview:${actuallyUseProPreview} (available:${proPreviewAvailable}, choice:${frontendChoice})`);
+    console.log(`[SCAN] userId:${userId.slice(0, 12)} count:${currentCount}/${limit} isPro:${isPro}`);
 
     // Enforce limit
     if (currentCount >= limit) {
@@ -442,25 +425,24 @@ export async function scanLimiter(req, res, next) {
             success: false,
             error: isPro
                 ? 'Daily Pro limit reached. Come back tomorrow!'
-                : `You've used your 2 daily scans (1 Pro + 1 Free). Upgrade for unlimited Pro quality!`,
+                : `You've used your 2 free daily scans. Refer friends or upgrade for more!`,
             code: 'LIMIT_REACHED',
             limitReached: true,
             isPro,
             scansUsed: currentCount,
             scansLimit: limit,
-            proPreviewUsed: !proPreviewAvailable,
             resetTime: getResetTime()
         });
     }
 
-    // Attach info for route handler - useProPreview tells analyze route to use GPT-4o
+    // Attach info for route handler - useProPreview always false (no more Pro Preview)
     req.scanInfo = {
         userId,
         ip,
         currentCount,
         limit,
         isPro,
-        useProPreview: actuallyUseProPreview // TRUE = route to GPT-4o for "taste"
+        useProPreview: false // Simplified - all free scans use Gemini
     };
     next();
 }
