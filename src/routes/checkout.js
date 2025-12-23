@@ -12,18 +12,16 @@ const stripe = config.stripe.secretKey
 // Price IDs from Stripe Dashboard
 // You need to create these products in Stripe:
 // 1. Pro Weekly - $2.99/week recurring
-// 2. Pro Weekly Discount - $1.99/week recurring (first time offer)
-// 3. Pro Roast - $0.99 one-time
+// 2. Pro Roast - $0.99 one-time
 const PRICES = {
     proWeekly: process.env.STRIPE_PRO_WEEKLY_PRICE_ID,       // $2.99/week
-    proWeeklyDiscount: process.env.STRIPE_PRO_DISCOUNT_PRICE_ID, // $1.99/week
     proRoast: process.env.STRIPE_PRO_ROAST_PRICE_ID,         // $0.99 one-time
 };
 
 /**
  * Create Stripe Checkout Session
  * POST /api/checkout/create-session
- * Body: { product: 'proWeekly' | 'proWeeklyDiscount' | 'proRoast', userId: string }
+ * Body: { product: 'proWeekly' | 'proRoast', userId: string }
  */
 router.post('/create-session', async (req, res) => {
     if (!stripe) {
