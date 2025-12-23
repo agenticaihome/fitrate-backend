@@ -95,6 +95,24 @@ export function incrementScanSimple(userId) {
 }
 
 /**
+ * Decrement scan count (for rollback on failed analysis)
+ * Used when AI call fails to prevent counting failed attempts
+ */
+export function decrementScanSimple(userId) {
+    if (!userId) return 0;
+    const today = getTodayKey();
+    const key = `${userId}:${today}`;
+    const data = scanStoreFallback.get(key);
+    if (data && data.count > 0) {
+        data.count -= 1;
+        scanStoreFallback.set(key, data);
+        console.log(`[SCAN] Decremented ${userId.slice(0, 12)} to ${data.count}`);
+        return data.count;
+    }
+    return 0;
+}
+
+/**
  * PRO PREVIEW SYSTEM - First scan of day uses GPT-4o for "taste"
  * Check if user has used their daily Pro Preview
  */
@@ -456,17 +474,26 @@ export async function scanLimiter(req, res, next) {
         });
     }
 
+    // ATOMIC INCREMENT: Increment count NOW, before AI call
+    // If AI fails, analyze.js will decrement using decrementScanSimple()
+    // Reuse the data object from line 427
+    data.count += 1;
+    scanStoreFallback.set(key, data);
+    const newCount = data.count;
+    console.log(`[SCAN] ATOMIC increment userId:${userId.slice(0, 12)} to ${newCount}/${limit}`);
+
     // Attach info for route handler
     const purchasedScans = await getPurchasedScans(userId);
     req.scanInfo = {
         userId,
         ip,
-        currentCount,
+        currentCount: newCount, // Now reflects the NEW count after increment
         limit,
         isPro,
         useProPreview: false,
         usePurchasedScan: false,
-        purchasedScansRemaining: purchasedScans
+        purchasedScansRemaining: purchasedScans,
+        scanIncremented: true // Flag for analyze.js to know it should decrement on failure
     };
     next();
 }

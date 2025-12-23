@@ -2,7 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { analyzeWithGemini } from '../services/geminiAnalyzer.js';
 import { analyzeOutfit as analyzeWithOpenAI } from '../services/outfitAnalyzer.js';
-import { scanLimiter, incrementScanSimple, getScanCount, getScanCountSecure, LIMITS, getProStatus, trackInvalidAttempt, isBlockedForInvalidAttempts } from '../middleware/scanLimiter.js';
+import { scanLimiter, incrementScanSimple, decrementScanSimple, getScanCount, getScanCountSecure, LIMITS, getProStatus, trackInvalidAttempt, isBlockedForInvalidAttempts } from '../middleware/scanLimiter.js';
 import { getReferralStats, consumeProRoast, hasProRoast, consumePurchasedScan, getPurchasedScans } from '../middleware/referralStore.js';
 import { getImageHash, getCachedResult, cacheResult } from '../services/imageHasher.js';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
@@ -263,24 +263,26 @@ router.post('/', scanLimiter, async (req, res) => {
     if (cachedResult) {
       console.log(`[${requestId}] Cache hit - returning cached result`);
 
-      // SECURITY: Only count scan if cached result was successful
-      // This prevents failed/corrupted cache entries from consuming scans
+      // Scan was already counted in middleware (atomic increment)
+      // Just use the current count from scanInfo
       if (cachedResult.success) {
-        const { limit, isPro } = req.scanInfo;
-        const newCount = incrementScanSimple(req.scanInfo.userId);
+        const { limit, isPro, currentCount } = req.scanInfo;
         cachedResult.scanInfo = {
-          scansUsed: newCount,
+          scansUsed: currentCount,
           scansLimit: limit,
-          scansRemaining: Math.max(0, limit - newCount),
+          scansRemaining: Math.max(0, limit - currentCount),
           isPro,
           cached: true
         };
       } else {
-        // Failed result in cache (shouldn't happen, but safety check)
-        console.warn(`[${requestId}] WARNING: Failed result found in cache, not counting scan`);
-        const currentCount = await getScanCountSecure(req);
+        // Failed result in cache - rollback the scan we incremented
+        console.warn(`[${requestId}] WARNING: Failed result found in cache, rolling back scan`);
+        if (req.scanInfo?.scanIncremented) {
+          decrementScanSimple(req.scanInfo.userId);
+        }
+        const currentCount = req.scanInfo.currentCount - 1;
         cachedResult.scanInfo = {
-          scansUsed: currentCount,
+          scansUsed: Math.max(0, currentCount),
           scansLimit: req.scanInfo.limit,
           scansRemaining: Math.max(0, req.scanInfo.limit - currentCount),
           isPro: req.scanInfo.isPro,
@@ -384,12 +386,12 @@ router.post('/', scanLimiter, async (req, res) => {
       result = sanitized;
     }
 
-    // Only increment count and cache on successful analysis
+    // Only cache on successful analysis (scan already counted in middleware)
     if (result.success) {
-      const { limit, isPro } = req.scanInfo;
-      const newCount = incrementScanSimple(req.scanInfo.userId);
+      const { limit, isPro, currentCount } = req.scanInfo;
+      // Note: Scan was already incremented atomically in scanLimiter middleware
 
-      console.log(`[${requestId}] ✅ Success - Scan count: ${newCount}/${limit} (isPro: ${isPro})`);
+      console.log(`[${requestId}] ✅ Success - Scan count: ${currentCount}/${limit} (isPro: ${isPro})`);
 
       // OVERFLOW MODEL: If using purchased scan, consume it
       let purchasedScansRemaining = req.scanInfo.purchasedScansRemaining || 0;
@@ -409,9 +411,9 @@ router.post('/', scanLimiter, async (req, res) => {
 
       // Add scan info to response (includes purchased scan balance)
       result.scanInfo = {
-        scansUsed: newCount,
+        scansUsed: currentCount,
         scansLimit: limit,
-        scansRemaining: Math.max(0, limit - newCount),
+        scansRemaining: Math.max(0, limit - currentCount),
         isPro,
         purchasedScansRemaining,
         usedPurchasedScan
@@ -450,13 +452,19 @@ router.post('/', scanLimiter, async (req, res) => {
     } else {
       console.log(`[${requestId}] ❌ Analysis failed: ${result.error}`);
 
-      // IMPORTANT: Failed scans do NOT count against daily limit
-      const currentCount = await getScanCountSecure(req);
+      // ATOMIC ROLLBACK: Decrement the scan we incremented in middleware
+      if (req.scanInfo?.scanIncremented) {
+        decrementScanSimple(req.scanInfo.userId);
+        console.log(`[${requestId}] 🔄 Scan decremented (rollback for failed analysis)`);
+      }
+
+      // Get fresh count after decrement
+      const currentCount = req.scanInfo?.currentCount ? req.scanInfo.currentCount - 1 : 0;
       const { limit, isPro } = req.scanInfo;
 
       // Add scan info to show user they didn't lose a scan
       result.scanInfo = {
-        scansUsed: currentCount,
+        scansUsed: Math.max(0, currentCount),
         scansLimit: limit,
         scansRemaining: Math.max(0, limit - currentCount),
         isPro,
@@ -481,6 +489,13 @@ router.post('/', scanLimiter, async (req, res) => {
       message: error.message,
       stack: error.stack
     });
+
+    // ATOMIC ROLLBACK: Decrement scan on server error
+    if (req.scanInfo?.scanIncremented) {
+      decrementScanSimple(req.scanInfo.userId);
+      console.log(`[${requestId}] 🔄 Scan decremented (rollback for server error)`);
+    }
+
     return res.status(500).json({
       success: false,
       error: 'Server error. Please try again.'
