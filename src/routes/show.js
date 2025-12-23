@@ -14,6 +14,7 @@ import {
     recordWalk,
     getActivity,
     getParticipantCount,
+    getUserWalks,
     VIBES,
     WALKS_FREE,
     WALKS_PRO
@@ -117,13 +118,17 @@ router.get('/:showId', async (req, res) => {
         const now = Date.now();
         const timeRemaining = Math.max(0, expiresAt - now);
 
+        // Get user's walk count if userId provided
+        const userWalks = userId ? await getUserWalks(showId, userId) : 0;
+
         res.json({
             ...show,
             scoreboard,
             participantCount,
             activity,
             timeRemaining,
-            timeRemainingFormatted: formatTimeRemaining(timeRemaining)
+            timeRemainingFormatted: formatTimeRemaining(timeRemaining),
+            userWalks  // Include user's walk count for state restoration
         });
     } catch (error) {
         console.error('[FashionShow] Get error:', error.message);

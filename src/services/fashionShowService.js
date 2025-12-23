@@ -385,5 +385,19 @@ export async function getParticipantCount(showId) {
     return await redis.scard(participantsKey(showId));
 }
 
+/**
+ * Get user's walk count for a show
+ * @param {string} showId - Show ID
+ * @param {string} userId - User ID
+ * @returns {number} Number of walks used
+ */
+export async function getUserWalks(showId, userId) {
+    if (!isRedisAvailable() || !userId) {
+        return 0;
+    }
+    const walks = await redis.get(userWalksKey(showId, userId));
+    return parseInt(walks) || 0;
+}
+
 // Export constants for routes
 export { VIBES, WALKS_FREE, WALKS_PRO };
