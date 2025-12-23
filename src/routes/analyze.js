@@ -191,6 +191,11 @@ router.post('/', scanLimiter, async (req, res) => {
     // Support both new mode string and legacy roastMode boolean
     const mode = modeParam || (roastMode ? 'roast' : 'nice');
 
+    // Debug: trace thumbnail in event mode
+    if (eventMode) {
+      console.log(`[${requestId}] Event mode submission - imageThumb: ${imageThumb ? `${Math.round(imageThumb.length / 1024)}KB` : 'NOT PROVIDED'}`);
+    }
+
     // SECURITY: Validate mode exists
     const modeConfig = MODE_CONFIGS[mode];
     if (!modeConfig) {

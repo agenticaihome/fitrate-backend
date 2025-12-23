@@ -470,7 +470,9 @@ async function getEventThumbnail(weekId, userId) {
     if (!isRedisAvailable()) return null;
 
     const thumbsKey = `${THUMBS_PREFIX}${weekId}`;
-    return await redis.hget(thumbsKey, userId);
+    const thumb = await redis.hget(thumbsKey, userId);
+    console.log(`🔍 getEventThumbnail for ${userId.slice(0, 8)}...: ${thumb ? `${Math.round(thumb.length / 1024)}KB` : 'NOT FOUND'}`);
+    return thumb;
 }
 
 /**
@@ -522,6 +524,7 @@ async function cleanupNonTop5Thumbnails(weekId) {
  * @param {string} imageThumb - Optional outfit thumbnail (only stored for top 5)
  */
 export async function recordEventScore(userId, score, themeCompliant, isPro, imageThumb = null) {
+    console.log(`🎯 recordEventScore called: userId=${userId?.slice(0, 8)}..., score=${score}, imageThumb=${imageThumb ? `${Math.round(imageThumb.length / 1024)}KB` : 'null'}`);
     if (!userId || score === undefined) return { action: 'error', message: 'Missing userId or score' };
 
     if (!isRedisAvailable()) {
