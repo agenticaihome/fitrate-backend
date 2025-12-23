@@ -2,7 +2,7 @@ import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { analyzeWithGemini } from '../services/geminiAnalyzer.js';
 import { analyzeOutfit as analyzeWithOpenAI } from '../services/outfitAnalyzer.js';
-import { scanLimiter, incrementScanSimple, getScanCount, getScanCountSecure, LIMITS, getProStatus, trackInvalidAttempt, isBlockedForInvalidAttempts, markProPreviewUsed } from '../middleware/scanLimiter.js';
+import { scanLimiter, incrementScanSimple, getScanCount, getScanCountSecure, LIMITS, getProStatus, trackInvalidAttempt, isBlockedForInvalidAttempts } from '../middleware/scanLimiter.js';
 import { getReferralStats, consumeProRoast, hasProRoast } from '../middleware/referralStore.js';
 import { getImageHash, getCachedResult, cacheResult } from '../services/imageHasher.js';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
