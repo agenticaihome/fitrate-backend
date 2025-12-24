@@ -17,6 +17,7 @@ import adminRoutes from './routes/admin.js';
 import restoreRoutes from './routes/restore.js';
 import pushRoutes from './routes/push.js';
 import streakRoutes from './routes/streak.js';
+import leaderboardRoutes from './routes/leaderboard.js';
 import showRoutes from './routes/show.js';
 
 // Security middleware
@@ -122,7 +123,7 @@ app.get('/health', (req, res) => {
 // Origin validation for API routes (skip for webhooks, admin, diag, and event)
 app.use('/api/', (req, res, next) => {
   // Skip origin check for public read-only endpoints
-  if (req.path.startsWith('/admin') || req.path.startsWith('/diag') || req.path.startsWith('/event') || req.path.startsWith('/show')) {
+  if (req.path.startsWith('/admin') || req.path.startsWith('/diag') || req.path.startsWith('/event') || req.path.startsWith('/show') || req.path.startsWith('/leaderboard')) {
     return next();
   }
   validateOrigin(req, res, next);
@@ -143,8 +144,9 @@ app.use('/api/event', eventRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/restore', restoreRoutes);
 app.use('/api/push', pushRoutes);
-app.use('/api/show', showRoutes);      // Fashion Show
-app.use('/api/streak', streakRoutes);  // Daily streak system
+app.use('/api/show', showRoutes);            // Fashion Show
+app.use('/api/streak', streakRoutes);        // Daily streak system
+app.use('/api/leaderboard', leaderboardRoutes);  // Today's Top Fits
 
 // 404 handler
 app.use((req, res) => {

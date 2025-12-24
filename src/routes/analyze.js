@@ -11,6 +11,7 @@ import { ERROR_MESSAGES, MODE_CONFIGS } from '../config/systemPrompt.js';
 import { getActiveEvent, recordEventScore, canFreeUserSubmit, canProUserSubmit } from '../services/eventService.js';
 import { sanitizeAIResponse, checkEventFreezeWindow } from '../utils/contentSanitizer.js';
 import { recordScan, getStreakDisplay, getMilestoneInfo } from '../middleware/streakStore.js';
+import { recordScore as recordLeaderboardScore } from './leaderboard.js';
 
 const router = express.Router();
 
@@ -484,6 +485,25 @@ router.post('/', scanLimiter, async (req, res) => {
       } catch (streakError) {
         console.warn(`[${requestId}] Streak recording failed:`, streakError.message);
         // Non-blocking - don't fail the scan if streak fails
+      }
+
+      // 🏆 LEADERBOARD: Record to Today's Top Fits (global leaderboard)
+      try {
+        const userId = req.scanInfo?.userId;
+        if (userId && result.scores?.overall) {
+          const leaderboardResult = await recordLeaderboardScore(userId, result.scores.overall);
+          if (leaderboardResult?.recorded) {
+            result.leaderboard = {
+              rank: leaderboardResult.rank,
+              title: leaderboardResult.title,
+              description: leaderboardResult.description
+            };
+            console.log(`[${requestId}] 🏆 Leaderboard: rank #${leaderboardResult.rank}`);
+          }
+        }
+      } catch (leaderboardError) {
+        console.warn(`[${requestId}] Leaderboard recording failed:`, leaderboardError.message);
+        // Non-blocking - don't fail the scan if leaderboard fails
       }
     } else {
       console.log(`[${requestId}] ❌ Analysis failed: ${result.error}`);
