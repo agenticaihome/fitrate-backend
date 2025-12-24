@@ -12,7 +12,7 @@
  * - Day 30+:    🏆 LEGENDARY
  */
 
-import { redis, isRedisAvailable } from '../config/redis.js';
+import { redis, isRedisAvailable } from '../services/redisClient.js';
 
 // Constants
 const STREAK_PREFIX = 'fitrate:streak:';
