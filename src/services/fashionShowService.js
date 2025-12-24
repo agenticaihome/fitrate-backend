@@ -97,7 +97,7 @@ export async function createShow({
         throw new Error('Invalid vibe');
     }
 
-    if (![24, 168].includes(durationHours)) {
+    if (![24, 72, 120, 168].includes(durationHours)) {
         durationHours = SHOW_TTL_HOURS_DEFAULT;
     }
 
