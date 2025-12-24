@@ -12,8 +12,11 @@ import {
     getLeaderboard,
     getUserEventStatus,
     getArchivedEvent,
-    getWeekId
+    getWeekId,
+    canFreeUserSubmit,
+    canProUserSubmit
 } from '../services/eventService.js';
+import { getProStatus } from '../middleware/scanLimiter.js';
 
 const router = express.Router();
 
@@ -126,12 +129,13 @@ router.get('/leaderboard', eventLimiter, async (req, res) => {
 
 /**
  * GET /api/event/status
- * Get user's event status (rank, score, etc.)
+ * Get user's event status (rank, score, entries used/remaining)
  * Query params: userId (required)
  */
 router.get('/status', eventLimiter, async (req, res) => {
     try {
         const { userId } = req.query;
+        const ip = req.ip || req.headers['cf-connecting-ip'] || req.headers['x-forwarded-for'] || 'unknown';
 
         if (!userId) {
             return res.status(400).json({ success: false, error: 'userId required' });
@@ -140,11 +144,27 @@ router.get('/status', eventLimiter, async (req, res) => {
         const event = await getActiveEvent();
         const status = await getUserEventStatus(event.weekId, userId);
 
+        // Get Pro status and entry limits
+        const isPro = await getProStatus(userId, ip);
+        let entryStatus;
+
+        if (isPro) {
+            entryStatus = await canProUserSubmit(userId);
+        } else {
+            entryStatus = await canFreeUserSubmit(userId);
+        }
+
         res.json({
             success: true,
             weekId: event.weekId,
             theme: event.theme,
-            ...status
+            ...status,
+            // Entry limit info
+            entriesUsed: entryStatus.entriesUsed,
+            entriesRemaining: entryStatus.entriesRemaining,
+            maxEntries: entryStatus.entriesLimit,
+            canSubmit: entryStatus.canSubmit,
+            isPro
         });
     } catch (error) {
         console.error('Error getting user event status:', error);

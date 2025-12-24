@@ -11,7 +11,8 @@ import { ERROR_MESSAGES, MODE_CONFIGS } from '../config/systemPrompt.js';
 import { getActiveEvent, recordEventScore, canFreeUserSubmit, canProUserSubmit } from '../services/eventService.js';
 import { sanitizeAIResponse, checkEventFreezeWindow } from '../utils/contentSanitizer.js';
 import { recordScan, getStreakDisplay, getMilestoneInfo } from '../middleware/streakStore.js';
-import { recordScore as recordLeaderboardScore } from './leaderboard.js';
+import { recordScore as recordLeaderboardScore, recordDailyChallengeScore } from './leaderboard.js';
+import { hasEnteredToday as hasEnteredDailyChallenge } from '../services/dailyChallengeService.js';
 
 const router = express.Router();
 
@@ -189,7 +190,7 @@ router.post('/', scanLimiter, async (req, res) => {
 
   try {
     console.log(`[${requestId}] POST /api/analyze - IP: ${req.ip || 'unknown'}`);
-    const { image, roastMode, mode: modeParam, occasion, eventMode, imageThumb } = req.body;
+    const { image, roastMode, mode: modeParam, occasion, eventMode, imageThumb, dailyChallenge } = req.body;
     // Support both new mode string and legacy roastMode boolean
     const mode = modeParam || (roastMode ? 'roast' : 'nice');
 
@@ -220,6 +221,41 @@ router.post('/', scanLimiter, async (req, res) => {
         error: ERROR_MESSAGES.mode_restricted,
         code: 'PRO_MODE_REQUIRED'
       });
+    }
+
+    // DAILY CHALLENGE: Check if user already entered today
+    // Daily challenge is free for all, mode MUST be "nice", one entry per day
+    if (dailyChallenge) {
+      const userId = req.scanInfo?.userId || req.body.userId;
+      if (!userId) {
+        console.log(`[${requestId}] Error: Daily challenge requires userId`);
+        return res.status(400).json({
+          success: false,
+          error: 'User ID required for daily challenge',
+          code: 'DAILY_CHALLENGE_USER_REQUIRED'
+        });
+      }
+
+      // Check if already entered today
+      const alreadyEntered = await hasEnteredDailyChallenge(userId);
+      if (alreadyEntered) {
+        console.log(`[${requestId}] User ${userId.slice(0, 12)}... already entered daily challenge today`);
+        return res.json({
+          success: false,
+          error: 'already_entered',
+          message: "You've already entered today's challenge. Come back tomorrow!"
+        });
+      }
+
+      // Daily challenge must use "nice" mode
+      if (mode !== 'nice') {
+        console.log(`[${requestId}] Daily challenge must use nice mode, got: ${mode}`);
+        return res.status(400).json({
+          success: false,
+          error: 'Daily challenge uses standard rating mode',
+          code: 'DAILY_CHALLENGE_MODE_INVALID'
+        });
+      }
     }
 
     if (!image) {
@@ -331,11 +367,11 @@ router.post('/', scanLimiter, async (req, res) => {
       let canSubmitToEvent = false;
 
       if (isPro) {
-        // PRO: Check daily limit (5/day)
+        // PRO: Check weekly limit (5/week)
         const proEntryStatus = await canProUserSubmit(req.scanInfo.userId);
         canSubmitToEvent = proEntryStatus.canSubmit;
         if (!canSubmitToEvent) {
-          console.log(`[${requestId}] Pro user daily event entries exhausted (${proEntryStatus.entriesUsed}/${proEntryStatus.entriesLimit})`);
+          console.log(`[${requestId}] Pro user weekly event entries exhausted (${proEntryStatus.entriesUsed}/${proEntryStatus.entriesLimit})`);
         }
       } else {
         // FREE: Check weekly limit (1/week)
@@ -504,6 +540,33 @@ router.post('/', scanLimiter, async (req, res) => {
       } catch (leaderboardError) {
         console.warn(`[${requestId}] Leaderboard recording failed:`, leaderboardError.message);
         // Non-blocking - don't fail the scan if leaderboard fails
+      }
+
+      // 🎯 DAILY CHALLENGE: Record score if this is a daily challenge submission
+      if (dailyChallenge && result.scores?.overall) {
+        try {
+          const userId = req.scanInfo?.userId || req.body.userId;
+          const dailyChallengeResult = await recordDailyChallengeScore(userId, result.scores.overall);
+
+          if (dailyChallengeResult.success) {
+            result.dailyChallengeRank = dailyChallengeResult.rank;
+            result.dailyChallengeMessage = dailyChallengeResult.message;
+            result.dailyChallenge = {
+              rank: dailyChallengeResult.rank,
+              score: dailyChallengeResult.score,
+              totalParticipants: dailyChallengeResult.totalParticipants,
+              title: dailyChallengeResult.title,
+              message: dailyChallengeResult.message
+            };
+            console.log(`[${requestId}] 🎯 Daily Challenge: rank #${dailyChallengeResult.rank}/${dailyChallengeResult.totalParticipants}`);
+          } else {
+            // This shouldn't happen since we checked already, but handle gracefully
+            console.warn(`[${requestId}] Daily challenge recording failed: ${dailyChallengeResult.error}`);
+          }
+        } catch (dailyChallengeError) {
+          console.warn(`[${requestId}] Daily challenge error:`, dailyChallengeError.message);
+          // Non-blocking - don't fail the scan
+        }
       }
     } else {
       console.log(`[${requestId}] ❌ Analysis failed: ${result.error}`);
