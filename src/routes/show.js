@@ -85,6 +85,9 @@ router.post('/create', createLimiter, async (req, res) => {
             hostId: userId
         });
 
+        // Debug logging - show timer details
+        console.log(`[FashionShow] POST /create - showId: ${show.showId}, expiresAt: ${show.expiresAt}, timeRemaining: ${show.timeRemaining}ms, status: ${show.status}`);
+
         res.json({
             success: true,
             ...show
@@ -113,13 +116,16 @@ router.get('/:showId', async (req, res) => {
         const participantCount = await getParticipantCount(showId);
         const activity = await getActivity(showId, 10);
 
-        // Calculate time remaining
+        // Calculate time remaining from expiresAt ISO string
         const expiresAt = new Date(show.expiresAt).getTime();
         const now = Date.now();
         const timeRemaining = Math.max(0, expiresAt - now);
 
         // Get user's walk count if userId provided
         const userWalks = userId ? await getUserWalks(showId, userId) : 0;
+
+        // Debug logging
+        console.log(`[FashionShow] GET /${showId} - expiresAt: ${show.expiresAt} (${expiresAt}), now: ${now}, timeRemaining: ${timeRemaining}ms, status: ${show.status}`);
 
         res.json({
             ...show,
