@@ -68,6 +68,25 @@ function userWalksKey(showId, userId) {
 }
 
 // ============================================
+// TIME FORMATTING
+// ============================================
+
+function formatTimeRemaining(ms) {
+    if (ms <= 0) return 'Ended';
+
+    const hours = Math.floor(ms / (1000 * 60 * 60));
+    const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+    const seconds = Math.floor((ms % (1000 * 60)) / 1000);
+
+    if (hours >= 24) {
+        const days = Math.floor(hours / 24);
+        return `${days}d ${hours % 24}h`;
+    }
+
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
+
+// ============================================
 // CORE FUNCTIONS
 // ============================================
 
@@ -140,7 +159,10 @@ export async function createShow({
     // Also set TTL on related keys (they'll be created later)
     // Redis will auto-cleanup when show expires
 
-    console.log(`[FashionShow] Created "${name}" (${showId}) - ${vibe}, familySafe: ${familySafe}`);
+    const createdAt = Date.now();
+    const timeRemaining = expiresAt - createdAt;
+
+    console.log(`[FashionShow] Created "${name}" (${showId}) - ${vibe}, familySafe: ${familySafe}, expiresAt: ${expiresAt}, timeRemaining: ${timeRemaining}ms (${Math.round(timeRemaining/1000/60/60)}h)`);
 
     return {
         showId,
@@ -150,6 +172,10 @@ export async function createShow({
         familySafe,
         entriesPerPerson,
         expiresAt: new Date(expiresAt).toISOString(),
+        createdAt: new Date(createdAt).toISOString(),
+        status: 'active',
+        timeRemaining,
+        timeRemainingFormatted: formatTimeRemaining(timeRemaining),
         inviteUrl: `https://fitrate.app/f/${showId}`
     };
 }
@@ -161,18 +187,26 @@ export async function createShow({
  */
 export async function getShow(showId) {
     if (!isRedisAvailable()) {
+        console.log(`[FashionShow] getShow(${showId}) - Redis not available`);
         return null;
     }
 
     const data = await redis.hgetall(showKey(showId));
 
     if (!data || Object.keys(data).length === 0) {
+        console.log(`[FashionShow] getShow(${showId}) - Show not found in Redis`);
         return null;
     }
 
     // Check if expired
     const expiresAt = parseInt(data.expiresAt);
-    if (Date.now() > expiresAt) {
+    const now = Date.now();
+    const timeRemaining = expiresAt - now;
+
+    console.log(`[FashionShow] getShow(${showId}) - stored expiresAt: ${data.expiresAt}, parsed: ${expiresAt}, now: ${now}, timeRemaining: ${timeRemaining}ms, isExpired: ${now > expiresAt}`);
+
+    if (now > expiresAt) {
+        console.log(`[FashionShow] getShow(${showId}) - Show has expired, marking as ended`);
         return { ...parseShowData(data, showId), status: 'ended' };
     }
 
