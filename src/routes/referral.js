@@ -1,5 +1,5 @@
 import express from 'express';
-import { addReferral, getReferralStats, getPurchasedScans, hasUnlockedViaReferrals } from '../middleware/referralStore.js';
+import { addReferral, getReferralStats, getPurchasedScans, hasUnlockedViaReferrals, trackShare, getShareStats, setReferralNotification, checkReferralNotifications } from '../middleware/referralStore.js';
 import { generateFingerprint } from '../utils/fingerprint.js';
 
 const router = express.Router();
@@ -19,6 +19,17 @@ router.post('/claim', async (req, res) => {
     }
 
     const result = await addReferral(referrerId, fingerprint, userId);
+
+    // If successful, set notification flag for referrer
+    if (result.success) {
+        await setReferralNotification(referrerId, {
+            type: 'referral_claimed',
+            timestamp: Date.now(),
+            newRoastEarned: result.newRoastEarned,
+            totalReferrals: result.totalReferrals,
+            sharesUntilNext: result.sharesUntilNext
+        });
+    }
 
     res.json({
         success: result.success,
@@ -42,10 +53,11 @@ router.get('/stats', async (req, res) => {
         return res.status(400).json({ success: false, error: 'User ID required' });
     }
 
-    const [stats, purchasedScans, unlockedViaReferrals] = await Promise.all([
+    const [stats, purchasedScans, unlockedViaReferrals, shareStats] = await Promise.all([
         getReferralStats(userId),
         getPurchasedScans(userId),
-        hasUnlockedViaReferrals(userId)
+        hasUnlockedViaReferrals(userId),
+        getShareStats(userId)
     ]);
 
     res.json({
@@ -53,7 +65,43 @@ router.get('/stats', async (req, res) => {
         ...stats,
         purchasedScans,
         unlockedViaReferrals, // true if 3+ successful referrals
-        referralsNeeded: Math.max(0, 3 - (stats.totalReferrals || 0)) // X more needed
+        referralsNeeded: Math.max(0, 3 - (stats.totalReferrals || 0)), // X more needed
+        shareStats // { totalShares, clicks, conversions }
+    });
+});
+
+/**
+ * Track a share event (when user copies/shares their link)
+ * POST /api/referral/share
+ * Body: { userId: "..." }
+ */
+router.post('/share', async (req, res) => {
+    const { userId } = req.body;
+
+    if (!userId) {
+        return res.status(400).json({ success: false, error: 'User ID required' });
+    }
+
+    await trackShare(userId);
+    res.json({ success: true });
+});
+
+/**
+ * Check for notifications (polling endpoint)
+ * GET /api/referral/notifications?userId=...
+ * Returns any pending notifications and clears them
+ */
+router.get('/notifications', async (req, res) => {
+    const { userId } = req.query;
+
+    if (!userId) {
+        return res.status(400).json({ success: false, error: 'User ID required' });
+    }
+
+    const notifications = await checkReferralNotifications(userId);
+    res.json({
+        success: true,
+        notifications
     });
 });
 

@@ -207,8 +207,11 @@ router.post('/', scanLimiter, async (req, res) => {
     }
 
     // SECURITY: Check tier restriction for Pro-only modes
+    // Users with subscription OR purchased scans can access Pro modes
     const isPro = req.scanInfo?.isPro;
-    if (modeConfig.tier === 'pro' && !isPro) {
+    const hasPurchasedScans = req.scanInfo?.userId ? await getPurchasedScans(req.scanInfo.userId) > 0 : false;
+    const hasProAccess = isPro || hasPurchasedScans;
+    if (modeConfig.tier === 'pro' && !hasProAccess) {
       console.log(`[${requestId}] Error: Pro-only mode requested by free user - ${mode}`);
       return res.status(403).json({
         success: false,
@@ -308,14 +311,16 @@ router.post('/', scanLimiter, async (req, res) => {
       suspiciousFlag: false // Backend middleware already handles this, but AI acts as backup
     };
 
-    // SIMPLIFIED MODEL: Route to appropriate AI by tier only
-    // - Pro users: Always GPT-4o (all 8 modes)
+    // SIMPLIFIED MODEL: Route to appropriate AI by tier
+    // - Pro users (subscription OR purchased scans): Always GPT-4o (all 8 modes)
     // - Free users: Always Gemini (nice/roast modes only)
-    const useOpenAI = isPro;
+    const purchasedScans = req.scanInfo?.userId ? await getPurchasedScans(req.scanInfo.userId) : 0;
+    const isProTier = isPro || purchasedScans > 0;
+    const useOpenAI = isProTier;
     const analyzer = useOpenAI ? analyzeWithOpenAI : analyzeWithGemini;
     const serviceName = useOpenAI ? 'OpenAI GPT-4o' : 'Gemini Flash';
-    const scanType = isPro ? 'PRO' : 'FREE';
-    console.log(`[${requestId}] Using ${serviceName} [${scanType}]`);
+    const scanType = isProTier ? 'PRO' : 'FREE';
+    console.log(`[${requestId}] Using ${serviceName} [${scanType}]${purchasedScans > 0 ? ` (${purchasedScans} purchased scans)` : ''}`);
 
     // Fetch event context if user opted into event mode
     let eventContext = null;

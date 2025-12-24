@@ -304,3 +304,87 @@ export async function consumePurchasedScan(userId) {
     }
     return false;
 }
+
+// ============================================
+// SHARE TRACKING
+// ============================================
+
+const SHARE_STATS_PREFIX = 'fitrate:shares:';
+const shareStatsFallback = new Map();
+
+/**
+ * Track a share event (user copied/shared their link)
+ */
+export async function trackShare(userId) {
+    if (!userId) return;
+
+    if (isRedisAvailable()) {
+        await redis.hincrby(`${SHARE_STATS_PREFIX}${userId}`, 'totalShares', 1);
+    } else {
+        const stats = shareStatsFallback.get(userId) || { totalShares: 0, clicks: 0, conversions: 0 };
+        stats.totalShares += 1;
+        shareStatsFallback.set(userId, stats);
+    }
+}
+
+/**
+ * Get share stats for a user
+ */
+export async function getShareStats(userId) {
+    if (!userId) return { totalShares: 0, clicks: 0, conversions: 0 };
+
+    if (isRedisAvailable()) {
+        const stats = await redis.hgetall(`${SHARE_STATS_PREFIX}${userId}`);
+        return {
+            totalShares: parseInt(stats?.totalShares) || 0,
+            clicks: parseInt(stats?.clicks) || 0,
+            conversions: parseInt(stats?.conversions) || 0
+        };
+    } else {
+        return shareStatsFallback.get(userId) || { totalShares: 0, clicks: 0, conversions: 0 };
+    }
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+const NOTIFICATION_PREFIX = 'fitrate:notify:';
+const notificationFallback = new Map();
+
+/**
+ * Set a notification for a user (called when their referral is claimed)
+ */
+export async function setReferralNotification(userId, notification) {
+    if (!userId) return;
+
+    if (isRedisAvailable()) {
+        await redis.lpush(`${NOTIFICATION_PREFIX}${userId}`, JSON.stringify(notification));
+        await redis.expire(`${NOTIFICATION_PREFIX}${userId}`, 86400); // 24h TTL
+    } else {
+        const notifications = notificationFallback.get(userId) || [];
+        notifications.push(notification);
+        notificationFallback.set(userId, notifications);
+    }
+}
+
+/**
+ * Check and clear notifications for a user
+ */
+export async function checkReferralNotifications(userId) {
+    if (!userId) return [];
+
+    if (isRedisAvailable()) {
+        const notifications = await redis.lrange(`${NOTIFICATION_PREFIX}${userId}`, 0, -1);
+        if (notifications.length > 0) {
+            await redis.del(`${NOTIFICATION_PREFIX}${userId}`);
+            return notifications.map(n => JSON.parse(n));
+        }
+        return [];
+    } else {
+        const notifications = notificationFallback.get(userId) || [];
+        notificationFallback.delete(userId);
+        return notifications;
+    }
+}
+
