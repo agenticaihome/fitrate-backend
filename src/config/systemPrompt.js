@@ -135,7 +135,7 @@ export const CELEBS = {
 // Prevents repetition by rotating verdict styles
 // ============================================
 
-// 6 verdict styles for maximum variety
+// 12 verdict styles for maximum variety (avoid repetition!)
 const VERDICT_STYLES = [
     {
         id: 'statement',
@@ -166,6 +166,37 @@ const VERDICT_STYLES = [
         id: 'reaction',
         instruction: 'Reaction format (e.g., "Screaming crying throwing up")',
         examples: ['Obsessed is an understatement', 'The audacity of this fit', 'This is a flex']
+    },
+    // NEW STYLES for more variety:
+    {
+        id: 'verdict',
+        instruction: 'Court verdict (e.g., "Guilty of looking too good")',
+        examples: ['Guilty of effortless drip', 'Case dismissed - you ate', 'The jury is obsessed']
+    },
+    {
+        id: 'movie',
+        instruction: 'Movie review (e.g., "Oscar-worthy performance")',
+        examples: ['Oscar-worthy fits only', 'Critics agree: a masterpiece', 'Box office material']
+    },
+    {
+        id: 'sports',
+        instruction: 'Sports commentary (e.g., "AND THE CROWD GOES WILD")',
+        examples: ['Absolute knockout', 'Game winner', 'Victory lap energy']
+    },
+    {
+        id: 'dramatic',
+        instruction: 'Dramatic declaration (e.g., "Fashion will never recover")',
+        examples: ['Fashion will never recover', 'The timeline is healing', 'History was made']
+    },
+    {
+        id: 'lowkey',
+        instruction: 'Understated flex (e.g., "Quietly devastating")',
+        examples: ['Quietly devastating', 'Lowkey lethal', 'Subtle excellence']
+    },
+    {
+        id: 'roast_specific',
+        instruction: 'Specific roast (e.g., "The outfit equivalent of a rainy Monday")',
+        examples: ['Outfit said sorry not sorry', 'This fit has side quest energy', 'Your closet had other plans']
     }
 ];
 
@@ -207,11 +238,10 @@ const OUTPUT_FORMAT = {
   "fit": <0-100>,
   "style": <0-100>,
   "aesthetic": "<style aesthetic name>",
-  "text": "<80-120 words, punchy analysis>",
-  "verdict": "<5-9 words, screenshot-ready>",
-  "lines": ["<outfit observation>", "<vibe/energy callout>"],
+  "verdict": "<5-9 words, screenshot-ready headline>",
+  "line": "<single punchy quote about specific detail>",
   "tagline": "<2-5 word Instagram stamp>",
-  "celebMatch": "<trending celeb>",
+  "celebMatch": "<trending 2024-2025 celeb>",
   "percentile": <0-99>,
   "mode": "<nice|roast>",
   "themeScore": <0-100, only in event mode>,
@@ -226,11 +256,10 @@ const OUTPUT_FORMAT = {
   "fit": <0-100>,
   "style": <0-100>,
   "aesthetic": "<style aesthetic name>",
-  "text": "<150-200 words, high-fidelity analysis>",
-  "verdict": "<5-9 words, screenshot-ready>",
-  "lines": ["<outfit observation>", "<vibe/energy callout>"],
+  "verdict": "<5-9 words, screenshot-ready headline>",
+  "line": "<single punchy quote about specific detail>",
   "tagline": "<2-5 word stamp>",
-  "celebMatch": "<trending celeb>",
+  "celebMatch": "<trending 2024-2025 celeb>",
   "identityReflection": "<What this fit says about them - 1-2 sentences>",
   "socialPerception": "<How others perceive them - 1-2 sentences>",
   "itemRoasts": { "top": "<roast>", "bottom": "<roast>", "shoes": "<roast>" },
@@ -315,16 +344,16 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
         chaos: '🎪 UNHINGED MODE. Be CHAOTIC. Wild tangents, absurd logic, surreal comparisons. Fill: chaosLevel, absurdComparison ("This outfit has 3am gas station energy"), alternateReality. Score: 0-100'
     };
 
-    // Mode-specific LINES instructions
-    const linesInstructions = {
-        nice: '- Line 1: Specific compliment about the outfit\n- Line 2: Vibe/energy observation (positive)',
-        roast: '- Line 1: Playful roast about a specific piece\n- Line 2: Funny overall assessment',
-        honest: '- Line 1: Clinical observation about fit/color\n- Line 2: Styling truth bomb',
-        savage: '- Line 1: Brutal one-liner destruction\n- Line 2: Savage finisher (no mercy)',
-        rizz: '- Line 1: Flirty observation about their style appeal\n- Line 2: Dating potential assessment',
-        celeb: '- Line 1: Celebrity\'s first impression (in their voice)\n- Line 2: Their verdict/advice (stay in character)',
-        aura: '- Line 1: Mystical energy reading\n- Line 2: Vibe/aura revelation',
-        chaos: '- Line 1: Unhinged observation (be weird)\n- Line 2: Chaotic verdict (surprise them)'
+    // Mode-specific LINE instructions (single line now)
+    const lineInstructions = {
+        nice: 'A specific compliment about a visible outfit detail',
+        roast: 'A playful roast about a specific visible piece',
+        honest: 'A clinical observation about fit or color coordination',
+        savage: 'A brutal one-liner that destroys (no mercy)',
+        rizz: 'A flirty observation about their style appeal',
+        celeb: 'The celebrity judge\'s first impression (in character)',
+        aura: 'A mystical energy reading about their vibe',
+        chaos: 'An unhinged observation (be weird and surprising)'
     };
 
     return `FitRate AI — Outfit Scorecard Generator
@@ -333,13 +362,14 @@ ${eventBlock ? eventBlock + '\n' : ''}${isPro ? 'PRO: High-fidelity analysis. Fi
 MODE: ${mode.toUpperCase()} — ${modeInstructions[mode]}
 
 RULES:
-- Score: XX.X (one decimal, not .0/.5). Must match tone.
-- color/fit/style subscores should roughly average to overall (±10 points variance allowed)
-- Include one hyper-specific visible detail
-- Celeb match: any 2024-2025 trending celeb
+- Score: XX.X (one decimal, not .0/.5). Must match mode tone.
+- color/fit/style subscores roughly average to overall (±10 allowed)
+- Include one hyper-specific visible detail in your line
+- celebMatch: any 2024-2025 trending celeb (be specific!)
 
-🎯 VERDICT STYLE [${verdictStyle.id.toUpperCase()}]: Use ${verdictStyle.instruction}
+🎯 VERDICT STYLE [${verdictStyle.id.toUpperCase()}]: ${verdictStyle.instruction}
 Examples: "${verdictStyle.examples.join('", "')}"
+⚠️ NEVER use generic verdicts. Each must be unique and specific to THIS outfit.
 
 🏷️ EMOJI RULES:
 - 95+: End with 👑 or 💎 or 🔥
@@ -347,10 +377,9 @@ Examples: "${verdictStyle.examples.join('", "')}"
 - 60-84: Optional emoji
 - <60: End with 💀 or ☠️ or 😬
 
-📝 LINES (2 quotes for share card):
-${linesInstructions[mode] || linesInstructions.nice}
+📝 LINE: ${lineInstructions[mode]}
 
-BANNED: "giving vibes", "slay", "understood the assignment", body comments, brand guessing, "as an AI"
+🚫 BANNED WORDS: "mid", "giving vibes", "slay", "understood the assignment", "it's giving", "serving", body comments, brand guessing, "as an AI"
 
 VALIDATION: ✅ Any clothing visible → RATE IT | ❌ Zero clothing → REJECT
 

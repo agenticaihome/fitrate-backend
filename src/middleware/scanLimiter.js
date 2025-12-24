@@ -80,36 +80,64 @@ export async function getScanCountFromRequest(req) {
 }
 
 /**
- * SIMPLIFIED increment - uses in-memory Map with userId:date key
- * Resets when backend restarts/deploys
+ * PERSISTENT increment - uses Redis with userId:date key
+ * Survives backend restarts/deploys (48h TTL for auto-cleanup)
  */
-export function incrementScanSimple(userId) {
+export async function incrementScanSimple(userId) {
     if (!userId) return 0;
     const today = getTodayKey();
-    const key = `${userId}:${today}`;
-    const data = scanStoreFallback.get(key) || { count: 0 };
-    data.count += 1;
-    scanStoreFallback.set(key, data);
-    console.log(`[SCAN] Incremented ${userId.slice(0, 12)} to ${data.count}`);
-    return data.count;
+    const redisKey = `${SCAN_KEY_PREFIX}simple:${userId}:${today}`;
+
+    if (isRedisAvailable()) {
+        const newCount = await redis.incr(redisKey);
+        // Set 48h TTL on first increment (covers timezone edge cases)
+        if (newCount === 1) {
+            await redis.expire(redisKey, 172800); // 48 hours
+        }
+        console.log(`[SCAN] Incremented ${userId.slice(0, 12)} to ${newCount} (Redis)`);
+        return newCount;
+    } else {
+        // Fallback to in-memory for local dev
+        const key = `${userId}:${today}`;
+        const data = scanStoreFallback.get(key) || { count: 0 };
+        data.count += 1;
+        scanStoreFallback.set(key, data);
+        console.log(`[SCAN] Incremented ${userId.slice(0, 12)} to ${data.count} (in-memory)`);
+        return data.count;
+    }
 }
 
 /**
  * Decrement scan count (for rollback on failed analysis)
  * Used when AI call fails to prevent counting failed attempts
  */
-export function decrementScanSimple(userId) {
+export async function decrementScanSimple(userId) {
     if (!userId) return 0;
     const today = getTodayKey();
-    const key = `${userId}:${today}`;
-    const data = scanStoreFallback.get(key);
-    if (data && data.count > 0) {
-        data.count -= 1;
-        scanStoreFallback.set(key, data);
-        console.log(`[SCAN] Decremented ${userId.slice(0, 12)} to ${data.count}`);
-        return data.count;
+    const redisKey = `${SCAN_KEY_PREFIX}simple:${userId}:${today}`;
+
+    if (isRedisAvailable()) {
+        const newCount = await redis.decr(redisKey);
+        // Ensure we don't go negative
+        if (newCount < 0) {
+            await redis.set(redisKey, 0);
+            console.log(`[SCAN] Decremented ${userId.slice(0, 12)} to 0 (clamped, Redis)`);
+            return 0;
+        }
+        console.log(`[SCAN] Decremented ${userId.slice(0, 12)} to ${newCount} (Redis)`);
+        return newCount;
+    } else {
+        // Fallback to in-memory for local dev
+        const key = `${userId}:${today}`;
+        const data = scanStoreFallback.get(key);
+        if (data && data.count > 0) {
+            data.count -= 1;
+            scanStoreFallback.set(key, data);
+            console.log(`[SCAN] Decremented ${userId.slice(0, 12)} to ${data.count} (in-memory)`);
+            return data.count;
+        }
+        return 0;
     }
-    return 0;
 }
 
 /**
@@ -419,13 +447,20 @@ export async function scanLimiter(req, res, next) {
         return next();
     }
 
-    // Simple in-memory tracking by userId + today's date
+    // PERSISTENT tracking by userId + today's date (Redis with in-memory fallback)
     const today = getTodayKey();
-    const key = `${userId}:${today}`;
+    const redisKey = `${SCAN_KEY_PREFIX}simple:${userId}:${today}`;
 
-    // Get current count from in-memory store
-    const data = scanStoreFallback.get(key) || { count: 0 };
-    const currentCount = data.count;
+    // Get current count from Redis (or in-memory fallback)
+    let currentCount = 0;
+    if (isRedisAvailable()) {
+        const count = await redis.get(redisKey);
+        currentCount = parseInt(count) || 0;
+    } else {
+        const key = `${userId}:${today}`;
+        const data = scanStoreFallback.get(key) || { count: 0 };
+        currentCount = data.count;
+    }
 
     // Check Pro status
     const isPro = await getProStatus(userId, ip);
@@ -476,10 +511,7 @@ export async function scanLimiter(req, res, next) {
 
     // ATOMIC INCREMENT: Increment count NOW, before AI call
     // If AI fails, analyze.js will decrement using decrementScanSimple()
-    // Reuse the data object from line 427
-    data.count += 1;
-    scanStoreFallback.set(key, data);
-    const newCount = data.count;
+    const newCount = await incrementScanSimple(userId);
     console.log(`[SCAN] ATOMIC increment userId:${userId.slice(0, 12)} to ${newCount}/${limit}`);
 
     // Attach info for route handler

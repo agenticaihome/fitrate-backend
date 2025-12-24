@@ -283,7 +283,7 @@ router.post('/', scanLimiter, async (req, res) => {
         // Failed result in cache - rollback the scan we incremented
         console.warn(`[${requestId}] WARNING: Failed result found in cache, rolling back scan`);
         if (req.scanInfo?.scanIncremented) {
-          decrementScanSimple(req.scanInfo.userId);
+          await decrementScanSimple(req.scanInfo.userId);
         }
         const currentCount = req.scanInfo.currentCount - 1;
         cachedResult.scanInfo = {
@@ -460,7 +460,7 @@ router.post('/', scanLimiter, async (req, res) => {
 
       // ATOMIC ROLLBACK: Decrement the scan we incremented in middleware
       if (req.scanInfo?.scanIncremented) {
-        decrementScanSimple(req.scanInfo.userId);
+        await decrementScanSimple(req.scanInfo.userId);
         console.log(`[${requestId}] 🔄 Scan decremented (rollback for failed analysis)`);
       }
 
@@ -498,7 +498,7 @@ router.post('/', scanLimiter, async (req, res) => {
 
     // ATOMIC ROLLBACK: Decrement scan on server error
     if (req.scanInfo?.scanIncremented) {
-      decrementScanSimple(req.scanInfo.userId);
+      await decrementScanSimple(req.scanInfo.userId);
       console.log(`[${requestId}] 🔄 Scan decremented (rollback for server error)`);
     }
 
