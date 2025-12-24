@@ -10,6 +10,7 @@ import { validateAndSanitizeImage, quickImageCheck } from '../utils/imageValidat
 import { ERROR_MESSAGES, MODE_CONFIGS } from '../config/systemPrompt.js';
 import { getActiveEvent, recordEventScore, canFreeUserSubmit, canProUserSubmit } from '../services/eventService.js';
 import { sanitizeAIResponse, checkEventFreezeWindow } from '../utils/contentSanitizer.js';
+import { recordScan, getStreakDisplay, getMilestoneInfo } from '../middleware/streakStore.js';
 
 const router = express.Router();
 
@@ -459,6 +460,30 @@ router.post('/', scanLimiter, async (req, res) => {
           themeEmoji: eventContext.themeEmoji,
           weekId: eventContext.weekId
         };
+      }
+
+      // 🔥 STREAK SYSTEM: Record successful scan and update streak
+      try {
+        const userId = req.scanInfo?.userId;
+        if (userId) {
+          const streakResult = await recordScan(userId);
+          const display = getStreakDisplay(streakResult.currentStreak);
+          const milestone = streakResult.isMilestone ? getMilestoneInfo(streakResult.currentStreak) : null;
+
+          result.streak = {
+            current: streakResult.currentStreak,
+            max: streakResult.maxStreak,
+            total: streakResult.totalScans,
+            isNewStreak: streakResult.isNewStreak,
+            isMilestone: streakResult.isMilestone,
+            milestone,
+            ...display
+          };
+          console.log(`[${requestId}] 🔥 Streak: ${streakResult.currentStreak} days${streakResult.isMilestone ? ' (MILESTONE!)' : ''}`);
+        }
+      } catch (streakError) {
+        console.warn(`[${requestId}] Streak recording failed:`, streakError.message);
+        // Non-blocking - don't fail the scan if streak fails
       }
     } else {
       console.log(`[${requestId}] ❌ Analysis failed: ${result.error}`);

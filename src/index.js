@@ -16,6 +16,7 @@ import eventRoutes from './routes/event.js';
 import adminRoutes from './routes/admin.js';
 import restoreRoutes from './routes/restore.js';
 import pushRoutes from './routes/push.js';
+import streakRoutes from './routes/streak.js';
 import showRoutes from './routes/show.js';
 
 // Security middleware
@@ -142,7 +143,8 @@ app.use('/api/event', eventRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/restore', restoreRoutes);
 app.use('/api/push', pushRoutes);
-app.use('/api/show', showRoutes);  // Fashion Show
+app.use('/api/show', showRoutes);      // Fashion Show
+app.use('/api/streak', streakRoutes);  // Daily streak system
 
 // 404 handler
 app.use((req, res) => {
