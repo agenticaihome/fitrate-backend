@@ -25,7 +25,7 @@ const THUMBS_PREFIX = 'fitrate:event:thumbs:';       // Store outfit thumbnails 
 
 // Freemium limits
 const FREE_EVENT_ENTRIES_WEEKLY = 1;   // Free users get 1 entry per week
-const PRO_EVENT_ENTRIES_DAILY = 1;     // Pro users get 1 entry per day
+const PRO_EVENT_ENTRIES_WEEKLY = 5;    // Pro users get 5 entries per week
 const WINNER_COOLDOWN_WEEKS = 4;       // Previous winners sit out 4 weeks
 const TOP_5_THUMBNAIL_LIMIT = 5;       // Only store thumbnails for top 5
 
@@ -376,11 +376,11 @@ export async function getLeaderboard(weekId, limit = 5) {
 
 /**
  * Check if a free user can submit to the event this week
- * Returns { canSubmit: boolean, entriesUsed: number, entriesLimit: number }
+ * Returns { canSubmit: boolean, entriesUsed: number, entriesLimit: number, entriesRemaining: number }
  */
 export async function canFreeUserSubmit(userId) {
     if (!userId || !isRedisAvailable()) {
-        return { canSubmit: true, entriesUsed: 0, entriesLimit: FREE_EVENT_ENTRIES_WEEKLY };
+        return { canSubmit: true, entriesUsed: 0, entriesLimit: FREE_EVENT_ENTRIES_WEEKLY, entriesRemaining: FREE_EVENT_ENTRIES_WEEKLY };
     }
 
     const weekId = getWeekId();
@@ -390,7 +390,8 @@ export async function canFreeUserSubmit(userId) {
     return {
         canSubmit: entriesUsed < FREE_EVENT_ENTRIES_WEEKLY,
         entriesUsed,
-        entriesLimit: FREE_EVENT_ENTRIES_WEEKLY
+        entriesLimit: FREE_EVENT_ENTRIES_WEEKLY,
+        entriesRemaining: Math.max(0, FREE_EVENT_ENTRIES_WEEKLY - entriesUsed)
     };
 }
 
@@ -408,37 +409,37 @@ async function markFreeUserEntry(userId, weekId) {
 }
 
 /**
- * Check if a Pro user can submit to the event today
- * Returns { canSubmit: boolean, entriesUsed: number, entriesLimit: number }
+ * Check if a Pro user can submit to the event this week
+ * Returns { canSubmit: boolean, entriesUsed: number, entriesLimit: number, entriesRemaining: number }
  */
 export async function canProUserSubmit(userId) {
     if (!userId || !isRedisAvailable()) {
-        return { canSubmit: true, entriesUsed: 0, entriesLimit: PRO_EVENT_ENTRIES_DAILY };
+        return { canSubmit: true, entriesUsed: 0, entriesLimit: PRO_EVENT_ENTRIES_WEEKLY, entriesRemaining: PRO_EVENT_ENTRIES_WEEKLY };
     }
 
-    const today = getTodayKey();
-    const proEntryKey = `${PRO_ENTRIES_PREFIX}${today}:${userId}`;
+    const weekId = getWeekId();
+    const proEntryKey = `${PRO_ENTRIES_PREFIX}${weekId}:${userId}`;
     const entriesUsed = parseInt(await redis.get(proEntryKey)) || 0;
 
     return {
-        canSubmit: entriesUsed < PRO_EVENT_ENTRIES_DAILY,
+        canSubmit: entriesUsed < PRO_EVENT_ENTRIES_WEEKLY,
         entriesUsed,
-        entriesLimit: PRO_EVENT_ENTRIES_DAILY
+        entriesLimit: PRO_EVENT_ENTRIES_WEEKLY,
+        entriesRemaining: Math.max(0, PRO_EVENT_ENTRIES_WEEKLY - entriesUsed)
     };
 }
 
 /**
- * Mark that a Pro user has used an entry today
+ * Mark that a Pro user has used an entry this week
  */
-async function markProUserEntry(userId) {
+async function markProUserEntry(userId, weekId) {
     if (!isRedisAvailable()) return;
 
-    const today = getTodayKey();
-    const proEntryKey = `${PRO_ENTRIES_PREFIX}${today}:${userId}`;
+    const proEntryKey = `${PRO_ENTRIES_PREFIX}${weekId}:${userId}`;
     await redis.incr(proEntryKey);
 
-    // Set TTL to expire at end of day (24 hours max)
-    await redis.expire(proEntryKey, 24 * 60 * 60);
+    // Set TTL to expire after the week ends (7 days)
+    await redis.expire(proEntryKey, 7 * 24 * 60 * 60);
 }
 
 // ============================================
@@ -582,10 +583,10 @@ export async function recordEventScore(userId, score, themeCompliant, isPro, ima
         console.log(`🎫 Free user ${userId.slice(0, 8)}... used their weekly entry`);
     }
 
-    // PRO LIMIT: Mark Pro user's daily entry (every submission counts)
+    // PRO LIMIT: Mark Pro user's weekly entry (every submission counts)
     if (isPro) {
-        await markProUserEntry(userId);
-        console.log(`⚡ Pro user ${userId.slice(0, 8)}... used an event entry`);
+        await markProUserEntry(userId, weekId);
+        console.log(`⚡ Pro user ${userId.slice(0, 8)}... used a weekly event entry`);
     }
 
     // Get current best (if any)
