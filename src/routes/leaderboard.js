@@ -73,70 +73,17 @@ function getAnonymousName(userId) {
 
 /**
  * GET /api/leaderboard/today
-<<<<<<< HEAD
- * Get top 10 fits from today
- * Optional: ?userId= to include isCurrentUser flag and user's rank
-=======
  * Get Daily Challenge leaderboard
  * Query params: userId (optional) - to get user's rank and entry status
->>>>>>> 1dd2396b0c5c57fe97f3bd8070f3462384ad8bda
  */
 router.get('/today', async (req, res) => {
     try {
         const { userId } = req.query;
-<<<<<<< HEAD
-        const todayKey = getTodayKey();
-        const redisKey = `${LEADERBOARD_KEY_PREFIX}${todayKey}`;
-=======
->>>>>>> 1dd2396b0c5c57fe97f3bd8070f3462384ad8bda
 
-        // Use the daily challenge service
+        // Use the daily challenge service (already includes isCurrentUser, userRank)
         const result = await getDailyLeaderboard(userId, 10);
 
-<<<<<<< HEAD
-        // Get top 10 with scores (ZREVRANGE returns highest first)
-        const results = await redis.zrevrange(redisKey, 0, 9, 'WITHSCORES');
-
-        // Results come as [userId1, score1, userId2, score2, ...]
-        const leaderboard = [];
-        for (let i = 0; i < results.length; i += 2) {
-            const entryUserId = results[i];
-            const score = parseFloat(results[i + 1]);
-            const rank = Math.floor(i / 2) + 1;
-            const isCurrentUser = userId && entryUserId === userId;
-
-            leaderboard.push({
-                rank,
-                userId: entryUserId, // Include for isCurrentUser matching
-                displayName: isCurrentUser ? 'You' : getAnonymousName(entryUserId),
-                score: Math.round(score * 10) / 10, // 1 decimal place
-                isCurrentUser,
-                ...getRankTitle(rank)
-            });
-        }
-
-        // Get requesting user's rank if not in top 10
-        let userRank = null;
-        let userScore = null;
-        if (userId) {
-            const rankIndex = await redis.zrevrank(redisKey, userId);
-            if (rankIndex !== null) {
-                userRank = rankIndex + 1;
-                userScore = await redis.zscore(redisKey, userId);
-            }
-        }
-
-        res.json({
-            success: true,
-            leaderboard,
-            date: todayKey,
-            totalEntries: await redis.zcard(redisKey) || 0,
-            userRank,
-            userScore: userScore ? Math.round(parseFloat(userScore) * 10) / 10 : null
-        });
-=======
         res.json(result);
->>>>>>> 1dd2396b0c5c57fe97f3bd8070f3462384ad8bda
     } catch (error) {
         console.error('[LEADERBOARD] Error getting today:', error);
         res.status(500).json({ success: false, error: 'Failed to get leaderboard' });
