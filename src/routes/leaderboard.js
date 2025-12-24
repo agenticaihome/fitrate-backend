@@ -1,19 +1,28 @@
 /**
- * Leaderboard Routes - Today's Top Fits
- * 
+ * Leaderboard Routes - Today's Top Fits & Daily Challenge
+ *
  * Global leaderboard showing top scores from the last 24 hours.
  * Uses Redis sorted sets for real-time rankings.
- * 
- * GET /api/leaderboard/today - Get top 10 fits from today
- * POST /api/leaderboard/record - Record a score (called by analyze on success)
+ *
+ * GET /api/leaderboard/today - Get daily challenge leaderboard
+ * GET /api/leaderboard/rank - Get specific user's rank
+ *
+ * Daily Challenge: Free for everyone, 1 try per day, winner gets 5 pro scans
  */
 
 import express from 'express';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
+import {
+    getDailyLeaderboard,
+    getUserDailyStatus,
+    hasEnteredToday,
+    recordDailyChallengeScore,
+    getMidnightResetTime
+} from '../services/dailyChallengeService.js';
 
 const router = express.Router();
 
-// Constants
+// Constants for regular leaderboard (non-challenge)
 const LEADERBOARD_KEY_PREFIX = 'fitrate:leaderboard:';
 const LEADERBOARD_TTL = 60 * 60 * 48; // 48 hours (overlap for timezone safety)
 
@@ -64,24 +73,27 @@ function getAnonymousName(userId) {
 
 /**
  * GET /api/leaderboard/today
+<<<<<<< HEAD
  * Get top 10 fits from today
  * Optional: ?userId= to include isCurrentUser flag and user's rank
+=======
+ * Get Daily Challenge leaderboard
+ * Query params: userId (optional) - to get user's rank and entry status
+>>>>>>> 1dd2396b0c5c57fe97f3bd8070f3462384ad8bda
  */
 router.get('/today', async (req, res) => {
     try {
         const { userId } = req.query;
+<<<<<<< HEAD
         const todayKey = getTodayKey();
         const redisKey = `${LEADERBOARD_KEY_PREFIX}${todayKey}`;
+=======
+>>>>>>> 1dd2396b0c5c57fe97f3bd8070f3462384ad8bda
 
-        if (!isRedisAvailable()) {
-            return res.json({
-                success: true,
-                leaderboard: [],
-                date: todayKey,
-                message: 'Leaderboard unavailable (no Redis)'
-            });
-        }
+        // Use the daily challenge service
+        const result = await getDailyLeaderboard(userId, 10);
 
+<<<<<<< HEAD
         // Get top 10 with scores (ZREVRANGE returns highest first)
         const results = await redis.zrevrange(redisKey, 0, 9, 'WITHSCORES');
 
@@ -122,9 +134,37 @@ router.get('/today', async (req, res) => {
             userRank,
             userScore: userScore ? Math.round(parseFloat(userScore) * 10) / 10 : null
         });
+=======
+        res.json(result);
+>>>>>>> 1dd2396b0c5c57fe97f3bd8070f3462384ad8bda
     } catch (error) {
         console.error('[LEADERBOARD] Error getting today:', error);
         res.status(500).json({ success: false, error: 'Failed to get leaderboard' });
+    }
+});
+
+/**
+ * GET /api/leaderboard/status
+ * Get user's daily challenge status
+ * Query params: userId (required)
+ */
+router.get('/status', async (req, res) => {
+    try {
+        const { userId } = req.query;
+
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'userId required' });
+        }
+
+        const status = await getUserDailyStatus(userId);
+
+        res.json({
+            success: true,
+            ...status
+        });
+    } catch (error) {
+        console.error('[LEADERBOARD] Error getting status:', error);
+        res.status(500).json({ success: false, error: 'Failed to get status' });
     }
 });
 
@@ -230,5 +270,8 @@ export async function recordScore(userId, score) {
         return null;
     }
 }
+
+// Re-export daily challenge function for use in analyze route
+export { recordDailyChallengeScore } from '../services/dailyChallengeService.js';
 
 export default router;
