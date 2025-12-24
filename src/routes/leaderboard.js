@@ -65,9 +65,11 @@ function getAnonymousName(userId) {
 /**
  * GET /api/leaderboard/today
  * Get top 10 fits from today
+ * Optional: ?userId= to include isCurrentUser flag and user's rank
  */
 router.get('/today', async (req, res) => {
     try {
+        const { userId } = req.query;
         const todayKey = getTodayKey();
         const redisKey = `${LEADERBOARD_KEY_PREFIX}${todayKey}`;
 
@@ -86,23 +88,39 @@ router.get('/today', async (req, res) => {
         // Results come as [userId1, score1, userId2, score2, ...]
         const leaderboard = [];
         for (let i = 0; i < results.length; i += 2) {
-            const userId = results[i];
+            const entryUserId = results[i];
             const score = parseFloat(results[i + 1]);
             const rank = Math.floor(i / 2) + 1;
+            const isCurrentUser = userId && entryUserId === userId;
 
             leaderboard.push({
                 rank,
-                displayName: getAnonymousName(userId),
+                userId: entryUserId, // Include for isCurrentUser matching
+                displayName: isCurrentUser ? 'You' : getAnonymousName(entryUserId),
                 score: Math.round(score * 10) / 10, // 1 decimal place
+                isCurrentUser,
                 ...getRankTitle(rank)
             });
+        }
+
+        // Get requesting user's rank if not in top 10
+        let userRank = null;
+        let userScore = null;
+        if (userId) {
+            const rankIndex = await redis.zrevrank(redisKey, userId);
+            if (rankIndex !== null) {
+                userRank = rankIndex + 1;
+                userScore = await redis.zscore(redisKey, userId);
+            }
         }
 
         res.json({
             success: true,
             leaderboard,
             date: todayKey,
-            totalEntries: await redis.zcard(redisKey) || 0
+            totalEntries: await redis.zcard(redisKey) || 0,
+            userRank,
+            userScore: userScore ? Math.round(parseFloat(userScore) * 10) / 10 : null
         });
     } catch (error) {
         console.error('[LEADERBOARD] Error getting today:', error);
