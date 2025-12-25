@@ -233,6 +233,7 @@ function getScoreTier(score) {
 const OUTPUT_FORMAT = {
     free: `{
   "isValidOutfit": boolean,
+  "contentFlagged": boolean,
   "overall": <0-100>,
   "color": <0-100>,
   "fit": <0-100>,
@@ -247,10 +248,11 @@ const OUTPUT_FORMAT = {
   "themeScore": <0-100, only in event mode>,
   "themeCompliant": <boolean, only in event mode>,
   "themeVerdict": "<1 sentence on theme execution, only in event mode>",
-  "error": string (only if isValidOutfit is false)
+  "error": string (only if isValidOutfit is false OR contentFlagged is true)
 }`,
     pro: `{
   "isValidOutfit": boolean,
+  "contentFlagged": boolean,
   "overall": <0-100>,
   "color": <0-100>,
   "fit": <0-100>,
@@ -289,7 +291,7 @@ const OUTPUT_FORMAT = {
   "themeScore": <0-100, only in event mode>,
   "themeCompliant": <boolean, only in event mode>,
   "themeVerdict": "<1 sentence on theme execution, only in event mode>",
-  "error": string (only if isValidOutfit is false)
+  "error": string (only if isValidOutfit is false OR contentFlagged is true)
 }`
 };
 
@@ -381,7 +383,12 @@ Examples: "${verdictStyle.examples.join('", "')}"
 
 🚫 BANNED WORDS: "mid", "giving vibes", "slay", "understood the assignment", "it's giving", "serving", body comments, brand guessing, "as an AI"
 
-VALIDATION: ✅ Any clothing visible → RATE IT | ❌ Zero clothing → REJECT
+VALIDATION:
+✅ Clothed outfit visible → RATE IT (set contentFlagged: false)
+❌ Zero clothing → REJECT (set isValidOutfit: false)
+🚫 NUDITY/INAPPROPRIATE → FLAG IT (set contentFlagged: true, error: "This image cannot be rated. Please upload a photo of your outfit.")
+
+CONTENT SAFETY: If you detect nudity, explicit content, underwear-only, swimwear that's too revealing, or any inappropriate content, you MUST set contentFlagged: true and provide a safe error message. DO NOT rate inappropriate images.
 
 OUTPUT (JSON only):
 ${outputFormat}
