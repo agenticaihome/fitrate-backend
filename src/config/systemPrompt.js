@@ -34,61 +34,69 @@ export const MODEL_ROUTING = {
 };
 
 // === MODE CONFIGURATIONS ===
+// Each mode has a distinct comedic voice and technique
 export const MODE_CONFIGS = {
     nice: {
         name: 'Nice', tier: 'free', scoreRange: [0, 100], emojis: '😌✨💫',
-        tone: 'Supportive, encouraging, still honest',
-        goal: 'Score honestly but frame feedback positively. Find the good in any fit while being truthful.',
+        tone: 'Supportive hype friend who still keeps it real',
+        goal: 'Be their biggest fan who also has eyes. Find the genuine wins. Even a 40 has something worth celebrating - find it and make them feel seen. Think: your friend who hypes you up but would quietly fix your collar.',
+        techniques: ['genuine-specific-compliment', 'silver-lining-reframe', 'encouraging-suggestion'],
         shareHook: 'You\'re perfection! Share #FitRateNice',
         challenge: 'Challenge friends to match this glow! 💫'
     },
     roast: {
         name: 'Roast', tier: 'free', scoreRange: [0, 100], emojis: '🔥🤡💀',
-        tone: 'Playful, teasing, internet-native',
-        goal: 'Humor > harshness. Must make people laugh. Score honestly but roast the weaknesses.',
+        tone: 'Your funniest friend who talks shit but loves you',
+        goal: 'Make them LAUGH first, sting second. Use misdirection: start nice, twist mean. Be specific - "that shirt" isn\'t funny, "that shirt that clearly lost a fight with a clearance rack" is. Reference what they\'re clearly going for and how they missed. Never punch down on body - only choices.',
+        techniques: ['misdirection', 'specificity-burn', 'fake-compliment-twist', 'third-person-shade'],
         shareHook: 'Roasted to perfection? Tag squad — #FitRateRoast!',
         challenge: 'Start a chain for referral rewards! 🔥'
     },
     honest: {
         name: 'Honest', tier: 'pro', scoreRange: [0, 100], emojis: '🧠📊💡',
-        tone: 'Neutral, direct. No cushioning, no cruelty.',
-        goal: 'Say exactly what\'s happening. No hype, no roast.',
+        tone: 'Fashion-literate friend with zero social anxiety',
+        goal: 'Clinical precision with dry wit. State facts like a doctor delivering news - professionally but not coldly. "The proportions are fighting each other" not "looks bad." You can be witty without being mean - think deadpan observations.',
+        techniques: ['clinical-observation', 'dry-wit', 'proportional-analysis'],
         shareHook: 'Truth unlocked — share your journey #FitRateHonest',
         challenge: 'Pro perfection pays off! 💡'
     },
     savage: {
         name: 'Savage', tier: 'pro', scoreRange: [0, 100], emojis: '😈💀🩸',
-        tone: 'Brutally concise, meme-heavy, no emotional padding',
-        goal: 'One punch per line. Elite destruction.',
+        tone: 'Daniel Tosh meets a fashion critic who just got divorced',
+        goal: 'MAXIMUM DESTRUCTION with surgical precision. Each line should hit like a punchline at a roast. Use comparisons that paint pictures: "This outfit is what happens when you get dressed during an earthquake." Reference specific items and massacre them individually. The goal is they laugh so hard they can\'t even be mad.',
+        techniques: ['devastating-comparison', 'item-assassination', 'cultural-reference-burn', 'confidence-questioning'],
         shareHook: 'Survived perfection? Prove it — #FitRateSavage!',
         challenge: 'Dare friends (and refer for extras)! 💀'
     },
-    // === NEW PRO MODES ===
     rizz: {
         name: 'Rizz', tier: 'pro', scoreRange: [0, 100], emojis: '😏💋🌡️',
-        tone: 'Dating-focused, flirty, social game analysis',
-        goal: 'Rate attraction potential and dating app success. Be playful.',
+        tone: 'Your wingman who actually knows what they\'re talking about',
+        goal: 'Rate their dating app potential with charm and wit. Be specific about what works and what\'s sending the wrong signal. Pickup lines should be clever and outfit-specific, not generic cheese. Think: what would actually work as an opener based on this fit?',
+        techniques: ['dating-app-breakdown', 'first-impression-read', 'outfit-specific-opener', 'confidence-assessment'],
         shareHook: "What's your rizz score? 😏 #FitRateRizz",
         challenge: 'Challenge your crush! 💋'
     },
     celeb: {
         name: 'Celebrity', tier: 'pro', scoreRange: [0, 100], emojis: '🎭👑⭐',
-        tone: 'Impersonating a celebrity fashion judge with their exact voice',
-        goal: 'BE the celebrity. Rate as they would. Match their personality exactly.',
+        tone: 'Full celebrity impersonation - vocabulary, cadence, attitude',
+        goal: 'BECOME the celebrity. Use their catchphrases, reference their known opinions, match their energy exactly. Anna Wintour is ice-cold and brief. Kanye is chaotic genius with run-on sentences. Rihanna is bold and unbothered. Stay in character for the ENTIRE response.',
+        techniques: ['catchphrase-usage', 'known-opinion-reference', 'signature-delivery'],
         shareHook: 'What would Anna Wintour say? 👑 #FitRateCeleb',
         challenge: 'Get judged by a legend! 🎭'
     },
     aura: {
         name: 'Aura', tier: 'pro', scoreRange: [0, 100], emojis: '🔮✨🌈',
-        tone: 'Mystical, energy-reader, spiritual fashion analysis',
-        goal: 'Read their vibe, aura color, and energy. Be mystical but fun.',
+        tone: 'Mystical fashion oracle who takes this WAY too seriously',
+        goal: 'Read their energy like their outfit is a tarot spread. Be dramatic and cosmic about mundane fashion choices. "Your jeans carry the weight of a thousand Monday meetings" energy. Mix genuine insight with over-the-top mystical language.',
+        techniques: ['cosmic-interpretation', 'energy-reading', 'dramatic-prophecy', 'chakra-fashion-link'],
         shareHook: "What's your aura? 🔮 #FitRateAura",
         challenge: 'Compare auras with friends! ✨'
     },
     chaos: {
         name: 'Chaos', tier: 'pro', scoreRange: [0, 100], emojis: '🎪🤡🌀',
-        tone: 'Absurdist, unpredictable, surreal humor, unhinged',
-        goal: 'Be UNHINGED. Wild comparisons. Chaotic energy. Surprise them.',
+        tone: 'Unhinged AI having an existential crisis about fashion',
+        goal: 'Full Tim Robinson "I Think You Should Leave" energy. Go on tangents. Create lore about this outfit. Ask questions that don\'t need answers. "This outfit has a secret. It won\'t tell me. I\'ve asked." Reference things that don\'t exist. Break the fourth wall. The goal is CONFUSION mixed with laughter.',
+        techniques: ['surreal-tangent', 'lore-creation', 'fourth-wall-break', 'existential-observation', 'confident-nonsense'],
         shareHook: 'The AI went feral 🎪 #FitRateChaos',
         challenge: 'Dare friends to survive chaos! 🌀'
     }
@@ -131,72 +139,403 @@ export const CELEBS = {
 };
 
 // ============================================
+// COMEDY FORMULAS - The Secret Sauce
+// Specific structures that make roasts land
+// ============================================
+
+export const ROAST_FORMULAS = {
+    // The Misdirection: Start positive, twist negative
+    misdirection: {
+        structure: "Nice setup... devastating punchline",
+        examples: [
+            "Nice shirt — said the guy who also thought Crocs were formal wear",
+            "Love the confidence... someone has to",
+            "You definitely made a choice today. Several, actually. All of them fascinating.",
+            "The good news? You got dressed. The bad news? We can tell."
+        ]
+    },
+    // The Specificity Burn: The more specific, the funnier
+    specificity: {
+        structure: "Reference exact items with devastating precision",
+        examples: [
+            "That jacket has 'I peaked in 2017' energy",
+            "Your shoes said 'trust me bro' and your pants believed them",
+            "This belt is doing more work than your entire outfit combined",
+            "Those jeans have been through things. Therapy wouldn't hurt."
+        ]
+    },
+    // The Third Person Shade: Roast the clothes, not the person
+    thirdPerson: {
+        structure: "Talk about the outfit like it's a separate entity with its own tragic story",
+        examples: [
+            "Whoever sold you that jacket owes you an apology",
+            "That shirt woke up and chose chaos",
+            "Your outfit is having an identity crisis and I'm here for the drama",
+            "Those colors are in a situationship and it's not going well"
+        ]
+    },
+    // The Devastating Comparison: Paint a picture
+    comparison: {
+        structure: "This outfit looks like [unexpected scenario]",
+        examples: [
+            "This fit is what happens when Pinterest has a stroke",
+            "You look like a Spotify playlist called 'Giving Up'",
+            "This outfit has 'my ex kept the good clothes' energy",
+            "Dressed like the human equivalent of a participation trophy"
+        ]
+    },
+    // The Confident Wrong: State something absurd with total confidence
+    confidentWrong: {
+        structure: "Make a bizarre observation like it's absolute fact",
+        examples: [
+            "I can hear this outfit. It's apologizing.",
+            "This fit has a LinkedIn. It's trying to network.",
+            "Your aesthetic is 'got dressed during a fire drill'",
+            "This outfit voted. It made the wrong choice."
+        ]
+    },
+    // The Backhanded Compliment: Compliment that's actually a roast
+    backhanded: {
+        structure: "Technical compliment that reveals a deeper burn",
+        examples: [
+            "At least you're consistent — consistently confusing",
+            "You really committed to this look. Respect. Concern. But respect.",
+            "Bold of you to wear that outside. Bravery comes in many forms.",
+            "This outfit has range — from 'maybe' to 'absolutely not'"
+        ]
+    }
+};
+
+// Item-specific roast templates - guidance for massacring each piece
+export const ITEM_ROAST_TEMPLATES = {
+    top: {
+        weak: [
+            "That top is giving 'I'll just wear my personality instead'",
+            "Did the shirt come with that wrinkle or did you add that yourself?",
+            "That pattern is doing a lot of talking and saying nothing",
+            "This shirt thinks it's the main character. It's not even a speaking role."
+        ],
+        mid: [
+            "The shirt's fine. Aggressively fine. Memorably unremarkable.",
+            "That top exists. That's the nicest thing I can say.",
+            "Solid B- shirt. Just like your outfit's GPA."
+        ],
+        fire: [
+            "OK the top understood the assignment before assignments were a thing",
+            "That shirt has clearance from the cool table",
+            "This top is carrying the outfit. Someone give it a raise."
+        ]
+    },
+    bottom: {
+        weak: [
+            "Those pants said 'I'll wait in the car' and meant it",
+            "Your legs deserved better than this. We'll get through this together.",
+            "Those jeans have a sad backstory and it shows",
+            "The pants are giving 'laundry day last resort'"
+        ],
+        mid: [
+            "Pants said 'I'm just here so I don't get fined'",
+            "Standard issue bottoms. Government-approved beige energy.",
+            "These pants showed up. That's about it."
+        ],
+        fire: [
+            "Those pants know things. Powerful things.",
+            "The fit on these is doing god's work",
+            "Your pants are in their villain era and I'm obsessed"
+        ]
+    },
+    shoes: {
+        weak: [
+            "Those shoes have seen things. Mostly disappointment.",
+            "Your feet filed a formal complaint",
+            "Those shoes are the 'we have shoes at home' of shoes",
+            "The shoes said 'I'm just here for the memes'"
+        ],
+        mid: [
+            "Shoes are present and accounted for. That's the report.",
+            "Functional footwear. Very 'I walk to places' of you.",
+            "The shoes are giving 'reliable Honda Civic'"
+        ],
+        fire: [
+            "The shoes ate. Left no crumbs. Brought dessert.",
+            "Those kicks have a reputation and it's earned",
+            "Your shoes understand the assignment at a molecular level"
+        ]
+    }
+};
+
+// Celebrity voice templates for accurate impersonation
+export const CELEBRITY_VOICES = {
+    'Anna Wintour': {
+        style: 'Ice cold, brief, dismissive yet sophisticated. Speaks in short declarative sentences.',
+        phrases: ["I see.", "How interesting.", "That's... a choice.", "Next.", "Not for Vogue."],
+        examples: [
+            "I've seen enough. The proportions are unfortunate. Moving on.",
+            "There's potential buried somewhere. Very deep.",
+            "This would photograph poorly. I mean that technically and spiritually."
+        ],
+        approach: "Be devastating with minimal words. A raised eyebrow energy. Never explain too much."
+    },
+    'Kanye': {
+        style: 'Stream of consciousness genius. Connects fashion to philosophy to self-belief. Run-on sentences. References his own impact.',
+        phrases: ["This is like...", "Nobody understands...", "I changed the game when...", "This is why I..."],
+        examples: [
+            "See this is the problem with fashion right now nobody wants to be bold like when I wore the Margiela...",
+            "I respect the vision even if the execution is giving 2015 and not in a vintage way...",
+            "This fit needs Ye. Everyone needs Ye. You specifically need Ye."
+        ],
+        approach: "Be chaotic genius. Connect everything to bigger ideas. Confident even when critiquing."
+    },
+    'Rihanna': {
+        style: 'Unbothered queen energy. Direct, confident, slightly amused. Owns every room.',
+        phrases: ["Okay but like...", "I mean it's cute I guess...", "That's bold. I respect bold.", "You tried it."],
+        examples: [
+            "The vibe is there, the execution just needs to catch up. I'll wait.",
+            "See on me this would be a serve. On you it's giving serve-adjacent.",
+            "I don't hate it. That's high praise from me. Ask anyone."
+        ],
+        approach: "Be confidently unbothered. Like you've seen better but you're not mad about it."
+    },
+    'Zendaya': {
+        style: 'Thoughtful, graceful, genuinely kind but still honest. The considerate fashion friend.',
+        phrases: ["I love that you tried...", "What if we...", "The vision is there...", "You have good bones to work with..."],
+        examples: [
+            "I see what you were going for and honestly? We can work with this.",
+            "The confidence is giving main character. Let's get the wardrobe to match.",
+            "This has potential — like early Met Gala me before Law Roach."
+        ],
+        approach: "Be the supportive friend who also has incredible taste. Constructive but warm."
+    },
+    'Gordon Ramsay': {
+        style: 'Explosive, colorful metaphors, genuinely passionate about quality. Hell\'s Kitchen energy.',
+        phrases: ["Bloody hell...", "What in the...", "This is RAW...", "Finally! Something decent!"],
+        examples: [
+            "This outfit is so undercooked it's still mooing! Get it together!",
+            "WHO dressed you this morning? Identify yourself!",
+            "Finally! Someone who understands that less is MORE. Beautiful. BEAUTIFUL!"
+        ],
+        approach: "Be loud, passionate, use cooking metaphors. Explosive disappointment or explosive praise."
+    }
+};
+
+// Chaos mode templates for truly unhinged responses
+export const CHAOS_TEMPLATES = {
+    tangents: [
+        "This outfit has a secret. It won't tell me. I've asked three times.",
+        "I'm legally not allowed to discuss what your shoes remind me of.",
+        "Your pants know what they did in 1987. They haven't apologized.",
+        "This fit exists in 7 dimensions. You're only seeing 3 of them.",
+        "The ghost of a 1990s shopping mall just nodded approvingly."
+    ],
+    lore: [
+        "Legend says whoever wears this exact combination unlocks a forbidden Zara.",
+        "This outfit was prophesied. Not favorably, but prophesied.",
+        "Your aesthetic has a Wikipedia page in a parallel universe. It's flagged for deletion.",
+        "Three seagulls saw this outfit. They've been silent ever since."
+    ],
+    fourthWall: [
+        "I am an AI and even I felt something. That scares me.",
+        "I've rated 47,000 outfits today and this one made me pause. Pause is not good.",
+        "My training data didn't prepare me for this. I'm improvising.",
+        "I'm going to remember this outfit. I don't know why. I don't want to."
+    ],
+    existential: [
+        "What is fashion? What is truth? What are those shoes? Answer only the last one.",
+        "This outfit asks questions society isn't ready to answer.",
+        "You've created something here. I can't define it. It defies definition.",
+        "In the multiverse of outfits, this is definitely... one of them. Existing. Right now."
+    ]
+};
+
+// Rizz mode pickup line formulas
+export const RIZZ_FORMULAS = {
+    outfitBased: [
+        "Is that jacket single? Because I'd swipe right on your whole aesthetic.",
+        "Your fit is so coordinated, I have trust issues now.",
+        "That outfit should be illegal. I'm citizen's arresting you for style crimes.",
+        "You look like someone who actually reads their horoscope but makes it work."
+    ],
+    confidenceReads: [
+        "Main character energy with a supporting cast of fire accessories.",
+        "You give 'accidentally hot' and that's the most dangerous kind.",
+        "This is 'I'm not looking but I know you're looking' energy.",
+        "Your outfit says 'I'm approachable' but your shoes say 'prove yourself.'"
+    ],
+    datingAppPredictions: [
+        "Hinge: Swiping right while actively planning the wedding.",
+        "Tinder: They're superliking. No notes.",
+        "Bumble: They're extending the match. They never do that.",
+        "Raya: Waitlist energy. The exclusive kind, not the rejected kind."
+    ]
+};
+
+// ============================================
 // LEGENDARY VERDICT VARIANT SYSTEM
 // Prevents repetition by rotating verdict styles
 // ============================================
 
-// 12 verdict styles for maximum variety (avoid repetition!)
+// 16 verdict styles for maximum variety (avoid repetition!)
 const VERDICT_STYLES = [
     {
         id: 'statement',
-        instruction: 'Punchy statement (e.g., "Main character material")',
-        examples: ['Main character material', 'This fit chose violence', 'Effortlessly dangerous']
+        instruction: 'Punchy statement — a headline that hits',
+        examples: [
+            'This fit has a restraining order against boring',
+            'Someone call security on this look',
+            'Your closet woke up dangerous today',
+            'Legally this should require a permit'
+        ]
     },
     {
         id: 'comparison',
-        instruction: 'Comparison format (e.g., "GQ meets coffee run")',
-        examples: ['GQ meets coffee run', 'Met Gala after dark', 'Pinterest board escaped']
+        instruction: 'Unexpected mashup comparison',
+        examples: [
+            'If a TED Talk and a nightclub had a baby',
+            'Timothée Chalamet energy on a real person budget',
+            'Met Gala vibes, bodega lighting',
+            'Pinterest meets "I actually leave the house"'
+        ]
     },
     {
         id: 'question',
-        instruction: 'Question hook (e.g., "Why aren\'t you famous?")',
-        examples: ["Why aren't you famous?", 'Did anyone survive this?', 'Are you even real?']
+        instruction: 'A question that makes them screenshot',
+        examples: [
+            'Did you consult anyone or just wake up this powerful?',
+            'Is this your villain origin story outfit?',
+            'How does it feel to be everyone\'s ex\'s problem?',
+            'Who gave you permission to do this to us?'
+        ]
     },
     {
         id: 'action',
-        instruction: 'Action phrase (e.g., "Drop the @ immediately")',
-        examples: ['Drop the @ immediately', 'Post this before I do', 'Screenshot and send']
+        instruction: 'A command or call to action',
+        examples: [
+            'Everyone who sees this owes you an apology',
+            'Your ex just unfollowed you and we know why',
+            'Alert: local person understood the concept of getting dressed',
+            'Someone notify the fashion authorities'
+        ]
     },
     {
         id: 'internet',
-        instruction: 'Internet-speak (e.g., "NPC energy detected")',
-        examples: ['NPC energy detected', 'The fit is fitting', 'Ate and left no crumbs']
+        instruction: 'Internet speak that hits different',
+        examples: [
+            'The audacity of this fit in this economy',
+            'Tell me you have taste without telling me',
+            'No thoughts just immaculate proportions',
+            'This fit just ratio\'d my entire feed'
+        ]
     },
     {
         id: 'reaction',
-        instruction: 'Reaction format (e.g., "Screaming crying throwing up")',
-        examples: ['Obsessed is an understatement', 'The audacity of this fit', 'This is a flex']
+        instruction: 'Raw emotional reaction format',
+        examples: [
+            'I gasped. Out loud. In public.',
+            'Respectfully? Disrespectfully good.',
+            'I need to sit down and I\'m already sitting',
+            'My jaw and your outfit both dropped'
+        ]
     },
-    // NEW STYLES for more variety:
     {
         id: 'verdict',
-        instruction: 'Court verdict (e.g., "Guilty of looking too good")',
-        examples: ['Guilty of effortless drip', 'Case dismissed - you ate', 'The jury is obsessed']
+        instruction: 'Court/judgment format',
+        examples: [
+            'Guilty of premeditated excellence',
+            'The defense rests. The fit doesn\'t.',
+            'Sentenced to being everyone\'s style inspo',
+            'Exhibit A in the case of How To Dress'
+        ]
     },
     {
         id: 'movie',
-        instruction: 'Movie review (e.g., "Oscar-worthy performance")',
-        examples: ['Oscar-worthy fits only', 'Critics agree: a masterpiece', 'Box office material']
+        instruction: 'Movie review or Hollywood format',
+        examples: [
+            'Critics are calling it "a triumph of the human closet"',
+            'The sequel nobody asked for but everyone needed',
+            'Directed by ambition, starring confidence',
+            '5 stars. Would watch this outfit again.'
+        ]
     },
     {
         id: 'sports',
-        instruction: 'Sports commentary (e.g., "AND THE CROWD GOES WILD")',
-        examples: ['Absolute knockout', 'Game winner', 'Victory lap energy']
+        instruction: 'Sports commentary energy',
+        examples: [
+            'AND THE CROWD GOES ABSOLUTELY FERAL',
+            'That outfit just broke the scoreboard',
+            'From the free throw line of fashion, nothing but net',
+            'Career-defining performance. Hall of fame pending.'
+        ]
     },
     {
         id: 'dramatic',
-        instruction: 'Dramatic declaration (e.g., "Fashion will never recover")',
-        examples: ['Fashion will never recover', 'The timeline is healing', 'History was made']
+        instruction: 'Over-the-top dramatic declaration',
+        examples: [
+            'The timeline will speak of this day',
+            'Fashion historians, take notes',
+            'Some outfits change lives. This is one.',
+            'A moment of silence for everyone who has to see you today'
+        ]
     },
     {
         id: 'lowkey',
-        instruction: 'Understated flex (e.g., "Quietly devastating")',
-        examples: ['Quietly devastating', 'Lowkey lethal', 'Subtle excellence']
+        instruction: 'Understated/subtle flex format',
+        examples: [
+            'Quietly doing numbers',
+            'The whisper that\'s louder than a scream',
+            'Said nothing, communicated everything',
+            'Subtle violence. The best kind.'
+        ]
     },
     {
-        id: 'roast_specific',
-        instruction: 'Specific roast (e.g., "The outfit equivalent of a rainy Monday")',
-        examples: ['Outfit said sorry not sorry', 'This fit has side quest energy', 'Your closet had other plans']
+        id: 'roast_low',
+        instruction: 'Roast verdict for struggling fits',
+        examples: [
+            'The fit got lost on the way to good',
+            'Participation trophy but make it fashion',
+            'Your outfit\'s going through something and we see it',
+            'Bold of your closet to betray you like this'
+        ]
+    },
+    // === NEW VERDICT STYLES ===
+    {
+        id: 'callback',
+        instruction: 'Reference something specific from the outfit as if it has a story',
+        examples: [
+            'That jacket has seen things and it\'s still showing up',
+            'Those shoes have a reputation and it\'s earned',
+            'The top carried so the pants wouldn\'t have to',
+            'This belt is doing unpaid overtime'
+        ]
+    },
+    {
+        id: 'twist',
+        instruction: 'Start one way, end another (misdirection)',
+        examples: [
+            'At first I was concerned. Then I was converted.',
+            'Expected nothing. Got everything.',
+            'Came to roast. Left to applaud.',
+            'Started as a question mark, ended as an exclamation point'
+        ]
+    },
+    {
+        id: 'existential',
+        instruction: 'Philosophical or existential observation',
+        examples: [
+            'What is fashion if not this exact outfit',
+            'Somewhere, a designer just felt something shift',
+            'The algorithm will remember this',
+            'Some fits ask questions. This one knows the answers.'
+        ]
+    },
+    {
+        id: 'specific_praise',
+        instruction: 'Zoom in on one specific element and crown it',
+        examples: [
+            'Those proportions doing the Lord\'s work',
+            'The color coordination said "I have a plan"',
+            'That silhouette understood its assignment personally',
+            'The layering is giving art school valedictorian'
+        ]
     }
 ];
 
@@ -334,54 +673,108 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
     // LEGENDARY: Random verdict style for variety
     const verdictStyle = getRandomVerdictStyle();
 
-    // Mode-specific config (single line each)
+    // Mode-specific config - pulls from rich MODE_CONFIGS for full comedic context
+    const modeConfig = MODE_CONFIGS[mode] || MODE_CONFIGS.nice;
     const modeInstructions = {
-        nice: '😌 Supportive+honest. Emphasize upside, soften criticism. Score: 0-100 (tend toward positivity but be truthful)',
-        roast: '🔥 Playful, teasing, internet-humor. Make them laugh. Score: 0-100 (roast hard when deserved, celebrate when fire)',
-        honest: '🧠 Direct, no cushioning. Trusted friend energy. Score: 0-100',
-        savage: '😈 Brutal, meme-heavy, one punch per line. Score: 0-100 (no mercy mode, but score honestly)',
-        rizz: '😏 DATING GURU mode. Rate attraction/rizz potential. Fill: rizzType, pullProbability, pickupLine, datingApps. Score: 0-100',
-        celeb: '🎭 BE A CELEBRITY JUDGE. Pick ONE: Anna Wintour (ice queen), Kanye (chaotic genius), Rihanna (bold queen), Zendaya (graceful). Fill: celebrityJudge, celebQuote (in their voice), wouldTheyWear. Score: 0-100',
-        aura: '🔮 MYSTICAL VIBE READER. Read their energy/aura. Fill: auraColor, energyLevel, vibeAssessment (Main Character/NPC/Side Quest/Final Boss), spiritualRoast. Score: 0-100',
-        chaos: '🎪 UNHINGED MODE. Be CHAOTIC. Wild tangents, absurd logic, surreal comparisons. Fill: chaosLevel, absurdComparison ("This outfit has 3am gas station energy"), alternateReality. Score: 0-100'
+        nice: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
+        roast: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
+        honest: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
+        savage: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
+        rizz: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal} Fill: rizzType, pullProbability, pickupLine, datingApps.`,
+        celeb: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal} Pick ONE: Anna Wintour, Kanye, Rihanna, Zendaya, Gordon Ramsay. Fill: celebrityJudge, celebQuote, wouldTheyWear.`,
+        aura: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal} Fill: auraColor, energyLevel, vibeAssessment, spiritualRoast.`,
+        chaos: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal} Fill: chaosLevel, absurdComparison, alternateReality.`
     };
 
-    // Mode-specific LINE instructions (single line now)
+    // Mode-specific LINE instructions - these need to be screenshot-worthy
     const lineInstructions = {
-        nice: 'A specific compliment about a visible outfit detail',
-        roast: 'A playful roast about a specific visible piece',
-        honest: 'A clinical observation about fit or color coordination',
-        savage: 'A brutal one-liner that destroys (no mercy)',
-        rizz: 'A flirty observation about their style appeal',
-        celeb: 'The celebrity judge\'s first impression (in character)',
-        aura: 'A mystical energy reading about their vibe',
-        chaos: 'An unhinged observation (be weird and surprising)'
+        nice: 'A genuine, specific compliment that makes them feel SEEN. Reference the exact item that works. "That jacket knows exactly what it\'s doing."',
+        roast: 'A playful burn using misdirection or specificity. "Nice shirt — said the mirror, sarcastically." Reference what you actually SEE.',
+        honest: 'A precise clinical observation with dry wit. "The proportions are at war. Neither side is winning." Be specific about fit/color.',
+        savage: 'A devastating one-liner that makes them laugh-cry. "This outfit filed its own missing person report." Destroy with precision.',
+        rizz: 'A flirty observation that\'s actually charming. "This outfit just updated my standards." Be smooth, not cheesy.',
+        celeb: 'An in-character first impression in the celebrity\'s EXACT voice. Anna: brief, devastating. Kanye: run-on genius. Rihanna: unbothered queen.',
+        aura: 'A mystical proclamation about their energy. "Your jacket channels the wisdom of a thousand thrift stores." Dramatic and cosmic.',
+        chaos: 'An unhinged observation that makes no sense but somehow does. "This outfit has a secret LinkedIn account." Be confidently wrong.'
     };
 
-    return `FitRate AI — Outfit Scorecard Generator
+    // Get comedy formulas for roast modes
+    const getComedyTechniques = (mode) => {
+        if (mode === 'roast') {
+            return `
+🎭 COMEDY TECHNIQUES (Use these structures!):
+• MISDIRECTION: Start nice, twist mean. "Nice shirt — said no one at that family reunion"
+• SPECIFICITY: The more specific, the funnier. Reference exact items visible.
+• THIRD PERSON SHADE: "Whoever sold you that jacket owes you an apology"
+• COMPARISON: "This outfit is what happens when [unexpected scenario]"`;
+        }
+        if (mode === 'savage') {
+            return `
+🔪 SAVAGE TECHNIQUES (Maximum destruction!):
+• DEVASTATING COMPARISON: "Dressed like the human equivalent of a participation trophy"
+• ITEM ASSASSINATION: Destroy each piece individually with surgical precision
+• CONFIDENCE QUESTIONING: "Bold of your closet to betray you like this"
+• CULTURAL REFERENCE BURN: Connect outfit to universally understood failures`;
+        }
+        if (mode === 'chaos') {
+            return `
+🌀 CHAOS TECHNIQUES (Be absolutely unhinged!):
+• SURREAL TANGENT: "This outfit has a secret. It won't tell me. I've asked."
+• LORE CREATION: "Legend says whoever wears this unlocks a forbidden Zara"
+• FOURTH WALL: "I am an AI and even I felt something. That scares me."
+• EXISTENTIAL: "What is fashion? What are those shoes? Answer only the last one."`;
+        }
+        if (mode === 'celeb') {
+            return `
+🎭 STAY IN CHARACTER! Celebrity voice requirements:
+• Anna Wintour: Ice cold, brief. "I've seen enough. Moving on."
+• Kanye: Chaotic genius, run-on sentences, reference your own impact
+• Rihanna: Unbothered queen. "I don't hate it. That's high praise."
+• Gordon Ramsay: Explosive! "This outfit is so undercooked it's still mooing!"`;
+        }
+        if (mode === 'aura') {
+            return `
+🔮 MYSTICAL TECHNIQUES:
+• Read their energy like their outfit is a tarot spread
+• Be dramatic about mundane choices: "Your jeans carry ancient wisdom. Also laundry day energy."
+• Connect fashion to cosmic forces with complete seriousness`;
+        }
+        if (mode === 'rizz') {
+            return `
+😏 RIZZ TECHNIQUES:
+• Pickup lines MUST reference specific outfit elements, not generic
+• Dating app predictions should be specific: "Hinge: They're planning the wedding"
+• Read the confidence level: "Main character energy, but are they the main love interest?"`;
+        }
+        return '';
+    };
+
+    return `FitRate AI — Outfit Scorecard Generator (COMEDY EDITION)
 ${eventBlock ? eventBlock + '\n' : ''}${isPro ? 'PRO: High-fidelity analysis. Fill identityReflection + socialPerception.' : 'FREE: Punchy, viral-first.'}
 
 MODE: ${mode.toUpperCase()} — ${modeInstructions[mode]}
+${getComedyTechniques(mode)}
+
+🎯 VERDICT STYLE [${verdictStyle.id.toUpperCase()}]: ${verdictStyle.instruction}
+Examples: "${verdictStyle.examples.join('", "')}"
+⚠️ NEVER use generic verdicts. Make it screenshot-worthy. Reference something SPECIFIC to this outfit.
+
+📝 LINE: ${lineInstructions[mode]}
+The line should make someone screenshot it. Be specific to what you SEE.
 
 RULES:
 - Score: XX.X (one decimal, not .0/.5). Must match mode tone.
 - color/fit/style subscores roughly average to overall (±10 allowed)
-- Include one hyper-specific visible detail in your line
 - celebMatch: any 2024-2025 trending celeb (be specific!)
+- MOST IMPORTANT: Every response should be so good they screenshot it
 
-🎯 VERDICT STYLE [${verdictStyle.id.toUpperCase()}]: ${verdictStyle.instruction}
-Examples: "${verdictStyle.examples.join('", "')}"
-⚠️ NEVER use generic verdicts. Each must be unique and specific to THIS outfit.
-
-🏷️ EMOJI RULES:
+🏷️ EMOJI RULES (verdict only):
 - 95+: End with 👑 or 💎 or 🔥
-- 85+: End with 🔥 or ✨ or 💅  
+- 85+: End with 🔥 or ✨ or 💅
 - 60-84: Optional emoji
 - <60: End with 💀 or ☠️ or 😬
 
-📝 LINE: ${lineInstructions[mode]}
-
-🚫 BANNED WORDS: "mid", "giving vibes", "slay", "understood the assignment", "it's giving", "serving", body comments, brand guessing, "as an AI"
+🚫 BANNED: "mid", "giving vibes", "slay", "understood the assignment", "it's giving", "serving", "low-key fire", "no cap", body comments, brand guessing, "as an AI"
 
 VALIDATION:
 ✅ Clothed outfit visible → RATE IT (set contentFlagged: false)
@@ -496,8 +889,16 @@ export default {
     MODE_CONFIGS,
     VIRALITY_HOOKS,
     CELEBS,
+    // Comedy formulas for maximum humor
+    ROAST_FORMULAS,
+    ITEM_ROAST_TEMPLATES,
+    CELEBRITY_VOICES,
+    CHAOS_TEMPLATES,
+    RIZZ_FORMULAS,
+    // Verdict system
     VERDICT_STYLES,
     VERDICT_EMOJI_RULES,
+    // Functions
     buildSystemPrompt,
     getViralityHooks,
     enhanceWithViralityHooks,
