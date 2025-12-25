@@ -213,11 +213,11 @@ function getStreakTier(streakCount) {
 
 // Alternate verdict titles by score band (supplements AI verdict)
 const VERDICT_BADGES = {
-    legendary: ['💎 LEGENDARY', '👑 ICON STATUS', '🔥 HALL OF FAME', '✨ PERFECTION'],
-    great: ['🔥 ON FIRE', '✨ KILLING IT', '💫 STELLAR', '🎯 NAILED IT'],
-    good: ['👍 SOLID', '✅ APPROVED', '📈 TRENDING UP', '💪 STRONG'],
-    mid: ['🤔 HMMMM', '📊 AVERAGE', '😐 MEH', '🔄 NEEDS WORK'],
-    low: ['💀 YIKES', '😬 OOF', '🚨 SOS', '📉 STRUGGLE']
+    legendary: ['💎 LEGENDARY', '👑 ICON STATUS', '🔥 HALL OF FAME', '✨ HISTORIC', '🏆 GOATED'],
+    great: ['🔥 ON FIRE', '✨ KILLING IT', '💫 STELLAR', '🎯 NAILED IT', '⚡ ELECTRIC'],
+    good: ['👍 SOLID', '✅ APPROVED', '📈 TRENDING UP', '💪 RESPECTABLE', '🎵 HAS RHYTHM'],
+    mid: ['🤔 INTERESTING CHOICE', '📊 STATISTICALLY PRESENT', '🔄 PLOT TWIST PENDING', '🎲 BOLD STRATEGY'],
+    low: ['💀 CHARACTER DEVELOPMENT ARC', '😬 ORIGIN STORY', '🚨 REDEMPTION SZN', '📉 GLOW-UP LOADING', '🎭 THE HUMBLE BEGINNINGS']
 };
 
 // Next action CTAs (rotated for variety)
@@ -231,11 +231,37 @@ const NEXT_ACTIONS = [
 
 // Motivational subtexts by score band
 const MOTIVATIONAL_TEXTS = {
-    legendary: ['You understood the assignment', 'Main character energy activated', 'The algorithm approves'],
-    great: ['Keep this energy going', 'You\'re onto something', 'The vibes are immaculate'],
-    good: ['Room to grow, king/queen', 'Getting there', 'Not bad at all'],
-    mid: ['The potential is there', 'Tomorrow is a new day', 'Every fit teaches something'],
-    low: ['We all have off days', 'Bounce back stronger', 'Fashion is a journey']
+    legendary: [
+        'Someone needs to study this scientifically',
+        'The main character just entered the chat',
+        'We witnessed history today',
+        'This is going in the archives'
+    ],
+    great: [
+        'Keep this energy or face consequences',
+        'You figured something out and it shows',
+        'The closet cooperated today',
+        'Taste was acquired somewhere along the way'
+    ],
+    good: [
+        'Respectable showing. The judges nod approvingly.',
+        'You showed up and showed out (mostly)',
+        'A solid foundation for future greatness',
+        'The potential is palpable'
+    ],
+    mid: [
+        'The plot thickens. So does the improvement potential.',
+        'A swing was taken. A swing was... attempted.',
+        'Points for showing up. Participation: noted.',
+        'The glow-up montage starts here'
+    ],
+    low: [
+        'Every superhero needs an origin story',
+        'The before photo in your transformation arc',
+        'This is called character development',
+        'Plot twist incoming. We believe in the arc.',
+        'The comeback story writes itself from here'
+    ]
 };
 
 // ============================================
