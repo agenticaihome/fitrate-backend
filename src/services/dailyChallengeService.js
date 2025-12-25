@@ -97,10 +97,10 @@ export async function hasEnteredToday(userId) {
     const entry = await redis.get(entryKey);
     return entry !== null;
 }
-
 /**
  * Record a daily challenge score
  * Returns error if user has already entered today
+ * Only stores imageThumb for top 5 entries to save storage
  */
 export async function recordDailyChallengeScore(userId, score, options = {}) {
     const { displayName = null, tagline = null, imageThumb = null } = options;
@@ -131,24 +131,44 @@ export async function recordDailyChallengeScore(userId, score, options = {}) {
     await redis.zadd(scoresKey, score, userId);
     await redis.expire(scoresKey, DAILY_TTL);
 
-    // Record entry metadata with tagline and thumbnail for leaderboard
+    // Get the user's rank BEFORE storing entry
+    const rankIndex = await redis.zrevrank(scoresKey, userId);
+    const rank = rankIndex !== null ? rankIndex + 1 : null;
+    const totalParticipants = await redis.zcard(scoresKey);
+
+    // Only store thumbnail if user is in top 5 (saves storage)
+    const isTop5 = rank !== null && rank <= 5;
     const entry = {
         userId,
         score,
         displayName: displayName || getAnonymousName(userId),
         tagline: tagline || null,
-        imageThumb: imageThumb || null,
+        imageThumb: isTop5 ? (imageThumb || null) : null,  // Only top 5 get thumbnails
         submittedAt: new Date().toISOString()
     };
     await redis.set(entryKey, JSON.stringify(entry));
     await redis.expire(entryKey, DAILY_TTL);
 
-    // Get the user's rank
-    const rankIndex = await redis.zrevrank(scoresKey, userId);
-    const rank = rankIndex !== null ? rankIndex + 1 : null;
-    const totalParticipants = await redis.zcard(scoresKey);
+    // If a new entry pushed someone out of top 5, remove their thumbnail
+    if (isTop5 && totalParticipants > 5) {
+        // Get the 6th place entry and remove their thumbnail
+        const sixthPlaceResults = await redis.zrevrange(scoresKey, 5, 5);
+        if (sixthPlaceResults.length > 0) {
+            const sixthPlaceUserId = sixthPlaceResults[0];
+            const sixthPlaceKey = `${DAILY_ENTRIES_PREFIX}${todayKey}:${sixthPlaceUserId}`;
+            const sixthPlaceJson = await redis.get(sixthPlaceKey);
+            if (sixthPlaceJson) {
+                const sixthPlaceEntry = JSON.parse(sixthPlaceJson);
+                if (sixthPlaceEntry.imageThumb) {
+                    sixthPlaceEntry.imageThumb = null;  // Remove thumbnail
+                    await redis.set(sixthPlaceKey, JSON.stringify(sixthPlaceEntry));
+                    console.log(`[DAILY CHALLENGE] Removed thumbnail from 6th place: ${sixthPlaceUserId.slice(0, 12)}...`);
+                }
+            }
+        }
+    }
 
-    console.log(`[DAILY CHALLENGE] ${userId.slice(0, 12)}... entered with score ${score}, rank #${rank}/${totalParticipants}`);
+    console.log(`[DAILY CHALLENGE] ${userId.slice(0, 12)}... entered with score ${score}, rank #${rank}/${totalParticipants}${isTop5 ? ' (top 5, thumbnail stored)' : ''}`);
 
     return {
         success: true,
