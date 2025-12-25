@@ -569,6 +569,7 @@ function getScoreTier(score) {
     return 'low';
 }
 
+// Unified output format - same fields for all modes (mode-specific behavior is in the prompt, not schema)
 const OUTPUT_FORMAT = {
     free: `{
   "isValidOutfit": boolean,
@@ -605,28 +606,8 @@ const OUTPUT_FORMAT = {
   "socialPerception": "<How others perceive them - 1-2 sentences>",
   "itemRoasts": { "top": "<roast>", "bottom": "<roast>", "shoes": "<roast>" },
   "proTip": "<One actionable style upgrade>",
-  "savageLevel": <1-10, only for savage mode>,
   "percentile": <0-99>,
   "mode": "<nice|roast|honest|savage|rizz|celeb|aura|chaos>",
-  // === RIZZ MODE FIELDS (only for rizz mode) ===
-  "rizzType": "<Unspoken Rizz | W Rizz | L Rizz | Subtle Rizz>",
-  "pullProbability": <0-100>,
-  "pickupLine": "<outfit-appropriate pickup line>",
-  "datingApps": { "tinder": <1-10>, "hinge": <1-10>, "bumble": <1-10> },
-  // === CELEB MODE FIELDS (only for celeb mode) ===
-  "celebrityJudge": "<Anna Wintour | Kanye | Rihanna | Karl Lagerfeld | Zendaya>",
-  "celebQuote": "<in-character quote about the outfit>",
-  "wouldTheyWear": <boolean>,
-  // === AURA MODE FIELDS (only for aura mode) ===
-  "auraColor": "<Gold | Purple | Red | Blue | Green | Silver | Rainbow | Black>",
-  "energyLevel": <0-100>,
-  "vibeAssessment": "<Main Character | NPC | Side Quest | Final Boss | Protagonist>",
-  "spiritualRoast": "<mystical fashion critique, 1 sentence>",
-  // === CHAOS MODE FIELDS (only for chaos mode) ===
-  "chaosLevel": <1-10>,
-  "absurdComparison": "<wild surreal comparison>",
-  "alternateReality": "<what this outfit is in a parallel universe>",
-  // === EVENT FIELDS ===
   "themeScore": <0-100, only in event mode>,
   "themeCompliant": <boolean, only in event mode>,
   "themeVerdict": "<1 sentence on theme execution, only in event mode>",
@@ -674,16 +655,17 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
     const verdictStyle = getRandomVerdictStyle();
 
     // Mode-specific config - pulls from rich MODE_CONFIGS for full comedic context
+    // Mode-specific flavor comes through in verdict/line/itemRoasts - not separate JSON fields
     const modeConfig = MODE_CONFIGS[mode] || MODE_CONFIGS.nice;
     const modeInstructions = {
         nice: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
         roast: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
         honest: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
         savage: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
-        rizz: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal} Fill: rizzType, pullProbability, pickupLine, datingApps.`,
-        celeb: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal} Pick ONE: Anna Wintour, Kanye, Rihanna, Zendaya, Gordon Ramsay. Fill: celebrityJudge, celebQuote, wouldTheyWear.`,
-        aura: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal} Fill: auraColor, energyLevel, vibeAssessment, spiritualRoast.`,
-        chaos: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal} Fill: chaosLevel, absurdComparison, alternateReality.`
+        rizz: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
+        celeb: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal} Pick ONE celebrity voice: Anna Wintour, Kanye, Rihanna, Zendaya, Gordon Ramsay.`,
+        aura: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
+        chaos: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`
     };
 
     // Mode-specific LINE instructions - these need to be screenshot-worthy

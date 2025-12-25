@@ -177,7 +177,6 @@ export async function analyzeOutfit(imageBase64, options = {}) {
         celebMatch: result.celebMatch,
         identityReflection: result.identityReflection || null,
         socialPerception: result.socialPerception || null,
-        savageLevel: result.savageLevel || null,
         itemRoasts: result.itemRoasts || null,
         shareHook: result.shareHook || modeConfig?.shareHook,
         mode: mode,
