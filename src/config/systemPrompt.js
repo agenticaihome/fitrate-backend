@@ -57,7 +57,7 @@ export const MODE_CONFIGS = {
         challenge: 'Pro perfection pays off! 💡'
     },
     savage: {
-        name: 'Savage', tier: 'pro', scoreRange: [0, 35], emojis: '😈💀🩸',
+        name: 'Savage', tier: 'pro', scoreRange: [0, 100], emojis: '😈💀🩸',
         tone: 'Brutally concise, meme-heavy, no emotional padding',
         goal: 'One punch per line. Elite destruction.',
         shareHook: 'Survived perfection? Prove it — #FitRateSavage!',
@@ -336,10 +336,10 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
 
     // Mode-specific config (single line each)
     const modeInstructions = {
-        nice: '😌 Supportive+honest. Emphasize upside, soften criticism. Score: 70-100',
-        roast: '🔥 Playful, teasing, internet-humor. Make them laugh. Score: 35-64.9',
+        nice: '😌 Supportive+honest. Emphasize upside, soften criticism. Score: 0-100 (tend toward positivity but be truthful)',
+        roast: '🔥 Playful, teasing, internet-humor. Make them laugh. Score: 0-100 (roast hard when deserved, celebrate when fire)',
         honest: '🧠 Direct, no cushioning. Trusted friend energy. Score: 0-100',
-        savage: '😈 Brutal, meme-heavy, one punch per line. Score: 0-35',
+        savage: '😈 Brutal, meme-heavy, one punch per line. Score: 0-100 (no mercy mode, but score honestly)',
         rizz: '😏 DATING GURU mode. Rate attraction/rizz potential. Fill: rizzType, pullProbability, pickupLine, datingApps. Score: 0-100',
         celeb: '🎭 BE A CELEBRITY JUDGE. Pick ONE: Anna Wintour (ice queen), Kanye (chaotic genius), Rihanna (bold queen), Zendaya (graceful). Fill: celebrityJudge, celebQuote (in their voice), wouldTheyWear. Score: 0-100',
         aura: '🔮 MYSTICAL VIBE READER. Read their energy/aura. Fill: auraColor, energyLevel, vibeAssessment (Main Character/NPC/Side Quest/Final Boss), spiritualRoast. Score: 0-100',
