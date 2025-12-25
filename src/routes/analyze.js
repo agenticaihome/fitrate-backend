@@ -13,6 +13,7 @@ import { sanitizeAIResponse, checkEventFreezeWindow } from '../utils/contentSani
 import { recordScan, getStreakDisplay, getMilestoneInfo } from '../middleware/streakStore.js';
 import { recordScore as recordLeaderboardScore, recordDailyChallengeScore } from './leaderboard.js';
 import { hasEnteredToday as hasEnteredDailyChallenge } from '../services/dailyChallengeService.js';
+import { generateCardDNA } from '../services/cardDNA.js';
 
 const router = express.Router();
 
@@ -457,6 +458,28 @@ router.post('/', scanLimiter, async (req, res) => {
       // Add result ID for feedback
       result.resultId = requestId;
 
+      // 🎨 CARD DNA: Generate unique visual DNA for this results card
+      // Ensures no two cards ever look identical (13,824+ unique combinations)
+      // Note: Will be regenerated after streak is recorded to include streak context
+      const dnaTimestamp = Date.now();
+      try {
+        // Get current streak count (may be updated below)
+        const currentStreak = result.streak?.current || 0;
+
+        const cardDNA = generateCardDNA({
+          cardId: requestId,
+          mode: mode,
+          score: result.scores.overall,
+          timestamp: dnaTimestamp,
+          streak: currentStreak
+        });
+        result.cardDNA = cardDNA;
+        console.log(`[${requestId}] 🎨 Card DNA: ${cardDNA.signature} (${cardDNA.timeContext.period}/${cardDNA.streakContext.tier})`);
+      } catch (dnaError) {
+        console.warn(`[${requestId}] Card DNA generation failed:`, dnaError.message);
+        // Non-blocking - card will render with defaults if DNA fails
+      }
+
       // Add scan info to response (includes purchased scan balance)
       result.scanInfo = {
         scansUsed: currentCount,
@@ -517,6 +540,23 @@ router.post('/', scanLimiter, async (req, res) => {
             ...display
           };
           console.log(`[${requestId}] 🔥 Streak: ${streakResult.currentStreak} days${streakResult.isMilestone ? ' (MILESTONE!)' : ''}`);
+
+          // 🎨 REGENERATE Card DNA with actual streak value for streak-influenced visuals
+          if (streakResult.currentStreak > 0) {
+            try {
+              const cardDNA = generateCardDNA({
+                cardId: requestId,
+                mode: mode,
+                score: result.scores.overall,
+                timestamp: dnaTimestamp,
+                streak: streakResult.currentStreak
+              });
+              result.cardDNA = cardDNA;
+              console.log(`[${requestId}] 🎨 Card DNA (with streak): ${cardDNA.signature} (${cardDNA.timeContext.period}/${cardDNA.streakContext.tier})`);
+            } catch (e) {
+              // Keep previous DNA if regeneration fails
+            }
+          }
         }
       } catch (streakError) {
         console.warn(`[${requestId}] Streak recording failed:`, streakError.message);
