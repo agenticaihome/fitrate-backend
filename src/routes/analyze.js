@@ -546,7 +546,10 @@ router.post('/', scanLimiter, async (req, res) => {
       if (dailyChallenge && result.scores?.overall) {
         try {
           const userId = req.scanInfo?.userId || req.body.userId;
-          const dailyChallengeResult = await recordDailyChallengeScore(userId, result.scores.overall);
+          const dailyChallengeResult = await recordDailyChallengeScore(userId, result.scores.overall, {
+            tagline: result.scores.tagline || null,
+            imageThumb: imageThumb || null
+          });
 
           if (dailyChallengeResult.success) {
             result.dailyChallengeRank = dailyChallengeResult.rank;

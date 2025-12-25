@@ -102,7 +102,9 @@ export async function hasEnteredToday(userId) {
  * Record a daily challenge score
  * Returns error if user has already entered today
  */
-export async function recordDailyChallengeScore(userId, score, displayName = null) {
+export async function recordDailyChallengeScore(userId, score, options = {}) {
+    const { displayName = null, tagline = null, imageThumb = null } = options;
+
     if (!userId || score === undefined) {
         return { success: false, error: 'missing_params', message: 'Missing userId or score' };
     }
@@ -129,11 +131,13 @@ export async function recordDailyChallengeScore(userId, score, displayName = nul
     await redis.zadd(scoresKey, score, userId);
     await redis.expire(scoresKey, DAILY_TTL);
 
-    // Record entry metadata
+    // Record entry metadata with tagline and thumbnail for leaderboard
     const entry = {
         userId,
         score,
         displayName: displayName || getAnonymousName(userId),
+        tagline: tagline || null,
+        imageThumb: imageThumb || null,
         submittedAt: new Date().toISOString()
     };
     await redis.set(entryKey, JSON.stringify(entry));
@@ -194,6 +198,8 @@ export async function getDailyLeaderboard(userId = null, limit = 10) {
             rank,
             userId: odlUserId.slice(0, 8) + '...', // Truncated for privacy
             displayName: entry.displayName || getAnonymousName(odlUserId),
+            tagline: entry.tagline || null,
+            imageThumb: entry.imageThumb || null,
             score: Math.round(score * 10) / 10,
             ...getRankTitle(rank),
             isCurrentUser: userId ? odlUserId === userId : false
