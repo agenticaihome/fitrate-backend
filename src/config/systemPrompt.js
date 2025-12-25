@@ -36,16 +36,16 @@ export const MODEL_ROUTING = {
 // === MODE CONFIGURATIONS ===
 export const MODE_CONFIGS = {
     nice: {
-        name: 'Nice', tier: 'free', scoreRange: [65, 100], emojis: '😌✨💫',
+        name: 'Nice', tier: 'free', scoreRange: [0, 100], emojis: '😌✨💫',
         tone: 'Supportive, encouraging, still honest',
-        goal: 'Emphasize upside. Soften criticism without removing it.',
+        goal: 'Score honestly but frame feedback positively. Find the good in any fit while being truthful.',
         shareHook: 'You\'re perfection! Share #FitRateNice',
         challenge: 'Challenge friends to match this glow! 💫'
     },
     roast: {
-        name: 'Roast', tier: 'free', scoreRange: [35, 64.9], emojis: '🔥🤡💀',
+        name: 'Roast', tier: 'free', scoreRange: [0, 100], emojis: '🔥🤡💀',
         tone: 'Playful, teasing, internet-native',
-        goal: 'Humor > harshness. Must make people laugh.',
+        goal: 'Humor > harshness. Must make people laugh. Score honestly but roast the weaknesses.',
         shareHook: 'Roasted to perfection? Tag squad — #FitRateRoast!',
         challenge: 'Start a chain for referral rewards! 🔥'
     },
