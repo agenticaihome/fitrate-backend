@@ -251,9 +251,9 @@ router.post('/', scanLimiter, async (req, res) => {
         });
       }
 
-      // Daily challenge accepts any of the 8 rotating modes
-      // Frontend calculates: MODES[dayOfYear % 8] where MODES = ['nice','roast','honest','savage','rizz','celeb','aura','chaos']
-      const validDailyChallengeModes = ['nice', 'roast', 'honest', 'savage', 'rizz', 'celeb', 'aura', 'chaos'];
+      // Daily challenge accepts any of the 12 rotating modes
+      // Frontend calculates: MODES[dayOfYear % 12]
+      const validDailyChallengeModes = ['nice', 'roast', 'honest', 'savage', 'rizz', 'celeb', 'aura', 'chaos', 'y2k', 'villain', 'coquette', 'hypebeast'];
       if (!validDailyChallengeModes.includes(mode)) {
         console.log(`[${requestId}] Daily challenge invalid mode: ${mode}`);
         return res.status(400).json({

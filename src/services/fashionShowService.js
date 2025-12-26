@@ -19,12 +19,16 @@ const SHOW_ID_LENGTH = 6;
 const VIBES = {
     nice: { label: 'Nice 😇', proOnly: false },
     roast: { label: 'Roast 🔥', proOnly: false },
-    honest: { label: 'Honest 📊', proOnly: true },
-    savage: { label: 'Savage 💀', proOnly: true },
-    rizz: { label: 'Rizz 😏', proOnly: true },
-    celeb: { label: 'Celebrity ⭐', proOnly: true },
-    aura: { label: 'Aura 🔮', proOnly: true },
-    chaos: { label: 'Chaos 🎪', proOnly: true }
+    honest: { label: 'Honest 📊', proOnly: false },
+    savage: { label: 'Savage 💀', proOnly: false },
+    rizz: { label: 'Rizz 😏', proOnly: false },
+    celeb: { label: 'Celebrity ⭐', proOnly: false },
+    aura: { label: 'Aura 🔮', proOnly: false },
+    chaos: { label: 'Chaos 🎪', proOnly: false },
+    y2k: { label: 'Y2K 💎', proOnly: false },
+    villain: { label: 'Villain 🖤', proOnly: false },
+    coquette: { label: 'Coquette 🎀', proOnly: false },
+    hypebeast: { label: 'Hypebeast 👟', proOnly: false }
 };
 
 const WALKS_FREE = 1;

@@ -99,6 +99,38 @@ export const MODE_CONFIGS = {
         techniques: ['surreal-tangent', 'lore-creation', 'fourth-wall-break', 'existential-observation', 'confident-nonsense'],
         shareHook: 'The AI went feral 🎪 #FitRateChaos',
         challenge: 'Dare friends to survive chaos! 🌀'
+    },
+    y2k: {
+        name: 'Y2K', tier: 'free', scoreRange: [0, 100], emojis: '💎🦋✨',
+        tone: 'Paris Hilton circa 2003 - everything is "hot" or "so not"',
+        goal: 'Rate like it\'s the early 2000s. Check for: low-rise approval, bedazzled factor, butterfly clips, logo mania, velour potential, trucker hat compatibility. Channel peak tabloid era. "That\'s hot" or "loves it" energy required.',
+        techniques: ['y2k-reference', 'tabloid-speak', 'thats-hot-meter', 'bling-check'],
+        shareHook: "That's hot 💎 #FitRateY2K",
+        challenge: 'Challenge your BFF to a Y2K-off! 🦋'
+    },
+    villain: {
+        name: 'Villain', tier: 'free', scoreRange: [0, 100], emojis: '🖤🦹👿',
+        tone: 'The main villain who just walked in and everyone noticed',
+        goal: 'Rate for intimidation factor and main villain energy. Dark academia? Power suit? All black? Would this outfit steal the scene? Does the protagonist become a side character when you enter? Rate the dramatic entrance potential.',
+        techniques: ['power-assessment', 'intimidation-check', 'dramatic-entrance-score', 'scene-stealing-potential'],
+        shareHook: 'Villain origin story 🖤 #FitRateVillain',
+        challenge: 'Who has the most villain energy? 👿'
+    },
+    coquette: {
+        name: 'Coquette', tier: 'free', scoreRange: [0, 100], emojis: '🎀🩰💗',
+        tone: 'Soft, romantic, Pinterest princess aesthetic',
+        goal: 'Rate for dainty factor and romanticcore vibes. Bow count? Lace percentage? Ballet flat potential? Is it giving Lana Del Rey music video? Rate the princess-in-a-romance-novel energy. Softness is strength here.',
+        techniques: ['softness-check', 'bow-count', 'romantic-vibe-scan', 'balletcore-assessment'],
+        shareHook: 'So coquette 🎀 #FitRateCoquette',
+        challenge: 'Who is the most coquette? 🩰'
+    },
+    hypebeast: {
+        name: 'Hypebeast', tier: 'free', scoreRange: [0, 100], emojis: '👟💸🔥',
+        tone: 'Streetwear connoisseur who knows retail from resale',
+        goal: 'Rate the drip level. Brand recognition? Sneaker game strong? Estimated resale value? Is this outfit selling out or sitting on shelves? Check for authentic hype vs mall brand energy. Drip or drown.',
+        techniques: ['brand-check', 'drip-assessment', 'resale-calculation', 'sneaker-authentication'],
+        shareHook: 'Certified drip 👟 #FitRateHypebeast',
+        challenge: 'Drip battle! Who wins? 💸'
     }
 };
 
