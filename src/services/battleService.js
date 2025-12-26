@@ -28,9 +28,10 @@ export function generateBattleId() {
 /**
  * Create a new battle
  * @param {number} creatorScore - Creator's outfit score (0.0-100.0)
+ * @param {string} mode - AI mode used for scoring (e.g., 'nice', 'roast', 'savage')
  * @returns {Object} Battle data with ID
  */
-export async function createBattle(creatorScore) {
+export async function createBattle(creatorScore, mode = 'nice') {
     // Validate score
     if (typeof creatorScore !== 'number' || creatorScore < 0 || creatorScore > 100) {
         throw new Error('Score must be between 0 and 100');
@@ -44,6 +45,7 @@ export async function createBattle(creatorScore) {
         id: battleId,
         creatorScore: parseFloat(creatorScore.toFixed(1)),
         responderScore: null,
+        mode: mode || 'nice',  // AI mode for both players
         status: 'waiting',
         winner: null,
         createdAt: now.toISOString(),
@@ -57,6 +59,7 @@ export async function createBattle(creatorScore) {
         // Store as Redis hash
         await redis.hset(key, {
             creatorScore: battleData.creatorScore,
+            mode: battleData.mode,
             status: battleData.status,
             createdAt: battleData.createdAt,
             expiresAt: battleData.expiresAt
@@ -73,6 +76,7 @@ export async function createBattle(creatorScore) {
         battleId,
         status: battleData.status,
         creatorScore: battleData.creatorScore,
+        mode: battleData.mode,
         createdAt: battleData.createdAt,
         expiresAt: battleData.expiresAt
     };
@@ -102,6 +106,7 @@ export async function getBattle(battleId) {
             battleId,
             creatorScore: parseFloat(data.creatorScore),
             responderScore: data.responderScore ? parseFloat(data.responderScore) : null,
+            mode: data.mode || 'nice',  // AI mode used for this battle
             status: data.status,
             winner: data.winner || null,
             createdAt: data.createdAt,

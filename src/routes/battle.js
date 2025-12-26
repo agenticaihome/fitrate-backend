@@ -60,7 +60,7 @@ router.post('/', createLimiter, async (req, res) => {
 
     try {
         console.log(`[${requestId}] POST /api/battle - Creating new battle`);
-        const { creatorScore } = req.body;
+        const { creatorScore, mode } = req.body;
 
         // Validate input
         if (creatorScore === undefined || creatorScore === null) {
@@ -79,9 +79,9 @@ router.post('/', createLimiter, async (req, res) => {
             });
         }
 
-        // Create battle
-        const battle = await createBattle(score);
-        console.log(`[${requestId}] ✅ Battle created: ${battle.battleId}`);
+        // Create battle with mode
+        const battle = await createBattle(score, mode || 'nice');
+        console.log(`[${requestId}] ✅ Battle created: ${battle.battleId} (mode: ${battle.mode})`);
 
         return res.status(201).json(battle);
     } catch (error) {
