@@ -212,19 +212,20 @@ router.post('/', scanLimiter, async (req, res) => {
       });
     }
 
-    // SECURITY: Check tier restriction for Pro-only modes
-    // Users with subscription OR purchased scans can access Pro modes
-    const isPro = req.scanInfo?.isPro;
-    const hasPurchasedScans = req.scanInfo?.userId ? await getPurchasedScans(req.scanInfo.userId) > 0 : false;
-    const hasProAccess = isPro || hasPurchasedScans;
-    if (modeConfig.tier === 'pro' && !hasProAccess) {
-      console.log(`[${requestId}] Error: Pro-only mode requested by free user - ${mode}`);
-      return res.status(403).json({
-        success: false,
-        error: ERROR_MESSAGES.mode_restricted,
-        code: 'PRO_MODE_REQUIRED'
-      });
-    }
+    // TEMPORARY: All modes available via Gemini - Pro tier check disabled
+    // TODO: Re-enable when Pro/GPT-4o subscriptions are configured:
+    // const isPro = req.scanInfo?.isPro;
+    // const hasPurchasedScans = req.scanInfo?.userId ? await getPurchasedScans(req.scanInfo.userId) > 0 : false;
+    // const hasProAccess = isPro || hasPurchasedScans;
+    // if (modeConfig.tier === 'pro' && !hasProAccess) {
+    //   console.log(`[${requestId}] Error: Pro-only mode requested by free user - ${mode}`);
+    //   return res.status(403).json({
+    //     success: false,
+    //     error: ERROR_MESSAGES.mode_restricted,
+    //     code: 'PRO_MODE_REQUIRED'
+    //   });
+    // }
+    const isPro = req.scanInfo?.isPro; // Keep for other logic that uses isPro
 
     // DAILY CHALLENGE: Check if user already entered today
     // Daily challenge is free for all, mode MUST be "nice", one entry per day
