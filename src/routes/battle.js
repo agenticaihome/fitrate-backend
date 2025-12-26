@@ -83,7 +83,21 @@ router.post('/', createLimiter, async (req, res) => {
         const battle = await createBattle(score, mode || 'nice', creatorThumb || null);
         console.log(`[${requestId}] ✅ Battle created: ${battle.battleId} (mode: ${battle.mode})`);
 
-        return res.status(201).json(battle);
+        // Generate invite URL (use x-forwarded-host for Railway/Vercel, fallback to host)
+        const host = req.get('x-forwarded-host') || req.get('host');
+        const protocol = req.get('x-forwarded-proto') || 'https';
+        const inviteUrl = `${protocol}://${host}/b/${battle.battleId}`;
+
+        return res.status(201).json({
+            challengeId: battle.battleId,  // Frontend expects challengeId
+            battleId: battle.battleId,     // Keep for backwards compat
+            inviteUrl,
+            expiresAt: battle.expiresAt,
+            status: battle.status,
+            creatorScore: battle.creatorScore,
+            mode: battle.mode,
+            createdAt: battle.createdAt
+        });
     } catch (error) {
         console.error(`[${requestId}] Error creating battle:`, error.message);
         return res.status(500).json({
@@ -121,17 +135,23 @@ router.get('/:battleId', getLimiter, async (req, res) => {
             });
         }
 
-        // Check if expired
-        if (battle.status === 'expired') {
-            console.log(`[${requestId}] Battle expired: ${battleId}`);
-            return res.status(410).json({
-                error: 'Battle expired',
-                status: 'expired'
-            });
-        }
-
+        // Return battle data with challengeId for frontend compatibility
+        // Note: Expired battles return 200 so frontend can show "Battle Expired" screen
         console.log(`[${requestId}] ✅ Battle found: ${battleId} (status: ${battle.status})`);
-        return res.status(200).json(battle);
+        return res.status(200).json({
+            challengeId: battle.battleId,  // Frontend expects challengeId
+            battleId: battle.battleId,     // Keep for backwards compat
+            creatorScore: battle.creatorScore,
+            responderScore: battle.responderScore,
+            mode: battle.mode,
+            status: battle.status,  // 'waiting', 'completed', or 'expired'
+            creatorThumb: battle.creatorThumb,
+            responderThumb: battle.responderThumb,
+            winner: battle.winner,
+            createdAt: battle.createdAt,
+            respondedAt: battle.respondedAt,
+            expiresAt: battle.expiresAt
+        });
     } catch (error) {
         console.error(`[${requestId}] Error getting battle:`, error.message);
         return res.status(500).json({
@@ -193,9 +213,8 @@ router.post('/:battleId/respond', respondLimiter, async (req, res) => {
         }
 
         if (error.message === 'Battle expired') {
-            return res.status(410).json({
-                error: 'Battle expired',
-                status: 'expired'
+            return res.status(400).json({
+                error: 'Battle has expired'
             });
         }
 

@@ -4,7 +4,7 @@
  *
  * Redis Data Structure:
  * - Key: `challenge:{battleId}` (hash) - keeping 'challenge:' prefix for backwards compat
- * - TTL: 7 days (auto-expires)
+ * - TTL: 24 hours (auto-expires)
  */
 
 import { redis, isRedisAvailable } from './redisClient.js';
@@ -40,7 +40,7 @@ export async function createBattle(creatorScore, mode = 'nice', creatorThumb = n
 
     const battleId = generateBattleId();
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // 2 days
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
 
     const battleData = {
         id: battleId,
@@ -75,8 +75,8 @@ export async function createBattle(creatorScore, mode = 'nice', creatorThumb = n
 
         await redis.hset(key, hashData);
 
-        // Set TTL to 2 days (172800 seconds)
-        await redis.expire(key, 172800);
+        // Set TTL to 24 hours (86400 seconds)
+        await redis.expire(key, 86400);
     } else {
         // In-memory fallback
         inMemoryStore.set(battleId, battleData);
