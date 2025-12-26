@@ -134,8 +134,10 @@ router.post('/pro-roast', proRoastLimiter, async (req, res) => {
       suspiciousFlag: false
     };
 
-    // Use OpenAI for Pro Roasts - SAVAGE mode (maximum brutality)
-    const result = await analyzeWithOpenAI(image, {
+    // TEMPORARY: Use Gemini for all scans - Pro/GPT-4o will be configured later
+    // TODO: Re-enable OpenAI for Pro Roasts when ready:
+    // const result = await analyzeWithOpenAI(image, {
+    const result = await analyzeWithGemini(image, {
       mode: 'savage',
       roastMode: true,
       occasion: null,
@@ -248,12 +250,14 @@ router.post('/', scanLimiter, async (req, res) => {
         });
       }
 
-      // Daily challenge must use "nice" mode
-      if (mode !== 'nice') {
-        console.log(`[${requestId}] Daily challenge must use nice mode, got: ${mode}`);
+      // Daily challenge accepts any of the 8 rotating modes
+      // Frontend calculates: MODES[dayOfYear % 8] where MODES = ['nice','roast','honest','savage','rizz','celeb','aura','chaos']
+      const validDailyChallengeModes = ['nice', 'roast', 'honest', 'savage', 'rizz', 'celeb', 'aura', 'chaos'];
+      if (!validDailyChallengeModes.includes(mode)) {
+        console.log(`[${requestId}] Daily challenge invalid mode: ${mode}`);
         return res.status(400).json({
           success: false,
-          error: 'Daily challenge uses standard rating mode',
+          error: 'Invalid mode for daily challenge',
           code: 'DAILY_CHALLENGE_MODE_INVALID'
         });
       }
@@ -350,16 +354,15 @@ router.post('/', scanLimiter, async (req, res) => {
       suspiciousFlag: false // Backend middleware already handles this, but AI acts as backup
     };
 
-    // SIMPLIFIED MODEL: Route to appropriate AI by tier
-    // - Pro users (subscription OR purchased scans): Always GPT-4o (all 8 modes)
-    // - Free users: Always Gemini (nice/roast modes only)
-    const purchasedScans = req.scanInfo?.userId ? await getPurchasedScans(req.scanInfo.userId) : 0;
-    const isProTier = isPro || purchasedScans > 0;
-    const useOpenAI = isProTier;
+    // TEMPORARY: All scans use Gemini (free tier) - Pro/GPT-4o will be configured later
+    // TODO: Re-enable Pro routing when ready:
+    // const purchasedScans = req.scanInfo?.userId ? await getPurchasedScans(req.scanInfo.userId) : 0;
+    // const isProTier = isPro || purchasedScans > 0;
+    // const useOpenAI = isProTier;
+    const useOpenAI = false; // Force Gemini for all scans
     const analyzer = useOpenAI ? analyzeWithOpenAI : analyzeWithGemini;
-    const serviceName = useOpenAI ? 'OpenAI GPT-4o' : 'Gemini Flash';
-    const scanType = isProTier ? 'PRO' : 'FREE';
-    console.log(`[${requestId}] Using ${serviceName} [${scanType}]${purchasedScans > 0 ? ` (${purchasedScans} purchased scans)` : ''}`);
+    const serviceName = 'Gemini Flash';
+    console.log(`[${requestId}] Using ${serviceName} [FREE]`);
 
     // Fetch event context if user opted into event mode
     let eventContext = null;

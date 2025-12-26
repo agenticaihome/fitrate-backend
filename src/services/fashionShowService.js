@@ -19,8 +19,12 @@ const SHOW_ID_LENGTH = 6;
 const VIBES = {
     nice: { label: 'Nice 😇', proOnly: false },
     roast: { label: 'Roast 🔥', proOnly: false },
-    savage: { label: 'Savage 😈', proOnly: true },
-    chaos: { label: 'Chaos 🌀', proOnly: true }
+    honest: { label: 'Honest 📊', proOnly: true },
+    savage: { label: 'Savage 💀', proOnly: true },
+    rizz: { label: 'Rizz 😏', proOnly: true },
+    celeb: { label: 'Celebrity ⭐', proOnly: true },
+    aura: { label: 'Aura 🔮', proOnly: true },
+    chaos: { label: 'Chaos 🎪', proOnly: true }
 };
 
 const WALKS_FREE = 1;
@@ -162,7 +166,7 @@ export async function createShow({
     const createdAt = Date.now();
     const timeRemaining = expiresAt - createdAt;
 
-    console.log(`[FashionShow] Created "${name}" (${showId}) - ${vibe}, familySafe: ${familySafe}, expiresAt: ${expiresAt}, timeRemaining: ${timeRemaining}ms (${Math.round(timeRemaining/1000/60/60)}h)`);
+    console.log(`[FashionShow] Created "${name}" (${showId}) - ${vibe}, familySafe: ${familySafe}, expiresAt: ${expiresAt}, timeRemaining: ${timeRemaining}ms (${Math.round(timeRemaining / 1000 / 60 / 60)}h)`);
 
     return {
         showId,
