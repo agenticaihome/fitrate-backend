@@ -19,10 +19,10 @@ export const config = {
     .split(',')
     .map(origin => origin.trim()),
 
-  // Rate limiting - TEMPORARILY INCREASED for testing (was 10)
+  // Rate limiting - Production settings
   rateLimit: {
     windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60000,
-    maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 200,  // 200/min for testing
+    maxRequests: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 60,  // 60/min production limit
   },
 
   // Stripe
