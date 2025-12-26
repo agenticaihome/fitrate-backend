@@ -29,9 +29,10 @@ export function generateBattleId() {
  * Create a new battle
  * @param {number} creatorScore - Creator's outfit score (0.0-100.0)
  * @param {string} mode - AI mode used for scoring (e.g., 'nice', 'roast', 'savage')
+ * @param {string} creatorThumb - Base64 thumbnail of creator's outfit (optional)
  * @returns {Object} Battle data with ID
  */
-export async function createBattle(creatorScore, mode = 'nice') {
+export async function createBattle(creatorScore, mode = 'nice', creatorThumb = null) {
     // Validate score
     if (typeof creatorScore !== 'number' || creatorScore < 0 || creatorScore > 100) {
         throw new Error('Score must be between 0 and 100');
@@ -39,13 +40,15 @@ export async function createBattle(creatorScore, mode = 'nice') {
 
     const battleId = generateBattleId();
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    const expiresAt = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000); // 2 days
 
     const battleData = {
         id: battleId,
         creatorScore: parseFloat(creatorScore.toFixed(1)),
         responderScore: null,
         mode: mode || 'nice',  // AI mode for both players
+        creatorThumb: creatorThumb || null,  // Creator's outfit photo
+        responderThumb: null,
         status: 'waiting',
         winner: null,
         createdAt: now.toISOString(),
@@ -57,16 +60,23 @@ export async function createBattle(creatorScore, mode = 'nice') {
         const key = `challenge:${battleId}`; // Keep 'challenge:' for backwards compat
 
         // Store as Redis hash
-        await redis.hset(key, {
+        const hashData = {
             creatorScore: battleData.creatorScore,
             mode: battleData.mode,
             status: battleData.status,
             createdAt: battleData.createdAt,
             expiresAt: battleData.expiresAt
-        });
+        };
 
-        // Set TTL to 7 days (604800 seconds)
-        await redis.expire(key, 604800);
+        // Only store thumb if provided (saves Redis memory)
+        if (creatorThumb) {
+            hashData.creatorThumb = creatorThumb;
+        }
+
+        await redis.hset(key, hashData);
+
+        // Set TTL to 2 days (172800 seconds)
+        await redis.expire(key, 172800);
     } else {
         // In-memory fallback
         inMemoryStore.set(battleId, battleData);
@@ -107,6 +117,8 @@ export async function getBattle(battleId) {
             creatorScore: parseFloat(data.creatorScore),
             responderScore: data.responderScore ? parseFloat(data.responderScore) : null,
             mode: data.mode || 'nice',  // AI mode used for this battle
+            creatorThumb: data.creatorThumb || null,  // Creator's outfit photo
+            responderThumb: data.responderThumb || null,  // Responder's outfit photo
             status: data.status,
             winner: data.winner || null,
             createdAt: data.createdAt,
@@ -143,9 +155,10 @@ export async function getBattle(battleId) {
  * Submit responder's score and determine winner
  * @param {string} battleId - Battle ID
  * @param {number} responderScore - Responder's outfit score (0.0-100.0)
+ * @param {string} responderThumb - Base64 thumbnail of responder's outfit (optional)
  * @returns {Object} Result with winner and scores
  */
-export async function respondToBattle(battleId, responderScore) {
+export async function respondToBattle(battleId, responderScore, responderThumb = null) {
     // Validate score
     if (typeof responderScore !== 'number' || responderScore < 0 || responderScore > 100) {
         throw new Error('Score must be between 0 and 100');
@@ -187,12 +200,19 @@ export async function respondToBattle(battleId, responderScore) {
         const key = `challenge:${battleId}`; // Keep 'challenge:' for backwards compat
 
         // Update battle with response
-        await redis.hset(key, {
+        const updateData = {
             responderScore: roundedResponderScore,
             status: 'completed',
             winner: winner,
             respondedAt: respondedAt
-        });
+        };
+
+        // Only store thumb if provided
+        if (responderThumb) {
+            updateData.responderThumb = responderThumb;
+        }
+
+        await redis.hset(key, updateData);
     } else {
         // In-memory fallback
         const stored = inMemoryStore.get(battleId);

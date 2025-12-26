@@ -60,7 +60,7 @@ router.post('/', createLimiter, async (req, res) => {
 
     try {
         console.log(`[${requestId}] POST /api/battle - Creating new battle`);
-        const { creatorScore, mode } = req.body;
+        const { creatorScore, mode, creatorThumb } = req.body;
 
         // Validate input
         if (creatorScore === undefined || creatorScore === null) {
@@ -79,8 +79,8 @@ router.post('/', createLimiter, async (req, res) => {
             });
         }
 
-        // Create battle with mode
-        const battle = await createBattle(score, mode || 'nice');
+        // Create battle with mode and photo
+        const battle = await createBattle(score, mode || 'nice', creatorThumb || null);
         console.log(`[${requestId}] ✅ Battle created: ${battle.battleId} (mode: ${battle.mode})`);
 
         return res.status(201).json(battle);
@@ -150,7 +150,7 @@ router.post('/:battleId/respond', respondLimiter, async (req, res) => {
 
     try {
         console.log(`[${requestId}] POST /api/battle/${battleId}/respond`);
-        const { responderScore } = req.body;
+        const { responderScore, responderThumb } = req.body;
 
         // Validate battleId format (still uses ch_ prefix for backwards compat)
         if (!battleId || !battleId.startsWith('ch_')) {
@@ -177,8 +177,8 @@ router.post('/:battleId/respond', respondLimiter, async (req, res) => {
             });
         }
 
-        // Submit response
-        const result = await respondToBattle(battleId, score);
+        // Submit response with photo
+        const result = await respondToBattle(battleId, score, responderThumb || null);
         console.log(`[${requestId}] ✅ Response recorded: ${battleId} - Winner: ${result.winner}`);
 
         return res.status(200).json(result);
