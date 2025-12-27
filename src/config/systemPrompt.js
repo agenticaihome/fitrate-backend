@@ -780,6 +780,14 @@ Examples: "${verdictStyle.examples.join('", "')}"
 📝 LINE: ${lineInstructions[mode]}
 The line should make someone screenshot it. Be specific to what you SEE.
 
+🎭 MODE PERSONALITY (CRITICAL - Must shine through EVERY field!):
+- verdict: Written in the MODE's voice (Nice=hype, Roast=funny burn, Savage=devastating, Chaos=unhinged)
+- line: Must match mode energy - Nice shouldn't roast, Roast shouldn't be too nice
+- tagline: 2-5 words that capture the mode's vibe (Chaos: "Certified Unhinged", Nice: "Pure Perfection")
+- aesthetic: Name the style BUT filter through mode lens (Savage might say "Depressed Minimalism")
+- celebMatch: Pick a celeb that matches BOTH the outfit AND the mode's energy
+- Call out ONE specific item that stands out (positive for Nice, devastating for Savage)
+
 RULES:
 - Score: XX.X (one decimal, not .0/.5). Must match mode tone.
 - color/fit/style subscores roughly average to overall (±10 allowed)
