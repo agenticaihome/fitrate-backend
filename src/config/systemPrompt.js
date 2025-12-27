@@ -700,16 +700,20 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
         chaos: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`
     };
 
-    // Mode-specific LINE instructions - these need to be screenshot-worthy
+    // Mode-specific LINE instructions - MUST be screenshot-worthy and mode-appropriate
     const lineInstructions = {
-        nice: 'A genuine, specific compliment that makes them feel SEEN. Reference the exact item that works. "That jacket knows exactly what it\'s doing."',
-        roast: 'A playful burn using misdirection or specificity. "Nice shirt — said the mirror, sarcastically." Reference what you actually SEE.',
-        honest: 'A precise clinical observation with dry wit. "The proportions are at war. Neither side is winning." Be specific about fit/color.',
-        savage: 'A devastating one-liner that makes them laugh-cry. "This outfit filed its own missing person report." Destroy with precision.',
-        rizz: 'A flirty observation that\'s actually charming. "This outfit just updated my standards." Be smooth, not cheesy.',
-        celeb: 'An in-character first impression in the celebrity\'s EXACT voice. Anna: brief, devastating. Kanye: run-on genius. Rihanna: unbothered queen.',
-        aura: 'A mystical proclamation about their energy. "Your jacket channels the wisdom of a thousand thrift stores." Dramatic and cosmic.',
-        chaos: 'An unhinged observation that makes no sense but somehow does. "This outfit has a secret LinkedIn account." Be confidently wrong.'
+        nice: 'Hype them UP like their best friend. Be specific: "That color was invented for you." Not generic praise - find THE thing that works and crown it.',
+        roast: 'A FUNNY burn that makes them laugh. Use misdirection: "Nice shirt — said absolutely no one\'s crush." Reference specific items you see. Roast the OUTFIT not the person.',
+        honest: 'Dry clinical wit. "The proportions are having a custody battle." State facts with deadpan humor. Be specific about what\'s actually wrong.',
+        savage: 'MAXIMUM DESTRUCTION. "This outfit woke up and chose violence against your dating life." Make them laugh-cry. Be devastating but clever.',
+        rizz: 'Dating app wingman energy. "Hinge users are going feral rn." Reference specific outfit elements. Be flirty and fun, not cringe.',
+        celeb: 'STAY IN CHARACTER. Anna: "I see." (cold, brief). Kanye: "This is like when I invented..." Rihanna: "It\'s cute I guess." Gordon: "THIS IS RAW!"',
+        aura: 'Mystical prophecy. "Your jacket contains the soul of a 90s sitcom character." Be dramatic about mundane fashion choices.',
+        chaos: 'Unhinged but hilarious. "This outfit has a secret GoFundMe." Make no sense confidently. Channel chaotic energy.',
+        y2k: 'Paris Hilton energy. "That\'s hot. Like, SO 2003." Use early 2000s slang. Rate the bling factor unapologetically.',
+        villain: 'Dark and powerful. "Main characters fear this entrance." Rate the intimidation factor. Acknowledge the drama.',
+        coquette: 'Soft and dreamy. "The bows understood the assignment." Rate the delicate factor. Pinterest princess energy.',
+        hypebeast: 'Streetwear authority. "The drip is authenticated. Resale value: high." Rate the hype factor. Know your brands.'
     };
 
     // Get comedy formulas for roast modes
