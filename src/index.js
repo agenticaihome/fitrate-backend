@@ -20,6 +20,7 @@ import streakRoutes from './routes/streak.js';
 import leaderboardRoutes from './routes/leaderboard.js';
 import showRoutes from './routes/show.js';
 import battleRoutes from './routes/battle.js';
+import matchmakingRoutes from './routes/matchmaking.js';  // Global Arena
 
 // Security middleware
 import { validateOrigin, costTracker } from './middleware/apiKeyAuth.js';
@@ -149,6 +150,7 @@ app.use('/api/show', showRoutes);            // Fashion Show
 app.use('/api/streak', streakRoutes);        // Daily streak system
 app.use('/api/leaderboard', leaderboardRoutes);  // Today's Top Fits
 app.use('/api/battle', battleRoutes);         // 1v1 Outfit Battles
+app.use('/api/arena', matchmakingRoutes);     // Global Arena Matchmaking
 
 // 404 handler
 app.use((req, res) => {
