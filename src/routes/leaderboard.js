@@ -7,7 +7,7 @@
  * GET /api/leaderboard/today - Get daily challenge leaderboard
  * GET /api/leaderboard/rank - Get specific user's rank
  *
- * Daily Challenge: Free for everyone, 1 try per day, winner gets 5 pro scans
+ * Daily Challenge: Free for everyone, 1 try per day, for bragging rights
  */
 
 import express from 'express';

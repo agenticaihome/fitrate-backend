@@ -25,9 +25,7 @@ router.post('/claim', async (req, res) => {
         await setReferralNotification(referrerId, {
             type: 'referral_claimed',
             timestamp: Date.now(),
-            newRoastEarned: result.newRoastEarned,
-            totalReferrals: result.totalReferrals,
-            sharesUntilNext: result.sharesUntilNext
+            totalReferrals: result.totalReferrals
         });
     }
 

@@ -2,25 +2,21 @@
  * Daily Challenge Service
  *
  * Manages the free daily challenge where everyone gets one try per day.
- * Winner (highest score) receives 5 free pro scans.
+ * Leaderboard is for bragging rights only.
  *
  * Redis Keys:
  * - fitrate:daily:scores:{YYYY-MM-DD} - Sorted set (userId → score)
  * - fitrate:daily:entries:{YYYY-MM-DD}:{userId} - Entry metadata (JSON)
- * - fitrate:daily:rewards:{YYYY-MM-DD} - Reward log for the day (JSON)
  */
 
 import { redis, isRedisAvailable } from './redisClient.js';
-import { addPurchasedScans } from '../middleware/referralStore.js';
 
 // Redis key patterns
 const DAILY_SCORES_PREFIX = 'fitrate:daily:scores:';
 const DAILY_ENTRIES_PREFIX = 'fitrate:daily:entries:';
-const DAILY_REWARDS_PREFIX = 'fitrate:daily:rewards:';
 
 // Constants
 const DAILY_TTL = 60 * 60 * 48; // 48 hours (overlap for timezone safety)
-const WINNER_REWARD_SCANS = 5; // 5 free pro scans for winner
 
 // Display name templates
 const DISPLAY_ADJECTIVES = ['Stylish', 'Dripped', 'Fresh', 'Clean', 'Bold', 'Fierce', 'Sleek', 'Iconic', 'Sharp', 'Slick'];
@@ -288,105 +284,6 @@ export async function getUserDailyStatus(userId) {
     };
 }
 
-/**
- * Award the daily challenge winner(s) from yesterday
- * Should be called by cron job at midnight
- * Handles ties by awarding all users with the highest score
- */
-export async function awardDailyWinner() {
-    if (!isRedisAvailable()) {
-        console.log('[DAILY WINNER] Redis unavailable, skipping');
-        return { success: false, error: 'redis_unavailable' };
-    }
-
-    const yesterday = getYesterdayKey();
-    const scoresKey = `${DAILY_SCORES_PREFIX}${yesterday}`;
-    const rewardsKey = `${DAILY_REWARDS_PREFIX}${yesterday}`;
-
-    // Check if already awarded
-    const existingReward = await redis.get(rewardsKey);
-    if (existingReward) {
-        console.log(`[DAILY WINNER] Already awarded for ${yesterday}`);
-        return { success: false, error: 'already_awarded', data: JSON.parse(existingReward) };
-    }
-
-    // Get the highest score(s)
-    const topResults = await redis.zrevrange(scoresKey, 0, 0, 'WITHSCORES');
-
-    if (topResults.length < 2) {
-        console.log(`[DAILY WINNER] No entries for ${yesterday}`);
-        const noEntriesResult = {
-            date: yesterday,
-            winners: [],
-            message: 'No entries for this day'
-        };
-        await redis.set(rewardsKey, JSON.stringify(noEntriesResult));
-        await redis.expire(rewardsKey, 90 * 24 * 60 * 60); // 90 days
-        return { success: true, data: noEntriesResult };
-    }
-
-    const topScore = parseFloat(topResults[1]);
-
-    // Get ALL users with the top score (handle ties)
-    const allEntries = await redis.zrevrange(scoresKey, 0, -1, 'WITHSCORES');
-    const winners = [];
-
-    for (let i = 0; i < allEntries.length; i += 2) {
-        const odlUserId = allEntries[i];
-        const score = parseFloat(allEntries[i + 1]);
-
-        if (score === topScore) {
-            winners.push({ userId: odlUserId, score });
-        } else {
-            break; // Sorted by score descending, so we can stop
-        }
-    }
-
-    // Award all winners
-    const awardedWinners = [];
-    for (const winner of winners) {
-        try {
-            await addPurchasedScans(winner.userId, WINNER_REWARD_SCANS);
-            awardedWinners.push({
-                userId: winner.userId,
-                score: winner.score,
-                reward: `${WINNER_REWARD_SCANS} Pro Scans`
-            });
-            console.log(`[DAILY WINNER] Awarded ${WINNER_REWARD_SCANS} pro scans to ${winner.userId.slice(0, 12)}... (score: ${winner.score})`);
-        } catch (err) {
-            console.error(`[DAILY WINNER] Failed to award ${winner.userId.slice(0, 12)}...:`, err.message);
-        }
-    }
-
-    const rewardResult = {
-        date: yesterday,
-        winners: awardedWinners,
-        topScore,
-        totalParticipants: allEntries.length / 2,
-        awardedAt: new Date().toISOString()
-    };
-
-    // Log the reward
-    await redis.set(rewardsKey, JSON.stringify(rewardResult));
-    await redis.expire(rewardsKey, 90 * 24 * 60 * 60); // 90 days
-
-    console.log(`[DAILY WINNER] ${yesterday}: Awarded ${awardedWinners.length} winner(s) with score ${topScore}`);
-
-    return { success: true, data: rewardResult };
-}
-
-/**
- * Get past daily challenge results
- */
-export async function getDailyRewardHistory(date) {
-    if (!isRedisAvailable()) return null;
-
-    const rewardsKey = `${DAILY_REWARDS_PREFIX}${date}`;
-    const rewardJson = await redis.get(rewardsKey);
-
-    if (!rewardJson) return null;
-    return JSON.parse(rewardJson);
-}
 
 export default {
     getTodayKey,
@@ -397,7 +294,5 @@ export default {
     hasEnteredToday,
     recordDailyChallengeScore,
     getDailyLeaderboard,
-    getUserDailyStatus,
-    awardDailyWinner,
-    getDailyRewardHistory
+    getUserDailyStatus
 };

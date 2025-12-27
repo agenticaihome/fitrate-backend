@@ -17,12 +17,8 @@ const PROCESSED_REFERRALS_KEY = 'fitrate:referral:processed';
 const PRO_ROAST_PREFIX = 'fitrate:proroast:';
 const FINGERPRINT_REFERRER_KEY = 'fitrate:referral:fingerprints:';
 
-// New model: 3 shares = 1 Savage Roast
-const SHARES_PER_REWARD = 3;
-const MAX_REFERRAL_REWARDS = 100; // Effectively no cap
-
 /**
- * Add a referral claim - rewards a SAVAGE ROAST (GPT-4o) for every 3 referrals
+ * Add a referral claim - tracks referrals for stats/bragging rights only
  * SECURITY: Uses fingerprint to prevent VPN abuse
  * @param {string} referrerId - The user who shared the link
  * @param {string} refereeFingerprint - Device fingerprint of the person clicking
@@ -59,27 +55,13 @@ export async function addReferral(referrerId, refereeFingerprint, refereeUserId 
     let stats;
     if (isRedisAvailable()) {
         const data = await redis.get(`${REFERRAL_STATS_PREFIX}${referrerId}`);
-        stats = data ? JSON.parse(data) : { proRoasts: 0, totalReferrals: 0 };
+        stats = data ? JSON.parse(data) : { totalReferrals: 0 };
     } else {
-        stats = referralStatsFallback.get(referrerId) || { proRoasts: 0, totalReferrals: 0 };
-    }
-
-    // Check cap
-    if (stats.proRoasts >= MAX_REFERRAL_REWARDS) {
-        console.log(`⚠️ Referral cap: ${referrerId} has maxed out referral rewards`);
-        return { success: false, reason: 'cap_reached' };
+        stats = referralStatsFallback.get(referrerId) || { totalReferrals: 0 };
     }
 
     // Increment total referrals
     stats.totalReferrals += 1;
-
-    // NEW MODEL: Grant 1 Savage Roast for every 3 referrals
-    let newRoastEarned = false;
-    if (stats.totalReferrals % SHARES_PER_REWARD === 0) {
-        stats.proRoasts += 1;
-        newRoastEarned = true;
-        console.log(`🔥 SAVAGE ROAST UNLOCKED: ${referrerId} reached ${stats.totalReferrals} referrals -> +1 Savage Roast!`);
-    }
 
     if (isRedisAvailable()) {
         await redis.sadd(PROCESSED_REFERRALS_KEY, key);
@@ -91,15 +73,11 @@ export async function addReferral(referrerId, refereeFingerprint, refereeUserId 
         referralStatsFallback.set(referrerId, stats);
     }
 
-    const sharesUntilNext = SHARES_PER_REWARD - (stats.totalReferrals % SHARES_PER_REWARD);
-    console.log(`🎉 Referral: ${referrerId} -> ${stats.totalReferrals} total (${sharesUntilNext} more for next Savage Roast)`);
+    console.log(`🎉 Referral: ${referrerId} -> ${stats.totalReferrals} total`);
 
     return {
         success: true,
-        proRoasts: stats.proRoasts,
-        totalReferrals: stats.totalReferrals,
-        newRoastEarned,
-        sharesUntilNext: sharesUntilNext === SHARES_PER_REWARD ? 0 : sharesUntilNext
+        totalReferrals: stats.totalReferrals
     };
 }
 
@@ -131,17 +109,16 @@ export async function getReferralStats(userId) {
             redis.get(`${REFERRAL_STATS_PREFIX}${userId}`),
             redis.get(`${PRO_ROAST_PREFIX}${userId}`)
         ]);
-        stats = statsData ? JSON.parse(statsData) : { proRoasts: 0, totalReferrals: 0, bonusScans: 0 };
+        stats = statsData ? JSON.parse(statsData) : { totalReferrals: 0 };
         purchased = parseInt(purchasedData) || 0;
     } else {
-        stats = referralStatsFallback.get(userId) || { proRoasts: 0, totalReferrals: 0, bonusScans: 0 };
+        stats = referralStatsFallback.get(userId) || { totalReferrals: 0 };
         purchased = proRoastStoreFallback.get(userId) || 0;
     }
 
     return {
-        ...stats,
-        proRoasts: stats.proRoasts + purchased,
-        totalReferrals: stats.totalReferrals
+        totalReferrals: stats.totalReferrals,
+        proRoasts: purchased  // Only show purchased Pro Roasts
     };
 }
 
@@ -164,38 +141,19 @@ export async function addProRoast(userId) {
 }
 
 /**
- * Consume a Pro Roast (from referral or purchase)
+ * Consume a Pro Roast (purchased only)
  */
 export async function consumeProRoast(userId) {
-    // First try purchased
     if (isRedisAvailable()) {
         const purchased = await redis.get(`${PRO_ROAST_PREFIX}${userId}`);
         if (parseInt(purchased) > 0) {
             await redis.decr(`${PRO_ROAST_PREFIX}${userId}`);
             return true;
         }
-
-        // Then try referral-earned
-        const statsData = await redis.get(`${REFERRAL_STATS_PREFIX}${userId}`);
-        if (statsData) {
-            const stats = JSON.parse(statsData);
-            if (stats.proRoasts > 0) {
-                stats.proRoasts -= 1;
-                await redis.set(`${REFERRAL_STATS_PREFIX}${userId}`, JSON.stringify(stats));
-                return true;
-            }
-        }
     } else {
         const purchased = proRoastStoreFallback.get(userId) || 0;
         if (purchased > 0) {
             proRoastStoreFallback.set(userId, purchased - 1);
-            return true;
-        }
-
-        const stats = referralStatsFallback.get(userId);
-        if (stats && stats.proRoasts > 0) {
-            stats.proRoasts -= 1;
-            referralStatsFallback.set(userId, stats);
             return true;
         }
     }
@@ -204,21 +162,16 @@ export async function consumeProRoast(userId) {
 }
 
 /**
- * Check if user has any Pro Roasts available
+ * Check if user has any Pro Roasts available (purchased only)
  */
 export async function hasProRoast(userId) {
     if (isRedisAvailable()) {
-        const [purchased, statsData] = await Promise.all([
-            redis.get(`${PRO_ROAST_PREFIX}${userId}`),
-            redis.get(`${REFERRAL_STATS_PREFIX}${userId}`)
-        ]);
+        const purchased = await redis.get(`${PRO_ROAST_PREFIX}${userId}`);
         const purchasedCount = parseInt(purchased) || 0;
-        const stats = statsData ? JSON.parse(statsData) : { proRoasts: 0 };
-        return purchasedCount + stats.proRoasts > 0;
+        return purchasedCount > 0;
     } else {
         const purchased = proRoastStoreFallback.get(userId) || 0;
-        const stats = referralStatsFallback.get(userId) || { proRoasts: 0 };
-        return purchased + stats.proRoasts > 0;
+        return purchased > 0;
     }
 }
 

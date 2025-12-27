@@ -6,7 +6,6 @@
 
 import express from 'express';
 import { PushService } from '../services/pushService.js';
-import { awardDailyWinner } from '../services/dailyChallengeService.js';
 
 const router = express.Router();
 
@@ -183,64 +182,6 @@ router.post('/daily-ootd', async (req, res) => {
     } catch (err) {
         console.error('Daily OOTD error:', err);
         res.status(500).json({ error: 'Failed to send daily OOTD' });
-    }
-});
-
-/**
- * POST /api/push/daily-challenge-award
- * Award the daily challenge winner from yesterday
- * Called by Railway cron job at midnight UTC
- * Body: { adminKey }
- */
-router.post('/daily-challenge-award', async (req, res) => {
-    try {
-        const { adminKey } = req.body;
-
-        // Admin key check
-        if (adminKey !== process.env.ADMIN_KEY) {
-            return res.status(403).json({ error: 'Unauthorized' });
-        }
-
-        const result = await awardDailyWinner();
-
-        if (!result.success) {
-            return res.json({
-                success: false,
-                error: result.error,
-                message: result.error === 'already_awarded'
-                    ? 'Already awarded for this day'
-                    : result.error
-            });
-        }
-
-        // Send push notification to winners
-        if (result.data.winners && result.data.winners.length > 0) {
-            for (const winner of result.data.winners) {
-                try {
-                    await PushService.sendNotification(winner.userId, {
-                        title: '🏆 Daily Challenge Winner!',
-                        body: `Congrats! Your score of ${winner.score} won you ${winner.reward}!`,
-                        data: { type: 'daily_challenge_winner', reward: winner.reward }
-                    });
-                } catch (err) {
-                    console.log(`[DAILY AWARD] Failed to notify winner ${winner.userId.slice(0, 8)}...: ${err.message}`);
-                }
-            }
-        }
-
-        res.json({
-            success: true,
-            date: result.data.date,
-            winnersCount: result.data.winners?.length || 0,
-            topScore: result.data.topScore,
-            totalParticipants: result.data.totalParticipants,
-            message: result.data.winners?.length > 0
-                ? `Awarded ${result.data.winners.length} winner(s) with 5 Pro Scans each!`
-                : 'No participants yesterday'
-        });
-    } catch (err) {
-        console.error('Daily challenge award error:', err);
-        res.status(500).json({ error: 'Failed to award daily challenge' });
     }
 });
 
