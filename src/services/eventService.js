@@ -11,7 +11,6 @@
  */
 
 import { redis, isRedisAvailable } from './redisClient.js';
-import { EntitlementService } from './entitlements.js';
 
 // Redis key patterns
 const CURRENT_EVENT_KEY = 'fitrate:event:current';
@@ -20,13 +19,11 @@ const ENTRIES_PREFIX = 'fitrate:event:entries:';
 const ARCHIVE_PREFIX = 'fitrate:event:archive:';
 const FREE_ENTRIES_PREFIX = 'fitrate:event:free:';  // Track free user weekly entries
 const PRO_ENTRIES_PREFIX = 'fitrate:event:pro:';    // Track pro user daily entries
-const WINNERS_PREFIX = 'fitrate:event:winners:';     // Track past winners for cooldown
 const THUMBS_PREFIX = 'fitrate:event:thumbs:';       // Store outfit thumbnails (top 5 only)
 
 // Freemium limits
 const FREE_EVENT_ENTRIES_WEEKLY = 1;   // Free users get 1 entry per week
 const PRO_EVENT_ENTRIES_WEEKLY = 5;    // Pro users get 5 entries per week
-const WINNER_COOLDOWN_WEEKS = 4;       // Previous winners sit out 4 weeks
 const TOP_5_THUMBNAIL_LIMIT = 5;       // Only store thumbnails for top 5
 
 /**
@@ -129,54 +126,6 @@ function getThemeForWeek(weekIndex) {
     return DEFAULT_THEMES[weekIndex % DEFAULT_THEMES.length];
 }
 
-/**
- * Check if a user is a recent winner (within cooldown period)
- * Winners sit out WINNER_COOLDOWN_WEEKS after winning
- */
-async function isRecentWinner(userId) {
-    if (!isRedisAvailable() || !userId) return false;
-
-    const winnerKey = `${WINNERS_PREFIX}${userId}`;
-    const lastWinWeek = await redis.get(winnerKey);
-
-    if (!lastWinWeek) return false;
-
-    // Parse both year and week for proper comparison across year boundaries
-    const currentWeekId = getWeekId();
-    const [currentYear, currentWeekStr] = currentWeekId.split('-W');
-    const [lastWinYear, lastWinWeekStr] = lastWinWeek.split('-W');
-
-    const currentYearNum = parseInt(currentYear);
-    const currentWeekNum = parseInt(currentWeekStr);
-    const lastWinYearNum = parseInt(lastWinYear);
-    const lastWinWeekNum = parseInt(lastWinWeekStr);
-
-    // Calculate total weeks difference accounting for year boundaries
-    // Each year has ~52 weeks (53 in some years, but 52 is close enough for cooldown)
-    const yearDiff = currentYearNum - lastWinYearNum;
-    const weeksSinceWin = (yearDiff * 52) + (currentWeekNum - lastWinWeekNum);
-
-    // If weeksSinceWin is negative, the stored data is corrupted/future - ignore it
-    if (weeksSinceWin < 0) return false;
-
-    return weeksSinceWin < WINNER_COOLDOWN_WEEKS;
-}
-
-/**
- * Mark a user as a winner for the current week
- * Called when archiving event and recording top 5
- */
-async function markWinner(userId, weekId) {
-    if (!isRedisAvailable() || !userId) return;
-
-    const winnerKey = `${WINNERS_PREFIX}${userId}`;
-    await redis.set(winnerKey, weekId);
-
-    // Set TTL to cover the cooldown period plus buffer (5 weeks)
-    await redis.expire(winnerKey, (WINNER_COOLDOWN_WEEKS + 1) * 7 * 24 * 60 * 60);
-
-    console.log(`🏆 Marked ${userId.slice(0, 8)}... as winner for ${weekId}`);
-}
 
 /**
  * Create a new event for the current week
@@ -216,23 +165,6 @@ async function archiveEvent(weekId) {
     // Get final leaderboard (top 5)
     const leaderboard = await getLeaderboard(weekId, 5);
 
-    // Get top 5 user IDs for logging
-    const raw = await redis.zrevrange(scoresKey, 0, 4);
-    let prizeGranted = 0;
-
-    // 🎁 PRIZE: Only #1 gets 1 Year Pro!
-    if (raw.length > 0) {
-        const winnerId = raw[0];
-        try {
-            await EntitlementService.grantPro(winnerId, null, 'event_winner');
-            prizeGranted++;
-            console.log(`🏆 Granted 1Y Pro to #1 WINNER ${winnerId.slice(0, 8)}...`);
-        } catch (err) {
-            // If they already have Pro, that's fine - they just keep it!
-            console.log(`⚠️ Winner ${winnerId.slice(0, 8)}... already has Pro or error: ${err.message}`);
-        }
-    }
-
     // Get total participants
     const totalParticipants = await redis.zcard(scoresKey);
 
@@ -246,7 +178,6 @@ async function archiveEvent(weekId) {
         themeEmoji: event.themeEmoji || '',
         leaderboard,
         totalParticipants,
-        prizesGranted: prizeGranted,
         archivedAt: new Date().toISOString()
     };
 
@@ -254,7 +185,7 @@ async function archiveEvent(weekId) {
     await redis.set(archiveKey, JSON.stringify(archive));
     await redis.expire(archiveKey, 90 * 24 * 60 * 60);
 
-    console.log(`📦 Archived event ${weekId}: ${totalParticipants} participants, ${prizeGranted}/${raw.length} Pro prizes granted`);
+    console.log(`📦 Archived event ${weekId}: ${totalParticipants} participants`);
     return archive;
 }
 
@@ -538,13 +469,6 @@ export async function recordEventScore(userId, score, themeCompliant, isPro, ima
     // ============================================
     // SECURITY: Server-side limit enforcement
     // ============================================
-
-    // Check winner cooldown (previous winners sit out 4 weeks)
-    const isWinner = await isRecentWinner(userId);
-    if (isWinner) {
-        console.log(`🚫 Blocked recent winner ${userId.slice(0, 8)}... from event`);
-        return { action: 'blocked', message: 'Previous winners sit out 4 weeks', reason: 'winner_cooldown' };
-    }
 
     // Check free user weekly limit
     if (!isPro) {
