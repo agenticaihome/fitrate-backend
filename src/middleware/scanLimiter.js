@@ -310,30 +310,9 @@ export async function setProStatus(userId, ip, isPro) {
 
 
 export async function getProStatus(userId, ip) {
-    const key = getLegacyKey(userId, ip);
-
-    // 1. Check legacy/redis cache (fastest)
-    let status = false;
-    if (isRedisAvailable()) {
-        const val = await redis.get(`${PRO_STATUS_PREFIX}${key}`);
-        status = val === '1';
-    } else {
-        const data = scanStoreFallback.get(key);
-        status = data?.isPro || false;
-    }
-
-    // 2. If not found in cache, but we have a userId, consult the Authority (Entitlements)
-    // This allows recovery from server restarts without explicit re-auth
-    if (!status && userId) {
-        const authoritativePro = await EntitlementService.isPro(userId);
-        if (authoritativePro) {
-            // Self-heal the cache
-            await setProStatus(userId, ip, true);
-            return true;
-        }
-    }
-
-    return status;
+    // SIMPLIFIED: No Pro tier - everyone is free tier
+    // Pro subscriptions removed, only scan packs remain for monetization
+    return false;
 }
 
 /**

@@ -97,69 +97,8 @@ router.post('/feedback', async (req, res) => {
   console.log(`📝 Feedback received: ${feedback.rating}/5 for ${feedback.resultId.slice(0, 20)}`);
   res.json({ success: true, message: 'Thanks for the feedback!' });
 });
-
-// Use a Pro Roast (from referral or $0.99 purchase) - uses OpenAI
-router.post('/pro-roast', proRoastLimiter, async (req, res) => {
-  const requestId = `proroast_${Date.now()}`;
-  const { image, roastMode, userId } = req.body;
-
-  if (!userId) {
-    return res.status(400).json({ success: false, error: 'User ID required' });
-  }
-
-  if (!image) {
-    return res.status(400).json({ success: false, error: 'No image provided' });
-  }
-
-  // Check if user has a Pro Roast
-  const hasRoast = await hasProRoast(userId);
-  if (!hasRoast) {
-    return res.status(403).json({
-      success: false,
-      error: 'No Pro Roasts available',
-      needsProRoast: true
-    });
-  }
-
-  try {
-    console.log(`[${requestId}] Pro Roast requested by ${userId}`);
-
-    const stats = await getReferralStats(userId);
-    const securityContext = {
-      userId,
-      scansUsed: 0, // Pro roasts are separate from daily scans
-      dailyLimit: stats.proRoasts || 1,
-      referralExtrasEarned: 0,
-      authTokenValid: true,
-      suspiciousFlag: false
-    };
-
-    // TEMPORARY: Use Gemini for all scans - Pro/GPT-4o will be configured later
-    // TODO: Re-enable OpenAI for Pro Roasts when ready:
-    // const result = await analyzeWithOpenAI(image, {
-    const result = await analyzeWithGemini(image, {
-      mode: 'savage',
-      roastMode: true,
-      occasion: null,
-      securityContext
-    });
-
-    if (result.success) {
-      // Consume the Pro Roast
-      await consumeProRoast(userId);
-      const stats = await getReferralStats(userId);
-      console.log(`[${requestId}] Pro Roast consumed - ${stats.proRoasts} remaining`);
-
-      result.proRoastsRemaining = stats.proRoasts;
-      result.isProRoast = true;
-    }
-
-    return res.json(result);
-  } catch (error) {
-    console.error(`[${requestId}] Pro Roast error:`, error);
-    return res.status(500).json({ success: false, error: 'Pro Roast failed. Please try again.' });
-  }
-});
+// Pro Roast endpoint removed - all scans use Gemini now
+// Scan packs provide additional scans beyond the free daily limit
 
 // Consume a scan (for free users - no AI call, just tracks usage by userId)
 router.post('/consume', scanLimiter, async (req, res) => {
