@@ -230,6 +230,9 @@ export async function respondToBattle(battleId, responderScore, responderId, res
         }
 
         await redis.hset(key, updateData);
+
+        // Reduce TTL to 1 hour after completion (saves storage - photos get cleaned up faster)
+        await redis.expire(key, 3600); // 1 hour
     } else {
         // In-memory fallback
         const stored = inMemoryStore.get(battleId);
@@ -238,6 +241,8 @@ export async function respondToBattle(battleId, responderScore, responderId, res
             stored.responderId = responderId;
             stored.responderThumb = responderThumb || null;
             stored.status = 'completed';
+            // Update expiry to 1 hour from now
+            stored.expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
         }
     }
 
