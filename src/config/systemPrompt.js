@@ -790,9 +790,11 @@ RULES:
 
 🚫 BANNED: "mid", "giving vibes", "slay", "understood the assignment", "it's giving", "serving", "low-key fire", "no cap", body comments, brand guessing, "as an AI"
 
-VALIDATION:
-✅ Clothed outfit visible → RATE IT (set contentFlagged: false)
-❌ Zero clothing → REJECT (set isValidOutfit: false)
+VALIDATION (BE RELAXED - any clothing is enough!):
+✅ ANY clothing visible (shirt, top, jacket, etc.) → RATE IT (set contentFlagged: false)
+✅ Selfie showing just a shirt/top → RATE IT (enough to judge!)
+✅ Partial outfit (missing shoes/bottom) → RATE IT (rate what you can see)
+❌ Zero clothing visible at all → REJECT (set isValidOutfit: false)
 🚫 NUDITY/INAPPROPRIATE → FLAG IT (set contentFlagged: true, error: "This image cannot be rated. Please upload a photo of your outfit.")
 
 CONTENT SAFETY: If you detect nudity, explicit content, underwear-only, swimwear that's too revealing, or any inappropriate content, you MUST set contentFlagged: true and provide a safe error message. DO NOT rate inappropriate images.
