@@ -420,6 +420,20 @@ router.post('/', scanLimiter, async (req, res) => {
         console.warn(`[${requestId}] SECURITY: Suspicious AI score: ${result.scores.overall}`);
         result.scores.overall = Math.min(100, Math.max(0, result.scores.overall));
       }
+
+      // 🎰 LEGENDARY JACKPOT: Rare chance to boost a good outfit to 100
+      // ~0.5% chance for scores 75+ to become legendary (makes 100s rare but achievable)
+      // At scale: ~2-3 per day with 500+ daily scans of qualifying outfits
+      if (result.scores.overall >= 75 && Math.random() < 0.005) {
+        console.log(`[${requestId}] 🎰 JACKPOT! Score boosted from ${result.scores.overall} to 100`);
+        result.scores.overall = 100;
+        result.scores.isLegendary = true;
+        result.scores.jackpotWin = true; // Flag for frontend celebration
+        // Also boost subscores for consistency
+        result.scores.color = Math.max(result.scores.color, 95);
+        result.scores.fit = Math.max(result.scores.fit, 95);
+        result.scores.style = Math.max(result.scores.style, 95);
+      }
     }
 
     // SECURITY: Sanitize AI output for banned terms (body, weight, attractiveness)
