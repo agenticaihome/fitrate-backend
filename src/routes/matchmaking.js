@@ -15,19 +15,35 @@ import { joinQueue, pollForMatch, leaveQueue, getQueueStats } from '../services/
 
 const router = express.Router();
 
-// Rate limiters
+// Rate limiters (per spec)
 const joinLimiter = rateLimit({
     windowMs: 60 * 1000,
-    max: 10, // 10 joins per minute
-    message: { error: 'Too many requests. Please wait.' },
+    max: 5, // 5 joins per minute per user
+    message: { error: true, code: 'RATE_LIMITED', message: 'Too many requests. Please wait.' },
     standardHeaders: true,
     legacyHeaders: false,
 });
 
 const pollLimiter = rateLimit({
-    windowMs: 10 * 1000,
-    max: 30, // 30 polls per 10 seconds (polling every 2s = 5 per 10s, with room for retries)
-    message: { error: 'Too many requests.' },
+    windowMs: 60 * 1000,
+    max: 60, // 60 polls per minute per user (polling every 2s = 30 per minute typical)
+    message: { error: true, code: 'RATE_LIMITED', message: 'Too many requests.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const statsLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30, // 30 per minute per IP
+    message: { error: true, code: 'RATE_LIMITED', message: 'Too many requests.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+const leaveLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10, // 10 per minute per user
+    message: { error: true, code: 'RATE_LIMITED', message: 'Too many requests.' },
     standardHeaders: true,
     legacyHeaders: false,
 });
@@ -45,11 +61,19 @@ router.post('/join', joinLimiter, async (req, res) => {
 
         // Validate required fields
         if (!userId || typeof userId !== 'string') {
-            return res.status(400).json({ error: 'userId is required' });
+            return res.status(400).json({
+                error: true,
+                code: 'INVALID_USER_ID',
+                message: 'userId is required'
+            });
         }
 
         if (score === undefined || typeof score !== 'number' || score < 0 || score > 100) {
-            return res.status(400).json({ error: 'score must be between 0 and 100' });
+            return res.status(400).json({
+                error: true,
+                code: 'INVALID_SCORE',
+                message: 'Score must be between 0 and 100'
+            });
         }
 
         const result = await joinQueue(userId, score, thumb || null, mode || 'nice');
@@ -59,7 +83,11 @@ router.post('/join', joinLimiter, async (req, res) => {
 
     } catch (error) {
         console.error(`[${requestId}] Error joining queue:`, error.message);
-        return res.status(500).json({ error: 'Failed to join queue' });
+        return res.status(500).json({
+            error: true,
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to join queue'
+        });
     }
 });
 
@@ -74,7 +102,11 @@ router.get('/poll', pollLimiter, async (req, res) => {
         const { userId } = req.query;
 
         if (!userId) {
-            return res.status(400).json({ error: 'userId is required' });
+            return res.status(400).json({
+                error: true,
+                code: 'INVALID_USER_ID',
+                message: 'userId is required'
+            });
         }
 
         const result = await pollForMatch(userId);
@@ -88,7 +120,11 @@ router.get('/poll', pollLimiter, async (req, res) => {
 
     } catch (error) {
         console.error(`[${requestId}] Error polling:`, error.message);
-        return res.status(500).json({ error: 'Failed to poll for match' });
+        return res.status(500).json({
+            error: true,
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to poll for match'
+        });
     }
 });
 
@@ -96,14 +132,18 @@ router.get('/poll', pollLimiter, async (req, res) => {
  * POST /api/arena/leave
  * Leave the queue
  */
-router.post('/leave', async (req, res) => {
+router.post('/leave', leaveLimiter, async (req, res) => {
     const requestId = `arena_leave_${Date.now()}`;
 
     try {
         const { userId } = req.body;
 
         if (!userId) {
-            return res.status(400).json({ error: 'userId is required' });
+            return res.status(400).json({
+                error: true,
+                code: 'INVALID_USER_ID',
+                message: 'userId is required'
+            });
         }
 
         const result = await leaveQueue(userId);
@@ -113,21 +153,31 @@ router.post('/leave', async (req, res) => {
 
     } catch (error) {
         console.error(`[${requestId}] Error leaving queue:`, error.message);
-        return res.status(500).json({ error: 'Failed to leave queue' });
+        return res.status(500).json({
+            error: true,
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to leave queue'
+        });
     }
 });
 
 /**
  * GET /api/arena/stats
- * Get queue statistics (online count, matches today)
+ * Get queue statistics (online count, battles today, avg wait time)
  */
-router.get('/stats', async (req, res) => {
+router.get('/stats', statsLimiter, async (req, res) => {
     try {
         const stats = await getQueueStats();
+        // Add cache headers for 5 seconds
+        res.set('Cache-Control', 'public, max-age=5');
         return res.status(200).json(stats);
     } catch (error) {
         console.error('Error getting arena stats:', error.message);
-        return res.status(500).json({ error: 'Failed to get stats' });
+        return res.status(500).json({
+            error: true,
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to get stats'
+        });
     }
 });
 

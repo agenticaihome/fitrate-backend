@@ -122,8 +122,10 @@ router.get('/:battleId', getLimiter, async (req, res) => {
         // Validate battleId format (still uses ch_ prefix for backwards compat)
         if (!battleId || !battleId.startsWith('ch_')) {
             console.log(`[${requestId}] Error: Invalid battle ID format - ${battleId}`);
-            return res.status(400).json({
-                error: 'Invalid battle ID'
+            return res.status(404).json({
+                error: true,
+                code: 'BATTLE_NOT_FOUND',
+                message: 'Battle not found'
             });
         }
 
@@ -133,29 +135,50 @@ router.get('/:battleId', getLimiter, async (req, res) => {
         if (!battle) {
             console.log(`[${requestId}] Battle not found or expired: ${battleId}`);
             return res.status(404).json({
-                error: 'Battle not found or expired'
+                error: true,
+                code: 'BATTLE_NOT_FOUND',
+                message: 'Battle not found or expired'
             });
         }
 
-        // Return battle data
+        // Determine winner
+        let winner = null;
+        if (battle.status === 'completed' && battle.responderScore !== null) {
+            if (battle.creatorScore > battle.responderScore) {
+                winner = 'creator';
+            } else if (battle.responderScore > battle.creatorScore) {
+                winner = 'opponent';
+            } else {
+                winner = 'tie';
+            }
+        }
+
+        // Return battle data in new format
         console.log(`[${requestId}] ✅ Battle found: ${battleId} (status: ${battle.status})`);
         return res.status(200).json({
-            challengeId: battle.challengeId,
-            creatorScore: battle.creatorScore,
-            creatorId: battle.creatorId,
-            creatorThumb: battle.creatorThumb,
-            responderScore: battle.responderScore,
-            responderId: battle.responderId,
-            responderThumb: battle.responderThumb,
-            mode: battle.mode,
+            battleId: battle.challengeId,
             status: battle.status,
+            mode: battle.mode,
             createdAt: battle.createdAt,
-            expiresAt: battle.expiresAt
+            creator: {
+                userId: battle.creatorId,
+                score: battle.creatorScore,
+                thumb: battle.creatorThumb
+            },
+            opponent: battle.responderId ? {
+                userId: battle.responderId,
+                score: battle.responderScore,
+                thumb: battle.responderThumb
+            } : null,
+            winner: winner,
+            creatorId: battle.creatorId
         });
     } catch (error) {
         console.error(`[${requestId}] Error getting battle:`, error.message);
         return res.status(500).json({
-            error: 'Failed to get battle. Please try again.'
+            error: true,
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to get battle. Please try again.'
         });
     }
 });
