@@ -28,14 +28,20 @@ export function generateBattleId() {
 /**
  * Create a new battle
  * @param {number} creatorScore - Creator's outfit score (0.0-100.0)
+ * @param {string} creatorId - User ID of the creator
  * @param {string} mode - AI mode used for scoring (e.g., 'nice', 'roast', 'savage')
  * @param {string} creatorThumb - Base64 thumbnail of creator's outfit (optional)
  * @returns {Object} Battle data with ID
  */
-export async function createBattle(creatorScore, mode = 'nice', creatorThumb = null) {
+export async function createBattle(creatorScore, creatorId, mode = 'nice', creatorThumb = null) {
     // Validate score
     if (typeof creatorScore !== 'number' || creatorScore < 0 || creatorScore > 100) {
         throw new Error('Score must be between 0 and 100');
+    }
+
+    // Validate creatorId
+    if (!creatorId || typeof creatorId !== 'string') {
+        throw new Error('creatorId is required');
     }
 
     const battleId = generateBattleId();
@@ -45,7 +51,9 @@ export async function createBattle(creatorScore, mode = 'nice', creatorThumb = n
     const battleData = {
         id: battleId,
         creatorScore: parseFloat(creatorScore.toFixed(1)),
+        creatorId: creatorId,
         responderScore: null,
+        responderId: null,
         mode: mode || 'nice',  // AI mode for both players
         creatorThumb: creatorThumb || null,  // Creator's outfit photo
         responderThumb: null,
@@ -62,6 +70,7 @@ export async function createBattle(creatorScore, mode = 'nice', creatorThumb = n
         // Store as Redis hash
         const hashData = {
             creatorScore: battleData.creatorScore,
+            creatorId: battleData.creatorId,
             mode: battleData.mode,
             status: battleData.status,
             createdAt: battleData.createdAt,
@@ -83,10 +92,11 @@ export async function createBattle(creatorScore, mode = 'nice', creatorThumb = n
     }
 
     return {
-        battleId,
-        status: battleData.status,
+        challengeId: battleId,
         creatorScore: battleData.creatorScore,
+        creatorId: battleData.creatorId,
         mode: battleData.mode,
+        status: battleData.status,
         createdAt: battleData.createdAt,
         expiresAt: battleData.expiresAt
     };
@@ -95,9 +105,10 @@ export async function createBattle(creatorScore, mode = 'nice', creatorThumb = n
 /**
  * Get battle data by ID
  * @param {string} battleId - Battle ID
- * @returns {Object|null} Battle data or null if not found
+ * @param {boolean} includeExpired - Whether to include expired battles (default: false)
+ * @returns {Object|null} Battle data or null if not found/expired
  */
-export async function getBattle(battleId) {
+export async function getBattle(battleId, includeExpired = false) {
     if (!battleId || !battleId.startsWith('ch_')) {
         return null;
     }
@@ -106,28 +117,31 @@ export async function getBattle(battleId) {
         const key = `challenge:${battleId}`; // Keep 'challenge:' for backwards compat
         const data = await redis.hgetall(key);
 
-        // Battle not found or expired
+        // Battle not found
         if (!data || Object.keys(data).length === 0) {
             return null;
         }
 
         // Parse data from Redis (all values are strings)
         const battle = {
-            battleId,
+            challengeId: battleId,
             creatorScore: parseFloat(data.creatorScore),
+            creatorId: data.creatorId || null,
+            creatorThumb: data.creatorThumb || null,
             responderScore: data.responderScore ? parseFloat(data.responderScore) : null,
-            mode: data.mode || 'nice',  // AI mode used for this battle
-            creatorThumb: data.creatorThumb || null,  // Creator's outfit photo
-            responderThumb: data.responderThumb || null,  // Responder's outfit photo
+            responderId: data.responderId || null,
+            responderThumb: data.responderThumb || null,
+            mode: data.mode || 'nice',
             status: data.status,
-            winner: data.winner || null,
             createdAt: data.createdAt,
-            respondedAt: data.respondedAt || null,
             expiresAt: data.expiresAt || null
         };
 
         // Check if battle has expired
         if (battle.expiresAt && new Date(battle.expiresAt) < new Date()) {
+            if (!includeExpired) {
+                return null; // Return null for expired battles
+            }
             // Update status to expired
             await redis.hset(key, 'status', 'expired');
             battle.status = 'expired';
@@ -136,17 +150,29 @@ export async function getBattle(battleId) {
         return battle;
     } else {
         // In-memory fallback
-        const battle = inMemoryStore.get(battleId);
-        if (!battle) return null;
+        const stored = inMemoryStore.get(battleId);
+        if (!stored) return null;
 
         // Check expiration
-        if (new Date(battle.expiresAt) < new Date()) {
-            battle.status = 'expired';
+        if (new Date(stored.expiresAt) < new Date()) {
+            if (!includeExpired) {
+                return null; // Return null for expired battles
+            }
+            stored.status = 'expired';
         }
 
         return {
-            battleId,
-            ...battle
+            challengeId: battleId,
+            creatorScore: stored.creatorScore,
+            creatorId: stored.creatorId || null,
+            creatorThumb: stored.creatorThumb || null,
+            responderScore: stored.responderScore || null,
+            responderId: stored.responderId || null,
+            responderThumb: stored.responderThumb || null,
+            mode: stored.mode || 'nice',
+            status: stored.status,
+            createdAt: stored.createdAt,
+            expiresAt: stored.expiresAt
         };
     }
 }
@@ -155,23 +181,29 @@ export async function getBattle(battleId) {
  * Submit responder's score and determine winner
  * @param {string} battleId - Battle ID
  * @param {number} responderScore - Responder's outfit score (0.0-100.0)
+ * @param {string} responderId - User ID of the responder
  * @param {string} responderThumb - Base64 thumbnail of responder's outfit (optional)
- * @returns {Object} Result with winner and scores
+ * @returns {Object} Full battle object with updated data
  */
-export async function respondToBattle(battleId, responderScore, responderThumb = null) {
+export async function respondToBattle(battleId, responderScore, responderId, responderThumb = null) {
     // Validate score
     if (typeof responderScore !== 'number' || responderScore < 0 || responderScore > 100) {
         throw new Error('Score must be between 0 and 100');
     }
 
-    // Get existing battle
-    const battle = await getBattle(battleId);
+    // Validate responderId
+    if (!responderId || typeof responderId !== 'string') {
+        throw new Error('responderId is required');
+    }
+
+    // Get existing battle (including expired for proper error messaging)
+    const battle = await getBattle(battleId, true);
     if (!battle) {
         throw new Error('Battle not found');
     }
 
     // Check if expired
-    if (battle.status === 'expired') {
+    if (battle.status === 'expired' || (battle.expiresAt && new Date(battle.expiresAt) < new Date())) {
         throw new Error('Battle expired');
     }
 
@@ -180,21 +212,7 @@ export async function respondToBattle(battleId, responderScore, responderThumb =
         throw new Error('Battle already completed');
     }
 
-    // Calculate winner
-    const creatorScore = battle.creatorScore;
     const roundedResponderScore = parseFloat(responderScore.toFixed(1));
-    let winner;
-
-    if (roundedResponderScore > creatorScore) {
-        winner = 'responder';
-    } else if (roundedResponderScore < creatorScore) {
-        winner = 'creator';
-    } else {
-        winner = 'tie';
-    }
-
-    const margin = Math.abs(roundedResponderScore - creatorScore);
-    const respondedAt = new Date().toISOString();
 
     if (isRedisAvailable()) {
         const key = `challenge:${battleId}`; // Keep 'challenge:' for backwards compat
@@ -202,9 +220,8 @@ export async function respondToBattle(battleId, responderScore, responderThumb =
         // Update battle with response
         const updateData = {
             responderScore: roundedResponderScore,
-            status: 'completed',
-            winner: winner,
-            respondedAt: respondedAt
+            responderId: responderId,
+            status: 'completed'
         };
 
         // Only store thumb if provided
@@ -218,19 +235,25 @@ export async function respondToBattle(battleId, responderScore, responderThumb =
         const stored = inMemoryStore.get(battleId);
         if (stored) {
             stored.responderScore = roundedResponderScore;
+            stored.responderId = responderId;
+            stored.responderThumb = responderThumb || null;
             stored.status = 'completed';
-            stored.winner = winner;
-            stored.respondedAt = respondedAt;
         }
     }
 
+    // Return full battle object
     return {
-        success: true,
-        status: 'completed',
-        creatorScore,
+        challengeId: battleId,
+        creatorScore: battle.creatorScore,
+        creatorId: battle.creatorId,
+        creatorThumb: battle.creatorThumb,
         responderScore: roundedResponderScore,
-        winner,
-        margin: parseFloat(margin.toFixed(1))
+        responderId: responderId,
+        responderThumb: responderThumb || null,
+        mode: battle.mode,
+        status: 'completed',
+        createdAt: battle.createdAt,
+        expiresAt: battle.expiresAt
     };
 }
 

@@ -60,13 +60,21 @@ router.post('/', createLimiter, async (req, res) => {
 
     try {
         console.log(`[${requestId}] POST /api/battle - Creating new battle`);
-        const { creatorScore, mode, creatorThumb } = req.body;
+        const { creatorScore, creatorId, mode, creatorThumb } = req.body;
 
-        // Validate input
+        // Validate creatorScore
         if (creatorScore === undefined || creatorScore === null) {
             console.log(`[${requestId}] Error: No creatorScore provided`);
             return res.status(400).json({
                 error: 'creatorScore is required'
+            });
+        }
+
+        // Validate creatorId
+        if (!creatorId || typeof creatorId !== 'string') {
+            console.log(`[${requestId}] Error: No creatorId provided`);
+            return res.status(400).json({
+                error: 'creatorId is required'
             });
         }
 
@@ -79,24 +87,18 @@ router.post('/', createLimiter, async (req, res) => {
             });
         }
 
-        // Create battle with mode and photo
-        const battle = await createBattle(score, mode || 'nice', creatorThumb || null);
-        console.log(`[${requestId}] ✅ Battle created: ${battle.battleId} (mode: ${battle.mode})`);
-
-        // Generate invite URL (use x-forwarded-host for Railway/Vercel, fallback to host)
-        const host = req.get('x-forwarded-host') || req.get('host');
-        const protocol = req.get('x-forwarded-proto') || 'https';
-        const inviteUrl = `${protocol}://${host}/b/${battle.battleId}`;
+        // Create battle with creatorId, mode and photo
+        const battle = await createBattle(score, creatorId, mode || 'nice', creatorThumb || null);
+        console.log(`[${requestId}] ✅ Battle created: ${battle.challengeId} (mode: ${battle.mode})`);
 
         return res.status(201).json({
-            challengeId: battle.battleId,  // Frontend expects challengeId
-            battleId: battle.battleId,     // Keep for backwards compat
-            inviteUrl,
-            expiresAt: battle.expiresAt,
-            status: battle.status,
+            challengeId: battle.challengeId,
             creatorScore: battle.creatorScore,
+            creatorId: battle.creatorId,
             mode: battle.mode,
-            createdAt: battle.createdAt
+            status: battle.status,
+            createdAt: battle.createdAt,
+            expiresAt: battle.expiresAt
         });
     } catch (error) {
         console.error(`[${requestId}] Error creating battle:`, error.message);
@@ -125,31 +127,29 @@ router.get('/:battleId', getLimiter, async (req, res) => {
             });
         }
 
-        // Get battle
+        // Get battle (expired battles return null)
         const battle = await getBattle(battleId);
 
         if (!battle) {
-            console.log(`[${requestId}] Battle not found: ${battleId}`);
+            console.log(`[${requestId}] Battle not found or expired: ${battleId}`);
             return res.status(404).json({
-                error: 'Battle not found'
+                error: 'Battle not found or expired'
             });
         }
 
-        // Return battle data with challengeId for frontend compatibility
-        // Note: Expired battles return 200 so frontend can show "Battle Expired" screen
+        // Return battle data
         console.log(`[${requestId}] ✅ Battle found: ${battleId} (status: ${battle.status})`);
         return res.status(200).json({
-            challengeId: battle.battleId,  // Frontend expects challengeId
-            battleId: battle.battleId,     // Keep for backwards compat
+            challengeId: battle.challengeId,
             creatorScore: battle.creatorScore,
-            responderScore: battle.responderScore,
-            mode: battle.mode,
-            status: battle.status,  // 'waiting', 'completed', or 'expired'
+            creatorId: battle.creatorId,
             creatorThumb: battle.creatorThumb,
+            responderScore: battle.responderScore,
+            responderId: battle.responderId,
             responderThumb: battle.responderThumb,
-            winner: battle.winner,
+            mode: battle.mode,
+            status: battle.status,
             createdAt: battle.createdAt,
-            respondedAt: battle.respondedAt,
             expiresAt: battle.expiresAt
         });
     } catch (error) {
@@ -170,7 +170,7 @@ router.post('/:battleId/respond', respondLimiter, async (req, res) => {
 
     try {
         console.log(`[${requestId}] POST /api/battle/${battleId}/respond`);
-        const { responderScore, responderThumb } = req.body;
+        const { responderScore, responderId, responderThumb } = req.body;
 
         // Validate battleId format (still uses ch_ prefix for backwards compat)
         if (!battleId || !battleId.startsWith('ch_')) {
@@ -180,11 +180,19 @@ router.post('/:battleId/respond', respondLimiter, async (req, res) => {
             });
         }
 
-        // Validate input
+        // Validate responderScore
         if (responderScore === undefined || responderScore === null) {
             console.log(`[${requestId}] Error: No responderScore provided`);
             return res.status(400).json({
                 error: 'responderScore is required'
+            });
+        }
+
+        // Validate responderId
+        if (!responderId || typeof responderId !== 'string') {
+            console.log(`[${requestId}] Error: No responderId provided`);
+            return res.status(400).json({
+                error: 'responderId is required'
             });
         }
 
@@ -197,9 +205,9 @@ router.post('/:battleId/respond', respondLimiter, async (req, res) => {
             });
         }
 
-        // Submit response with photo
-        const result = await respondToBattle(battleId, score, responderThumb || null);
-        console.log(`[${requestId}] ✅ Response recorded: ${battleId} - Winner: ${result.winner}`);
+        // Submit response with responderId and photo
+        const result = await respondToBattle(battleId, score, responderId, responderThumb || null);
+        console.log(`[${requestId}] ✅ Response recorded: ${battleId} - status: completed`);
 
         return res.status(200).json(result);
     } catch (error) {
@@ -208,13 +216,13 @@ router.post('/:battleId/respond', respondLimiter, async (req, res) => {
         // Handle specific error cases
         if (error.message === 'Battle not found') {
             return res.status(404).json({
-                error: 'Battle not found'
+                error: 'Battle not found or expired'
             });
         }
 
         if (error.message === 'Battle expired') {
-            return res.status(400).json({
-                error: 'Battle has expired'
+            return res.status(404).json({
+                error: 'Battle not found or expired'
             });
         }
 
@@ -227,6 +235,12 @@ router.post('/:battleId/respond', respondLimiter, async (req, res) => {
         if (error.message === 'Score must be between 0 and 100') {
             return res.status(400).json({
                 error: 'Score must be between 0 and 100'
+            });
+        }
+
+        if (error.message === 'responderId is required') {
+            return res.status(400).json({
+                error: 'responderId is required'
             });
         }
 
