@@ -1,13 +1,13 @@
 /**
  * Matchmaking Service - Global Arena
- * 
+ *
  * Real-time matchmaking queue for global 1v1 outfit battles.
- * Smart matching: Same mode first, then widens to similar modes, then any.
- * 
+ * Smart matching: Score-based with tolerance, then widens to any score.
+ *
  * Redis Data Structures:
  * - arena_queue:{mode} (Sorted Set): userId → joinTime for FIFO matching per mode
  * - arena:user:{userId} (Hash): score, thumb, mode, joinedAt, status
- * - arena_stats (Hash): total matches, current online
+ * - arena_stats (Hash): total matches, current online, battles today
  */
 
 import { redis, isRedisAvailable } from './redisClient.js';
@@ -15,7 +15,12 @@ import { createBattle } from './battleService.js';
 
 // In-memory fallback
 const inMemoryQueue = new Map(); // mode -> Map(userId -> userData)
-const inMemoryUsers = new Map(); // oderId -> userData
+const inMemoryUsers = new Map(); // userId -> userData
+let inMemoryBattlesToday = 0;
+let inMemoryBattlesDate = new Date().toDateString();
+
+// Daily modes rotation (Sunday = 0)
+const DAILY_MODES = ['aura', 'roast', 'nice', 'savage', 'rizz', 'chaos', 'celeb'];
 
 // Mode groups for fallback matching
 const MODE_GROUPS = {
@@ -36,8 +41,16 @@ const MODE_GROUPS = {
 // All modes for final fallback
 const ALL_MODES = ['nice', 'roast', 'honest', 'savage', 'rizz', 'celeb', 'aura', 'chaos', 'y2k', 'villain', 'coquette', 'hypebeast'];
 
-// Queue TTL (2 minutes - auto-expire stale entries)
-const QUEUE_TTL = 120;
+// Queue TTL (90 seconds - matching spec)
+const QUEUE_TTL = 90;
+
+// Score matching tolerance
+const SCORE_TOLERANCE = 20;
+
+// Stats cache
+let statsCache = null;
+let statsCacheTime = 0;
+const STATS_CACHE_TTL = 5000; // 5 seconds
 
 /**
  * Join the matchmaking queue
@@ -45,7 +58,7 @@ const QUEUE_TTL = 120;
  * @param {number} score - User's outfit score
  * @param {string} thumb - Base64 thumbnail
  * @param {string} mode - AI mode used
- * @returns {{ status: 'queued'|'matched', battleId?: string, position?: number }}
+ * @returns {{ status: 'queued'|'matched', battleId?: string, position?: number, estimatedWait?: number }}
  */
 export async function joinQueue(userId, score, thumb, mode = 'nice') {
     if (!userId || typeof score !== 'number') {
@@ -65,6 +78,12 @@ export async function joinQueue(userId, score, thumb, mode = 'nice') {
         const userKey = `arena:user:${userId}`;
         const queueKey = `arena_queue:${mode}`;
 
+        // Remove existing entry if user is re-queuing
+        const existingData = await redis.hgetall(userKey);
+        if (existingData && existingData.mode) {
+            await redis.zrem(`arena_queue:${existingData.mode}`, userId);
+        }
+
         // Store user data
         await redis.hset(userKey, userData);
         await redis.expire(userKey, QUEUE_TTL);
@@ -79,15 +98,23 @@ export async function joinQueue(userId, score, thumb, mode = 'nice') {
         // Attempt immediate match
         const match = await attemptMatch(userId, mode, userData);
         if (match) {
-            return { status: 'matched', battleId: match.challengeId };
+            return { status: 'matched', battleId: match.battleId };
         }
 
-        // Get queue position
+        // Get queue position and estimate wait time
         const position = await redis.zrank(queueKey, userId);
-        return { status: 'queued', position: position + 1 };
+        const estimatedWait = Math.max(5, (position + 1) * 3); // ~3 seconds per position, min 5
+        return { status: 'queued', position: position + 1, estimatedWait };
 
     } else {
         // In-memory fallback
+        // Remove existing entry if user is re-queuing
+        const existingData = inMemoryUsers.get(userId);
+        if (existingData) {
+            const queue = inMemoryQueue.get(existingData.mode);
+            if (queue) queue.delete(userId);
+        }
+
         if (!inMemoryQueue.has(mode)) {
             inMemoryQueue.set(mode, new Map());
         }
@@ -97,19 +124,23 @@ export async function joinQueue(userId, score, thumb, mode = 'nice') {
         // Attempt immediate match
         const match = await attemptMatch(userId, mode, userData);
         if (match) {
-            return { status: 'matched', battleId: match.challengeId };
+            return { status: 'matched', battleId: match.battleId };
         }
 
-        return { status: 'queued', position: inMemoryQueue.get(mode).size };
+        const position = inMemoryQueue.get(mode).size;
+        const estimatedWait = Math.max(5, position * 3);
+        return { status: 'queued', position, estimatedWait };
     }
 }
 
 /**
  * Attempt to find a match for a user
- * Smart matching: Same mode → Similar modes → Any mode (based on wait time)
+ * Smart matching: Score-based within tolerance, then widens to any score.
+ * Same mode first → Similar modes → Any mode (based on wait time)
  */
 export async function attemptMatch(userId, mode, userData) {
     const waitTime = Date.now() - (userData?.joinedAt || Date.now());
+    const userScore = parseFloat(userData.score);
 
     // Determine which modes to search based on wait time
     let modesToSearch = [mode]; // Start with exact mode
@@ -124,29 +155,59 @@ export async function attemptMatch(userId, mode, userData) {
         modesToSearch = ALL_MODES;
     }
 
+    // Determine score tolerance based on wait time
+    // Start strict, then widen
+    let scoreTolerance = SCORE_TOLERANCE;
+    if (waitTime > 30000) {
+        scoreTolerance = 50; // Wider tolerance after 30s
+    }
+    if (waitTime > 60000) {
+        scoreTolerance = 100; // Match anyone after 60s
+    }
+
     if (isRedisAvailable()) {
         for (const searchMode of modesToSearch) {
             const queueKey = `arena_queue:${searchMode}`;
 
-            // Get all users in this mode's queue
+            // Get all users in this mode's queue (oldest first for fairness)
             const queueUsers = await redis.zrange(queueKey, 0, -1);
 
-            // Find first opponent (not self)
-            const opponent = queueUsers.find(id => id !== userId);
+            // Find best opponent: within score tolerance, oldest first
+            let bestOpponent = null;
+            let bestOpponentData = null;
+            let bestWaitTime = 0;
 
-            if (opponent) {
-                // Get opponent data
-                const opponentData = await redis.hgetall(`arena:user:${opponent}`);
-                if (opponentData && opponentData.score) {
-                    // Create battle!
-                    const battle = await createBattleFromMatch(userId, userData, opponent, opponentData, searchMode);
+            for (const candidateId of queueUsers) {
+                if (candidateId === userId) continue;
 
-                    // Remove both from queues
-                    await removeFromQueue(userId, mode);
-                    await removeFromQueue(opponent, searchMode);
+                const candidateData = await redis.hgetall(`arena:user:${candidateId}`);
+                if (!candidateData || !candidateData.score) continue;
 
-                    return battle;
+                const candidateScore = parseFloat(candidateData.score);
+                const scoreDiff = Math.abs(userScore - candidateScore);
+
+                // Check score tolerance
+                if (scoreDiff <= scoreTolerance) {
+                    const candidateWait = Date.now() - parseInt(candidateData.joinedAt);
+
+                    // Prefer users waiting longer (fairness)
+                    if (!bestOpponent || candidateWait > bestWaitTime) {
+                        bestOpponent = candidateId;
+                        bestOpponentData = candidateData;
+                        bestWaitTime = candidateWait;
+                    }
                 }
+            }
+
+            if (bestOpponent) {
+                // Create battle!
+                const battle = await createBattleFromMatch(userId, userData, bestOpponent, bestOpponentData, searchMode);
+
+                // Remove both from queues
+                await removeFromQueue(userId, mode);
+                await removeFromQueue(bestOpponent, searchMode);
+
+                return battle;
             }
         }
     } else {
@@ -155,17 +216,36 @@ export async function attemptMatch(userId, mode, userData) {
             const queue = inMemoryQueue.get(searchMode);
             if (!queue) continue;
 
-            for (const [opponentId, opponentData] of queue) {
-                if (opponentId !== userId) {
-                    // Create battle
-                    const battle = await createBattleFromMatch(userId, userData, opponentId, opponentData, searchMode);
+            let bestOpponent = null;
+            let bestOpponentData = null;
+            let bestWaitTime = 0;
 
-                    // Remove both from queues
-                    await removeFromQueue(userId, mode);
-                    await removeFromQueue(opponentId, searchMode);
+            for (const [candidateId, candidateData] of queue) {
+                if (candidateId === userId) continue;
 
-                    return battle;
+                const candidateScore = parseFloat(candidateData.score);
+                const scoreDiff = Math.abs(userScore - candidateScore);
+
+                if (scoreDiff <= scoreTolerance) {
+                    const candidateWait = Date.now() - candidateData.joinedAt;
+
+                    if (!bestOpponent || candidateWait > bestWaitTime) {
+                        bestOpponent = candidateId;
+                        bestOpponentData = candidateData;
+                        bestWaitTime = candidateWait;
+                    }
                 }
+            }
+
+            if (bestOpponent) {
+                // Create battle
+                const battle = await createBattleFromMatch(userId, userData, bestOpponent, bestOpponentData, searchMode);
+
+                // Remove both from queues
+                await removeFromQueue(userId, mode);
+                await removeFromQueue(bestOpponent, searchMode);
+
+                return battle;
             }
         }
     }
@@ -175,47 +255,61 @@ export async function attemptMatch(userId, mode, userData) {
 
 /**
  * Create a battle from matched users
+ * @returns {{ battleId: string }}
  */
 async function createBattleFromMatch(userId, userData, opponentId, opponentData, mode) {
     // Randomly decide who is "creator" vs "responder" for fairness
     const userIsCreator = Math.random() > 0.5;
 
     const creatorId = userIsCreator ? userId : opponentId;
-    const creatorScore = userIsCreator ? userData.score : parseFloat(opponentData.score);
+    const creatorScore = userIsCreator ? parseFloat(userData.score) : parseFloat(opponentData.score);
     const creatorThumb = userIsCreator ? userData.thumb : opponentData.thumb;
 
     const responderId = userIsCreator ? opponentId : userId;
-    const responderScore = userIsCreator ? parseFloat(opponentData.score) : userData.score;
+    const responderScore = userIsCreator ? parseFloat(opponentData.score) : parseFloat(userData.score);
     const responderThumb = userIsCreator ? opponentData.thumb : userData.thumb;
 
     // Use existing battle service to create the battle
     const battle = await createBattle(creatorScore, creatorId, mode, creatorThumb);
+    const battleId = battle.challengeId;
 
     // Immediately complete the battle with responder data
-    // We need to import respondToBattle...
     const { respondToBattle } = await import('./battleService.js');
-    await respondToBattle(battle.challengeId, responderScore, responderId, responderThumb);
+    await respondToBattle(battleId, responderScore, responderId, responderThumb);
 
     // Store match info for both users
     if (isRedisAvailable()) {
-        await redis.hset(`arena:user:${userId}`, { status: 'matched', battleId: battle.challengeId });
-        await redis.hset(`arena:user:${opponentId}`, { status: 'matched', battleId: battle.challengeId });
+        await redis.hset(`arena:user:${userId}`, { status: 'matched', battleId });
+        await redis.hset(`arena:user:${opponentId}`, { status: 'matched', battleId });
 
-        // Increment match counter
+        // Increment match counter and daily battles
         await redis.hincrby('arena_stats', 'matches', 1);
         await redis.hincrby('arena_stats', 'online', -2);
+
+        // Track battles today (resets at midnight)
+        const today = new Date().toISOString().split('T')[0];
+        await redis.hincrby(`arena_battles:${today}`, 'count', 1);
+        await redis.expire(`arena_battles:${today}`, 86400 * 2); // Keep 2 days
     } else {
+        // Reset daily counter if new day
+        const today = new Date().toDateString();
+        if (today !== inMemoryBattlesDate) {
+            inMemoryBattlesToday = 0;
+            inMemoryBattlesDate = today;
+        }
+        inMemoryBattlesToday++;
+
         if (inMemoryUsers.has(userId)) {
             inMemoryUsers.get(userId).status = 'matched';
-            inMemoryUsers.get(userId).battleId = battle.challengeId;
+            inMemoryUsers.get(userId).battleId = battleId;
         }
         if (inMemoryUsers.has(opponentId)) {
             inMemoryUsers.get(opponentId).status = 'matched';
-            inMemoryUsers.get(opponentId).battleId = battle.challengeId;
+            inMemoryUsers.get(opponentId).battleId = battleId;
         }
     }
 
-    return battle;
+    return { battleId };
 }
 
 /**
@@ -233,7 +327,7 @@ async function removeFromQueue(userId, mode) {
 
 /**
  * Poll for match status
- * @returns {{ status: 'queued'|'matched'|'expired', battleId?, waitTime? }}
+ * @returns {{ status: 'waiting'|'matched'|'expired', battleId?, waitTime? }}
  */
 export async function pollForMatch(userId) {
     if (isRedisAvailable()) {
@@ -249,19 +343,28 @@ export async function pollForMatch(userId) {
             return { status: 'matched', battleId: userData.battleId };
         }
 
-        // Still queued - try to find a match
+        // Check if queue entry expired (90 seconds)
+        const joinedAt = parseInt(userData.joinedAt);
+        const waitTime = Math.floor((Date.now() - joinedAt) / 1000); // in seconds
+
+        if (waitTime > QUEUE_TTL) {
+            await redis.del(`arena:user:${userId}`);
+            await redis.zrem(`arena_queue:${userData.mode}`, userId);
+            return { status: 'expired' };
+        }
+
+        // Still waiting - try to find a match
         const match = await attemptMatch(userId, userData.mode, {
             ...userData,
             score: parseFloat(userData.score),
-            joinedAt: parseInt(userData.joinedAt)
+            joinedAt
         });
 
         if (match) {
-            return { status: 'matched', battleId: match.challengeId };
+            return { status: 'matched', battleId: match.battleId };
         }
 
-        const waitTime = Date.now() - parseInt(userData.joinedAt);
-        return { status: 'queued', waitTime };
+        return { status: 'waiting', waitTime };
 
     } else {
         const userData = inMemoryUsers.get(userId);
@@ -272,13 +375,22 @@ export async function pollForMatch(userId) {
             return { status: 'matched', battleId: userData.battleId };
         }
 
+        // Check expiration
+        const waitTime = Math.floor((Date.now() - userData.joinedAt) / 1000);
+        if (waitTime > QUEUE_TTL) {
+            inMemoryUsers.delete(userId);
+            const queue = inMemoryQueue.get(userData.mode);
+            if (queue) queue.delete(userId);
+            return { status: 'expired' };
+        }
+
         // Try to match
         const match = await attemptMatch(userId, userData.mode, userData);
         if (match) {
-            return { status: 'matched', battleId: match.challengeId };
+            return { status: 'matched', battleId: match.battleId };
         }
 
-        return { status: 'queued', waitTime: Date.now() - userData.joinedAt };
+        return { status: 'waiting', waitTime };
     }
 }
 
@@ -306,11 +418,18 @@ export async function leaveQueue(userId) {
 
 /**
  * Get queue statistics
+ * @returns {{ online: number, battlesToday: number, avgWaitTime: number }}
  */
 export async function getQueueStats() {
-    if (isRedisAvailable()) {
-        const stats = await redis.hgetall('arena_stats');
+    // Check cache
+    const now = Date.now();
+    if (statsCache && (now - statsCacheTime) < STATS_CACHE_TTL) {
+        return statsCache;
+    }
 
+    let stats;
+
+    if (isRedisAvailable()) {
         // Count total users in all queues
         let totalOnline = 0;
         for (const mode of ALL_MODES) {
@@ -318,15 +437,48 @@ export async function getQueueStats() {
             totalOnline += count;
         }
 
-        return {
-            online: totalOnline,
-            matchesToday: parseInt(stats?.matches || 0)
+        // Get battles today
+        const today = new Date().toISOString().split('T')[0];
+        const battlesData = await redis.hgetall(`arena_battles:${today}`);
+        const battlesToday = parseInt(battlesData?.count || 0);
+
+        // Calculate average wait time (estimate based on queue size)
+        // If no one in queue, estimate 5-10 seconds
+        // Otherwise, estimate based on typical match rate
+        let avgWaitTime = 8; // default
+        if (totalOnline > 0) {
+            avgWaitTime = Math.max(3, Math.min(30, Math.floor(15 / Math.max(1, totalOnline / 2))));
+        }
+
+        stats = {
+            online: Math.max(totalOnline, 1), // Show at least 1 for social proof
+            battlesToday: battlesToday,
+            avgWaitTime: avgWaitTime
         };
     } else {
+        // In-memory fallback
         let totalOnline = 0;
         for (const queue of inMemoryQueue.values()) {
             totalOnline += queue.size;
         }
-        return { online: totalOnline, matchesToday: 0 };
+
+        // Reset daily counter if new day
+        const today = new Date().toDateString();
+        if (today !== inMemoryBattlesDate) {
+            inMemoryBattlesToday = 0;
+            inMemoryBattlesDate = today;
+        }
+
+        stats = {
+            online: Math.max(totalOnline, 1),
+            battlesToday: inMemoryBattlesToday,
+            avgWaitTime: 8
+        };
     }
+
+    // Cache the result
+    statsCache = stats;
+    statsCacheTime = now;
+
+    return stats;
 }
