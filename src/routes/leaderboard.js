@@ -80,6 +80,9 @@ router.get('/today', async (req, res) => {
     try {
         const { userId } = req.query;
 
+        // Set cache headers to allow fresh data (60 second cache)
+        res.set('Cache-Control', 'public, max-age=60, must-revalidate');
+
         // Use the daily challenge service (already includes isCurrentUser, userRank)
         const result = await getDailyLeaderboard(userId, 10);
 
