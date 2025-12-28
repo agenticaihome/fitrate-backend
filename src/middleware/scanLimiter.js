@@ -419,6 +419,21 @@ export async function scanLimiter(req, res, next) {
     const ip = getClientIP(req);
     const userId = req.body?.userId || req.query?.userId;
 
+    // ARENA MODE: Free to play all day, skip scan counting
+    if (req.body?.arenaMode === true) {
+        console.log(`[SCAN] Arena mode - free scan for ${userId?.slice(0, 12) || 'unknown'}`);
+        req.scanInfo = {
+            userId,
+            ip,
+            currentCount: 0,
+            limit: 999,
+            isPro: false,
+            arenaMode: true,
+            scanIncremented: false  // Don't rollback on failure since we never incremented
+        };
+        return next();
+    }
+
     // Must have userId
     if (!userId) {
         console.log(`[SCAN] No userId provided, allowing through`);
