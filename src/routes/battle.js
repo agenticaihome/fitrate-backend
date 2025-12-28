@@ -15,6 +15,7 @@ import {
     getBattle,
     respondToBattle
 } from '../services/battleService.js';
+import { compareBattleOutfits } from '../services/battleAnalyzer.js';
 
 const router = express.Router();
 
@@ -273,4 +274,68 @@ router.post('/:battleId/respond', respondLimiter, async (req, res) => {
     }
 });
 
+/**
+ * POST /api/battle/:battleId/compare
+ * Compare both outfits head-to-head using AI (recommended for final battle result)
+ * This endpoint requires both images and compares them simultaneously
+ */
+router.post('/:battleId/compare', respondLimiter, async (req, res) => {
+    const { battleId } = req.params;
+    const requestId = `battle_compare_${Date.now()}`;
+
+    try {
+        console.log(`[${requestId}] POST /api/battle/${battleId}/compare`);
+        const { image1, image2, mode } = req.body;
+
+        // Validate battleId format
+        if (!battleId || !battleId.startsWith('ch_')) {
+            return res.status(400).json({
+                error: 'Invalid battle ID'
+            });
+        }
+
+        // Validate both images are provided
+        if (!image1 || !image2) {
+            return res.status(400).json({
+                error: 'Both outfit images (image1 and image2) are required for comparison'
+            });
+        }
+
+        // Get battle to verify it exists
+        const battle = await getBattle(battleId, true);
+        if (!battle) {
+            return res.status(404).json({
+                error: 'Battle not found or expired'
+            });
+        }
+
+        // Use battle's mode if not specified
+        const battleMode = mode || battle.mode || 'nice';
+
+        // Run comparative analysis
+        const result = await compareBattleOutfits(image1, image2, { mode: battleMode });
+
+        if (!result.success) {
+            console.error(`[${requestId}] Comparison failed:`, result.error);
+            return res.status(500).json({
+                error: result.error || 'Failed to compare outfits'
+            });
+        }
+
+        console.log(`[${requestId}] ⚔️ Battle comparison complete - Winner: Outfit ${result.battle.winner}`);
+
+        return res.status(200).json({
+            battleId,
+            success: true,
+            ...result.battle
+        });
+    } catch (error) {
+        console.error(`[${requestId}] Error comparing battle:`, error.message);
+        return res.status(500).json({
+            error: 'Failed to compare outfits. Please try again.'
+        });
+    }
+});
+
 export default router;
+

@@ -9,6 +9,7 @@
 
 import { redis, isRedisAvailable } from './redisClient.js';
 import crypto from 'crypto';
+import { compareBattleOutfits } from './battleAnalyzer.js';
 
 // In-memory fallback for when Redis is unavailable
 const inMemoryStore = new Map();
@@ -50,7 +51,7 @@ export async function createBattle(creatorScore, creatorId, mode = 'nice', creat
 
     const battleData = {
         id: battleId,
-        creatorScore: parseFloat(creatorScore.toFixed(1)),
+        creatorScore: parseFloat(creatorScore.toFixed(2)),
         creatorId: creatorId,
         responderScore: null,
         responderId: null,
@@ -134,7 +135,12 @@ export async function getBattle(battleId, includeExpired = false) {
             mode: data.mode || 'nice',
             status: data.status,
             createdAt: data.createdAt,
-            expiresAt: data.expiresAt || null
+            expiresAt: data.expiresAt || null,
+            // AI Commentary (populated by auto-compare after battle completes)
+            battleCommentary: data.battleCommentary || null,
+            winningFactor: data.winningFactor || null,
+            outfit1Verdict: data.outfit1Verdict || null,
+            outfit2Verdict: data.outfit2Verdict || null
         };
 
         // Check if battle has expired
@@ -172,7 +178,12 @@ export async function getBattle(battleId, includeExpired = false) {
             mode: stored.mode || 'nice',
             status: stored.status,
             createdAt: stored.createdAt,
-            expiresAt: stored.expiresAt
+            expiresAt: stored.expiresAt,
+            // AI Commentary (in-memory fallback - may not be populated)
+            battleCommentary: stored.battleCommentary || null,
+            winningFactor: stored.winningFactor || null,
+            outfit1Verdict: stored.outfit1Verdict || null,
+            outfit2Verdict: stored.outfit2Verdict || null
         };
     }
 }
@@ -212,7 +223,7 @@ export async function respondToBattle(battleId, responderScore, responderId, res
         throw new Error('Battle already completed');
     }
 
-    const roundedResponderScore = parseFloat(responderScore.toFixed(1));
+    const roundedResponderScore = parseFloat(responderScore.toFixed(2));
 
     if (isRedisAvailable()) {
         const key = `challenge:${battleId}`; // Keep 'challenge:' for backwards compat
@@ -244,6 +255,50 @@ export async function respondToBattle(battleId, responderScore, responderId, res
             // Update expiry to 1 hour from now
             stored.expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
         }
+    }
+
+    // ====================================================
+    // AUTO-COMPARE: Get AI commentary for battle results
+    // Runs in background - doesn't block response
+    // ====================================================
+    const creatorImage = battle.creatorThumb;
+    const responderImage = responderThumb;
+
+    // Only run comparative analysis if both images exist
+    if (creatorImage && responderImage) {
+        // Run async - don't await, let it complete in background
+        (async () => {
+            try {
+                console.log(`[Battle] Running comparative analysis for ${battleId}`);
+                const compareResult = await compareBattleOutfits(creatorImage, responderImage, { mode: battle.mode });
+
+                if (compareResult.success && compareResult.battle) {
+                    const commentary = {
+                        battleCommentary: compareResult.battle.battleCommentary,
+                        winningFactor: compareResult.battle.winningFactor,
+                        outfit1Verdict: compareResult.battle.outfit1Verdict,
+                        outfit2Verdict: compareResult.battle.outfit2Verdict,
+                        aiWinner: compareResult.battle.winner,
+                        marginOfVictory: compareResult.battle.marginOfVictory
+                    };
+
+                    // Store commentary in Redis
+                    if (isRedisAvailable()) {
+                        const key = `challenge:${battleId}`;
+                        await redis.hset(key, {
+                            battleCommentary: commentary.battleCommentary || '',
+                            winningFactor: commentary.winningFactor || '',
+                            outfit1Verdict: commentary.outfit1Verdict || '',
+                            outfit2Verdict: commentary.outfit2Verdict || ''
+                        });
+                        console.log(`[Battle] ✅ AI commentary saved for ${battleId}`);
+                    }
+                }
+            } catch (err) {
+                console.warn(`[Battle] Comparative analysis failed for ${battleId}:`, err.message);
+                // Non-blocking - battle still works without commentary
+            }
+        })();
     }
 
     // Return full battle object

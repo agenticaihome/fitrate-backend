@@ -21,6 +21,27 @@ export const SCAN_LIMITS = {
     pro: { base: 25, packs: [5, 15, 50] }
 };
 
+// === BATTLE MODE SCORING (High Variance) ===
+// Used when scoring outfits for 1v1 battles - maximizes score differentiation
+export const BATTLE_SCORING_INSTRUCTIONS = `
+⚔️ BATTLE MODE ACTIVE - HIGH VARIANCE SCORING:
+This score will be used in a 1v1 outfit battle. You MUST use the FULL 0-100 range aggressively.
+
+CRITICAL SCORING RULES FOR BATTLES:
+- Use PRECISE decimal scores (e.g., 73.47, 81.23) - decimals matter for tiebreakers
+- AVOID clustering in 60-80 range unless truly warranted
+- Score distribution target: 15% under 40, 25% in 40-60, 35% in 60-80, 25% over 80
+- Be DECISIVE - slight differences should result in 5+ point gaps
+- A "good but not great" outfit should be 55-65, not 70-75
+- Only truly exceptional outfits (top 5%) deserve 90+
+- Bad outfits should get 20-40, not 50-60
+
+BATTLE TIE PREVENTION:
+- If you'd normally give ~70, ask: is this really 65 or 75?
+- Push scores apart from the middle - use the extremes
+- Every point matters in battle - be specific with decimals
+`;
+
 // === OUTPUT LENGTH CONTROL ===
 export const OUTPUT_LENGTHS = {
     free: { min: 20, max: 60 },
@@ -697,7 +718,11 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
         rizz: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
         celeb: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal} Pick ONE celebrity voice: Anna Wintour, Kanye, Rihanna, Zendaya, Gordon Ramsay.`,
         aura: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
-        chaos: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`
+        chaos: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
+        y2k: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
+        villain: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
+        coquette: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
+        hypebeast: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`
     };
 
     // Mode-specific LINE instructions - MUST be screenshot-worthy and mode-appropriate
@@ -912,6 +937,7 @@ export function vibeToMode(vibe) {
 export default {
     ERROR_MESSAGES,
     SCAN_LIMITS,
+    BATTLE_SCORING_INSTRUCTIONS,
     OUTPUT_LENGTHS,
     MODEL_ROUTING,
     MODE_CONFIGS,

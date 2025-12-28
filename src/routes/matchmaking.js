@@ -309,4 +309,101 @@ router.post('/profile', profileLimiter, async (req, res) => {
     }
 });
 
+// ============================================
+// SEASON REWARDS CLAIM ENDPOINT
+// ============================================
+
+// Tier reward mapping (scans granted per tier)
+const TIER_REWARDS = {
+    'Bronze': 1,
+    'Silver': 3,
+    'Gold': 5,
+    'Platinum': 10,
+    'Diamond': 25
+};
+
+/**
+ * POST /api/arena/claim-rewards
+ * Claim season rewards based on current tier
+ * Grants bonus scans to user's account
+ */
+router.post('/claim-rewards', profileLimiter, async (req, res) => {
+    const requestId = `arena_claim_${Date.now()}`;
+
+    try {
+        const { userId, tier } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({
+                error: true,
+                code: 'INVALID_USER_ID',
+                message: 'userId is required'
+            });
+        }
+
+        if (!tier || !TIER_REWARDS[tier]) {
+            return res.status(400).json({
+                error: true,
+                code: 'INVALID_TIER',
+                message: 'Valid tier is required (Bronze, Silver, Gold, Platinum, Diamond)'
+            });
+        }
+
+        const scansToGrant = TIER_REWARDS[tier];
+
+        // Check if already claimed this season
+        const claimKey = `fitrate:arena:claimed:${userId}:${new Date().toISOString().slice(0, 7)}`; // Monthly key
+        const { redis, isRedisAvailable } = await import('../services/redisClient.js');
+
+        if (isRedisAvailable()) {
+            const alreadyClaimed = await redis.get(claimKey);
+            if (alreadyClaimed) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'already_claimed',
+                    message: "You've already claimed this season's rewards!"
+                });
+            }
+
+            // Grant scans by updating user's purchased scans
+            const scanKey = `fitrate:user:${userId}:purchased_scans`;
+            const currentScans = parseInt(await redis.get(scanKey) || '0');
+            const newTotal = currentScans + scansToGrant;
+            await redis.set(scanKey, newTotal.toString());
+
+            // Mark as claimed
+            await redis.set(claimKey, 'true');
+            await redis.expire(claimKey, 60 * 60 * 24 * 35); // 35 days (covers season + buffer)
+
+            console.log(`[${requestId}] 🎁 ${userId.slice(0, 12)} claimed ${tier} rewards: +${scansToGrant} scans (total: ${newTotal})`);
+
+            return res.status(200).json({
+                success: true,
+                tier,
+                scansGranted: scansToGrant,
+                totalScans: newTotal,
+                message: `🎉 +${scansToGrant} scans added to your account!`
+            });
+        } else {
+            // Fallback: just return success for frontend (no persistence)
+            console.log(`[${requestId}] ⚠️ Redis unavailable, returning mock success for claim`);
+            return res.status(200).json({
+                success: true,
+                tier,
+                scansGranted: scansToGrant,
+                totalScans: scansToGrant,
+                message: `🎉 +${scansToGrant} scans added!`
+            });
+        }
+
+    } catch (error) {
+        console.error(`[${requestId}] Error claiming rewards:`, error.message);
+        return res.status(500).json({
+            error: true,
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to claim rewards'
+        });
+    }
+});
+
 export default router;

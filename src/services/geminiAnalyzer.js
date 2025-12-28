@@ -11,11 +11,12 @@ import {
     MODE_CONFIGS,
     OUTPUT_LENGTHS,
     VIRALITY_HOOKS,
-    getViralityHooks
+    getViralityHooks,
+    BATTLE_SCORING_INSTRUCTIONS
 } from '../config/systemPrompt.js';
 
 // Create the full prompt for Gemini (Free tier)
-function createGeminiPrompt(mode, occasion, securityContext = {}, eventContext = null) {
+function createGeminiPrompt(mode, occasion, securityContext = {}, eventContext = null, battleMode = false) {
     const {
         userId = 'anonymous',
         scansUsed = 0,
@@ -51,12 +52,17 @@ function createGeminiPrompt(mode, occasion, securityContext = {}, eventContext =
         prompt += `\n\nOCCASION CONTEXT: Rate for "${occasion}" appropriateness.`;
     }
 
+    // Add battle mode instructions for high variance scoring
+    if (battleMode) {
+        prompt += `\n\n${BATTLE_SCORING_INSTRUCTIONS}`;
+    }
+
     return prompt;
 }
 
 export async function analyzeWithGemini(imageBase64, options = {}) {
     // Support both old roastMode boolean and new mode string for backwards compatibility
-    const { roastMode = false, mode: modeParam = null, occasion = null, securityContext = {}, eventContext = null } = options;
+    const { roastMode = false, mode: modeParam = null, occasion = null, securityContext = {}, eventContext = null, battleMode = false } = options;
     const mode = modeParam || (roastMode ? 'roast' : 'nice');
     const requestId = `gemini_${Date.now()}`;
 
@@ -75,10 +81,13 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
     console.log(`[${requestId}] Starting Gemini analysis (mode: ${mode})`);
     console.log(`[${requestId}] Image data length: ${base64Data.length}`);
 
+    // Use higher temperature in battle mode for more varied scoring
+    const temperature = battleMode ? 0.9 : 0.7;
+
     const requestBody = {
         contents: [{
             parts: [
-                { text: createGeminiPrompt(mode, occasion, securityContext, eventContext) },
+                { text: createGeminiPrompt(mode, occasion, securityContext, eventContext, battleMode) },
                 {
                     inline_data: {
                         mime_type: 'image/jpeg',
@@ -88,7 +97,7 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
             ]
         }],
         generationConfig: {
-            temperature: 0.7,
+            temperature: temperature,
             maxOutputTokens: 800  // Increased buffer for complex JSON output
         }
     };
