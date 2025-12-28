@@ -340,6 +340,28 @@ export async function pollForMatch(userId) {
         if (userData.status === 'matched' && userData.battleId) {
             // Clean up user data
             await redis.del(`arena:user:${userId}`);
+
+            // Fetch battle data to include scores for win/loss tracking
+            try {
+                const { getBattle } = await import('./battleService.js');
+                const battle = await getBattle(userData.battleId);
+                if (battle) {
+                    // Determine user's role and scores
+                    const isCreator = battle.creatorId === userId;
+                    const myScore = isCreator ? battle.creatorScore : battle.responderScore;
+                    const opponentScore = isCreator ? battle.responderScore : battle.creatorScore;
+                    return {
+                        status: 'matched',
+                        battleId: userData.battleId,
+                        myScore,
+                        opponentScore,
+                        isCreator
+                    };
+                }
+            } catch (err) {
+                console.warn('[Arena] Could not fetch battle for scores:', err.message);
+            }
+
             return { status: 'matched', battleId: userData.battleId };
         }
 
@@ -372,6 +394,27 @@ export async function pollForMatch(userId) {
 
         if (userData.status === 'matched' && userData.battleId) {
             inMemoryUsers.delete(userId);
+
+            // Fetch battle data to include scores for win/loss tracking
+            try {
+                const { getBattle } = await import('./battleService.js');
+                const battle = await getBattle(userData.battleId);
+                if (battle) {
+                    const isCreator = battle.creatorId === userId;
+                    const myScore = isCreator ? battle.creatorScore : battle.responderScore;
+                    const opponentScore = isCreator ? battle.responderScore : battle.creatorScore;
+                    return {
+                        status: 'matched',
+                        battleId: userData.battleId,
+                        myScore,
+                        opponentScore,
+                        isCreator
+                    };
+                }
+            } catch (err) {
+                console.warn('[Arena] Could not fetch battle for scores:', err.message);
+            }
+
             return { status: 'matched', battleId: userData.battleId };
         }
 
