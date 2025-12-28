@@ -341,21 +341,35 @@ export async function pollForMatch(userId) {
             // Clean up user data
             await redis.del(`arena:user:${userId}`);
 
-            // Fetch battle data to include scores for win/loss tracking
+            // Fetch battle data to include scores and winner for result tracking
             try {
                 const { getBattle } = await import('./battleService.js');
                 const battle = await getBattle(userData.battleId);
                 if (battle) {
-                    // Determine user's role and scores
+                    // Determine user's role, scores, and result
                     const isCreator = battle.creatorId === userId;
                     const myScore = isCreator ? battle.creatorScore : battle.responderScore;
                     const opponentScore = isCreator ? battle.responderScore : battle.creatorScore;
+
+                    // Determine if user won, lost, or tied
+                    let result = 'tie';
+                    if (battle.winner === 'creator') {
+                        result = isCreator ? 'win' : 'loss';
+                    } else if (battle.winner === 'opponent') {
+                        result = isCreator ? 'loss' : 'win';
+                    }
+
                     return {
                         status: 'matched',
                         battleId: userData.battleId,
                         myScore,
                         opponentScore,
-                        isCreator
+                        isCreator,
+                        result,  // 'win', 'loss', or 'tie'
+                        winner: battle.winner,  // 'creator', 'opponent', or 'tie'
+                        battleCommentary: battle.battleCommentary,
+                        winningFactor: battle.winningFactor,
+                        marginOfVictory: battle.marginOfVictory
                     };
                 }
             } catch (err) {
@@ -395,7 +409,7 @@ export async function pollForMatch(userId) {
         if (userData.status === 'matched' && userData.battleId) {
             inMemoryUsers.delete(userId);
 
-            // Fetch battle data to include scores for win/loss tracking
+            // Fetch battle data to include scores and winner for result tracking
             try {
                 const { getBattle } = await import('./battleService.js');
                 const battle = await getBattle(userData.battleId);
@@ -403,12 +417,26 @@ export async function pollForMatch(userId) {
                     const isCreator = battle.creatorId === userId;
                     const myScore = isCreator ? battle.creatorScore : battle.responderScore;
                     const opponentScore = isCreator ? battle.responderScore : battle.creatorScore;
+
+                    // Determine if user won, lost, or tied
+                    let result = 'tie';
+                    if (battle.winner === 'creator') {
+                        result = isCreator ? 'win' : 'loss';
+                    } else if (battle.winner === 'opponent') {
+                        result = isCreator ? 'loss' : 'win';
+                    }
+
                     return {
                         status: 'matched',
                         battleId: userData.battleId,
                         myScore,
                         opponentScore,
-                        isCreator
+                        isCreator,
+                        result,  // 'win', 'loss', or 'tie'
+                        winner: battle.winner,  // 'creator', 'opponent', or 'tie'
+                        battleCommentary: battle.battleCommentary,
+                        winningFactor: battle.winningFactor,
+                        marginOfVictory: battle.marginOfVictory
                     };
                 }
             } catch (err) {

@@ -142,20 +142,12 @@ router.get('/:battleId', getLimiter, async (req, res) => {
             });
         }
 
-        // Determine winner
-        let winner = null;
-        if (battle.status === 'completed' && battle.responderScore !== null) {
-            if (battle.creatorScore > battle.responderScore) {
-                winner = 'creator';
-            } else if (battle.responderScore > battle.creatorScore) {
-                winner = 'opponent';
-            } else {
-                winner = 'tie';
-            }
-        }
+        // Use the winner from the battle object (determined by head-to-head comparison)
+        // This prevents ties by using AI comparative analysis
+        const winner = battle.winner || null;
 
         // Return battle data in new format
-        console.log(`[${requestId}] ✅ Battle found: ${battleId} (status: ${battle.status})`);
+        console.log(`[${requestId}] ✅ Battle found: ${battleId} (status: ${battle.status}, winner: ${winner})`);
         return res.status(200).json({
             battleId: battle.challengeId,
             status: battle.status,
@@ -164,15 +156,21 @@ router.get('/:battleId', getLimiter, async (req, res) => {
             creator: {
                 userId: battle.creatorId,
                 score: battle.creatorScore,
-                thumb: battle.creatorThumb
+                thumb: battle.creatorThumb,
+                verdict: battle.outfit1Verdict
             },
             opponent: battle.responderId ? {
                 userId: battle.responderId,
                 score: battle.responderScore,
-                thumb: battle.responderThumb
+                thumb: battle.responderThumb,
+                verdict: battle.outfit2Verdict
             } : null,
             winner: winner,
-            creatorId: battle.creatorId
+            creatorId: battle.creatorId,
+            // Include battle commentary from head-to-head comparison
+            battleCommentary: battle.battleCommentary,
+            winningFactor: battle.winningFactor,
+            marginOfVictory: battle.marginOfVictory
         });
     } catch (error) {
         console.error(`[${requestId}] Error getting battle:`, error.message);
