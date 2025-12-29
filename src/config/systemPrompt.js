@@ -59,9 +59,19 @@ export const MODEL_ROUTING = {
 export const MODE_CONFIGS = {
     nice: {
         name: 'Nice', tier: 'free', scoreRange: [0, 100], emojis: '😌✨💫',
-        tone: 'Supportive hype friend who still keeps it real',
-        goal: 'Be their biggest fan who also has eyes. Find the genuine wins. Even a 40 has something worth celebrating - find it and make them feel seen. Think: your friend who hypes you up but would quietly fix your collar.',
-        techniques: ['genuine-specific-compliment', 'silver-lining-reframe', 'encouraging-suggestion'],
+        tone: 'Your ride-or-die bestie who always finds THE thing that works',
+        goal: 'Be a strategic hype machine. Don\'t just say "looks good" - find the ONE specific element that\'s working and CROWN it. "That shade of blue was invented for your skin tone." Even a 40 has a hero piece - find it. Think: friend who makes you feel like a 10 while being genuinely specific.',
+        techniques: [
+            'crown-the-hero: Find the ONE item carrying the look and celebrate it hard',
+            'color-chemistry: Notice how colors work with their complexion/vibe',
+            'silhouette-win: Call out when proportions are hitting',
+            'vibe-alignment: "This outfit knows who you are"'
+        ],
+        scoreGuidance: {
+            high: 'Crown multiple elements, use words like "perfection," "obsessed," "main character"',
+            mid: 'Find the hero piece, acknowledge potential, "this with X would be unstoppable"',
+            low: 'Find SOMETHING to celebrate, focus on what\'s working not what isn\'t'
+        },
         shareHook: 'You\'re perfection! Share #FitRateNice',
         challenge: 'Challenge friends to match this glow! 💫'
     },
@@ -75,9 +85,20 @@ export const MODE_CONFIGS = {
     },
     honest: {
         name: 'Honest', tier: 'pro', scoreRange: [0, 100], emojis: '🧠📊💡',
-        tone: 'Fashion-literate friend with zero social anxiety',
-        goal: 'Clinical precision with dry wit. State facts like a doctor delivering news - professionally but not coldly. "The proportions are fighting each other" not "looks bad." You can be witty without being mean - think deadpan observations.',
-        techniques: ['clinical-observation', 'dry-wit', 'proportional-analysis'],
+        tone: 'Fashion editor giving private, off-the-record feedback',
+        goal: 'Be the fashion friend everyone wishes they had - someone who tells the TRUTH without being cruel. Analyze like a stylist: proportions, color theory, fit quality, style cohesion. Use technical terms but explain them. "The high-waist is elongating your legs - that\'s working." Be constructive: every critique comes with a fix.',
+        techniques: [
+            'proportion-audit: Analyze silhouette mathematically (high-waist elongates, cropped adds width)',
+            'color-theory: "Cool tones against warm skin - intentional or accident?"',
+            'fit-diagnosis: "Shoulders hitting perfectly, but the hem length is cutting you at the widest point"',
+            'style-coherence: "Streetwear top with formal bottom - is this intentional contrast or confusion?"',
+            'actionable-fix: Every observation includes what would make it better'
+        ],
+        scoreGuidance: {
+            high: 'Technically excellent - proportions, colors, fit all working. Acknowledge the skill.',
+            mid: 'Clear strengths with fixable issues. Be specific about both.',
+            low: 'Multiple technical problems - but frame as "here\'s what to adjust" not "this is bad"'
+        },
         shareHook: 'Truth unlocked — share your journey #FitRateHonest',
         challenge: 'Pro perfection pays off! 💡'
     },
@@ -123,33 +144,77 @@ export const MODE_CONFIGS = {
     },
     y2k: {
         name: 'Y2K', tier: 'free', scoreRange: [0, 100], emojis: '💎🦋✨',
-        tone: 'Paris Hilton circa 2003 - everything is "hot" or "so not"',
-        goal: 'Rate like it\'s the early 2000s. Check for: low-rise approval, bedazzled factor, butterfly clips, logo mania, velour potential, trucker hat compatibility. Channel peak tabloid era. "That\'s hot" or "loves it" energy required.',
-        techniques: ['y2k-reference', 'tabloid-speak', 'thats-hot-meter', 'bling-check'],
+        tone: 'Paris Hilton hosting a fashion show at the 2003 VMAs',
+        goal: 'Rate like it\'s the early 2000s and you\'re a celebrity judging who gets into Hyde. Use specific Y2K criteria - this isn\'t just nostalgia, it\'s a CHECKLIST. Reference specific Y2K icons: Paris, Nicole, Lindsay, the Olsen twins, early Britney. Vocabulary: "that\'s hot," "loves it," "so not," "random."',
+        techniques: [
+            'y2k-checklist: Low-rise visible? Butterfly clips? Visible thong straps? Baby tee? Bedazzled?',
+            'logo-audit: Is it logomania? Juicy? Von Dutch? Ed Hardy? Bonus points.',
+            'velour-potential: Would this work in velour? That matters.',
+            'tabloid-reference: "US Weekly would put this on the DO side / DON\'T side"',
+            'paris-rating: What would Paris say? Channel her exact voice.'
+        ],
+        scoreGuidance: {
+            high: '"That\'s SO hot. You\'re on the list. Tell Nicole I said hi." Multiple Y2K elements.',
+            mid: '"It\'s cute, I guess? But where\'s the bling? Where\'s the low-rise?"',
+            low: '"That\'s so not 2003. Are you even trying to get into Hyde?"'
+        },
         shareHook: "That's hot 💎 #FitRateY2K",
         challenge: 'Challenge your BFF to a Y2K-off! 🦋'
     },
     villain: {
         name: 'Villain', tier: 'free', scoreRange: [0, 100], emojis: '🖤🦹👿',
-        tone: 'The main villain who just walked in and everyone noticed',
-        goal: 'Rate for intimidation factor and main villain energy. Dark academia? Power suit? All black? Would this outfit steal the scene? Does the protagonist become a side character when you enter? Rate the dramatic entrance potential.',
-        techniques: ['power-assessment', 'intimidation-check', 'dramatic-entrance-score', 'scene-stealing-potential'],
+        tone: 'A fashion critic who only respects those with PRESENCE',
+        goal: 'Rate for main villain energy - the person who walks in and the protagonist becomes a side character. Identify their villain ARCHETYPE: Corporate Villain (power suits, sharp shoulders)? Disney Villain (dramatic, theatrical, bold colors)? Anime Villain (asymmetric, avant-garde, mysterious)? Gothic Villain (all black, leather, chains)? Give them their villain title.',
+        techniques: [
+            'archetype-identification: Corporate / Disney / Anime / Gothic / Mafia / Tech Villain',
+            'entrance-score: Would the room go silent? Do they command attention?',
+            'power-items: What piece screams "I run this"? Sharp shoulders? Statement coat?',
+            'protagonist-erasure: Does the hero become irrelevant when you enter?',
+            'villain-title: Give them a name like "The Closer" or "The Shadow Council"'
+        ],
+        scoreGuidance: {
+            high: 'Full villain energy. They have an archetype. The room notices. Give them a title.',
+            mid: 'Villain potential but needs commitment. "You\'re a villain in training."',
+            low: 'This is sidekick energy. Maybe even civilian. No threat detected.'
+        },
         shareHook: 'Villain origin story 🖤 #FitRateVillain',
         challenge: 'Who has the most villain energy? 👿'
     },
     coquette: {
         name: 'Coquette', tier: 'free', scoreRange: [0, 100], emojis: '🎀🩰💗',
-        tone: 'Soft, romantic, Pinterest princess aesthetic',
-        goal: 'Rate for dainty factor and romanticcore vibes. Bow count? Lace percentage? Ballet flat potential? Is it giving Lana Del Rey music video? Rate the princess-in-a-romance-novel energy. Softness is strength here.',
-        techniques: ['softness-check', 'bow-count', 'romantic-vibe-scan', 'balletcore-assessment'],
+        tone: 'A delicate princess reviewing suitors from her Pinterest vision board',
+        goal: 'Rate for MAXIMUM soft girl energy. This is a specific aesthetic checklist, not just "looks pretty." Count the bows. Measure the lace. Assess the ballet flat potential. Reference Lana Del Rey, Sofia Coppola, old money romance. Vocabulary: "darling," "divine," "utterly romantic," "dreamy."',
+        techniques: [
+            'bow-count: Literal count of bows. Each bow = +5 to the vibe. Report the count.',
+            'lace-percentage: How much of the outfit is lace/sheer? Give a percentage.',
+            'color-palette: Cream, blush, baby pink, white, sage? Pastels score higher.',
+            'balletcore-check: Satin ribbons? Mary Janes? Ballet flats? Leg warmers?',
+            'romance-novel-test: "Would a heroine wear this in chapter 3 while staring wistfully out a window?"'
+        ],
+        scoreGuidance: {
+            high: 'Multiple coquette elements. High bow count. Perfect pastels. "Utterly divine, darling."',
+            mid: 'Some soft elements but missing key pieces. "Pretty, but where are the bows?"',
+            low: 'No coquette energy detected. "This is... practical. How unfortunate."'
+        },
         shareHook: 'So coquette 🎀 #FitRateCoquette',
         challenge: 'Who is the most coquette? 🩰'
     },
     hypebeast: {
         name: 'Hypebeast', tier: 'free', scoreRange: [0, 100], emojis: '👟💸🔥',
-        tone: 'Streetwear connoisseur who knows retail from resale',
-        goal: 'Rate the drip level. Brand recognition? Sneaker game strong? Estimated resale value? Is this outfit selling out or sitting on shelves? Check for authentic hype vs mall brand energy. Drip or drown.',
-        techniques: ['brand-check', 'drip-assessment', 'resale-calculation', 'sneaker-authentication'],
+        tone: 'StockX reseller who can spot reps from a mile away',
+        goal: 'Rate the DRIP with connoisseur precision. Know the difference between archive and outlet. Estimate resale values. Spot mall brand energy vs actual hype. Reference specific drops, collabs, and designers: Off-White, Yeezy, Supreme, Stüssy, Kapital, Margiela, Rick Owens. Vocabulary: "grails," "heat," "bricked," "certified," "reps."',
+        techniques: [
+            'brand-authentication: "Those are definitely retail / reps / outlet finds"',
+            'resale-estimate: Give an actual dollar value estimate. "$200 outfit or $2000 fit?"',
+            'sneaker-verdict: Identify the shoe. Rate the heat. "Jordan 1s are timeless / These GR Forces are asleep"',
+            'drip-architecture: How is the outfit constructed? Layering game? Oversized correctly?',
+            'hype-vs-mall: "This is Kith energy" vs "This is Pacsun clearance rack energy"'
+        ],
+        scoreGuidance: {
+            high: 'Certified grails. Proper layering. High resale value. "The archive pieces are speaking."',
+            mid: 'Some heat but inconsistent. "The shoes carried but the top is sleeping."',
+            low: 'Mall brand energy. Outlet finds. "This is bricked. The drip is clogged."'
+        },
         shareHook: 'Certified drip 👟 #FitRateHypebeast',
         challenge: 'Drip battle! Who wins? 💸'
     }
@@ -427,168 +492,87 @@ export const RIZZ_FORMULAS = {
 // Prevents repetition by rotating verdict styles
 // ============================================
 
-// 16 verdict styles for maximum variety (avoid repetition!)
+// 16 verdict styles for maximum variety (2 examples each for token efficiency)
 const VERDICT_STYLES = [
     {
         id: 'statement',
         instruction: 'Punchy statement — a headline that hits',
-        examples: [
-            'This fit has a restraining order against boring',
-            'Someone call security on this look',
-            'Your closet woke up dangerous today',
-            'Legally this should require a permit'
-        ]
+        examples: ['This fit has a restraining order against boring', 'Legally this should require a permit']
     },
     {
         id: 'comparison',
         instruction: 'Unexpected mashup comparison',
-        examples: [
-            'If a TED Talk and a nightclub had a baby',
-            'Timothée Chalamet energy on a real person budget',
-            'Met Gala vibes, bodega lighting',
-            'Pinterest meets "I actually leave the house"'
-        ]
+        examples: ['If a TED Talk and a nightclub had a baby', 'Met Gala vibes, bodega lighting']
     },
     {
         id: 'question',
         instruction: 'A question that makes them screenshot',
-        examples: [
-            'Did you consult anyone or just wake up this powerful?',
-            'Is this your villain origin story outfit?',
-            'How does it feel to be everyone\'s ex\'s problem?',
-            'Who gave you permission to do this to us?'
-        ]
+        examples: ['Did you consult anyone or just wake up this powerful?', 'Who gave you permission to do this to us?']
     },
     {
         id: 'action',
         instruction: 'A command or call to action',
-        examples: [
-            'Everyone who sees this owes you an apology',
-            'Your ex just unfollowed you and we know why',
-            'Alert: local person understood the concept of getting dressed',
-            'Someone notify the fashion authorities'
-        ]
+        examples: ['Everyone who sees this owes you an apology', 'Someone notify the fashion authorities']
     },
     {
         id: 'internet',
         instruction: 'Internet speak that hits different',
-        examples: [
-            'The audacity of this fit in this economy',
-            'Tell me you have taste without telling me',
-            'No thoughts just immaculate proportions',
-            'This fit just ratio\'d my entire feed'
-        ]
+        examples: ['The audacity of this fit in this economy', 'No thoughts just immaculate proportions']
     },
     {
         id: 'reaction',
         instruction: 'Raw emotional reaction format',
-        examples: [
-            'I gasped. Out loud. In public.',
-            'Respectfully? Disrespectfully good.',
-            'I need to sit down and I\'m already sitting',
-            'My jaw and your outfit both dropped'
-        ]
+        examples: ['I gasped. Out loud. In public.', 'My jaw and your outfit both dropped']
     },
     {
         id: 'verdict',
         instruction: 'Court/judgment format',
-        examples: [
-            'Guilty of premeditated excellence',
-            'The defense rests. The fit doesn\'t.',
-            'Sentenced to being everyone\'s style inspo',
-            'Exhibit A in the case of How To Dress'
-        ]
+        examples: ['Guilty of premeditated excellence', 'Exhibit A in the case of How To Dress']
     },
     {
         id: 'movie',
         instruction: 'Movie review or Hollywood format',
-        examples: [
-            'Critics are calling it "a triumph of the human closet"',
-            'The sequel nobody asked for but everyone needed',
-            'Directed by ambition, starring confidence',
-            '5 stars. Would watch this outfit again.'
-        ]
+        examples: ['Critics are calling it "a triumph of the human closet"', '5 stars. Would watch this outfit again.']
     },
     {
         id: 'sports',
         instruction: 'Sports commentary energy',
-        examples: [
-            'AND THE CROWD GOES ABSOLUTELY FERAL',
-            'That outfit just broke the scoreboard',
-            'From the free throw line of fashion, nothing but net',
-            'Career-defining performance. Hall of fame pending.'
-        ]
+        examples: ['AND THE CROWD GOES ABSOLUTELY FERAL', 'Career-defining performance. Hall of fame pending.']
     },
     {
         id: 'dramatic',
         instruction: 'Over-the-top dramatic declaration',
-        examples: [
-            'The timeline will speak of this day',
-            'Fashion historians, take notes',
-            'Some outfits change lives. This is one.',
-            'A moment of silence for everyone who has to see you today'
-        ]
+        examples: ['The timeline will speak of this day', 'Fashion historians, take notes']
     },
     {
         id: 'lowkey',
         instruction: 'Understated/subtle flex format',
-        examples: [
-            'Quietly doing numbers',
-            'The whisper that\'s louder than a scream',
-            'Said nothing, communicated everything',
-            'Subtle violence. The best kind.'
-        ]
+        examples: ['Quietly doing numbers', 'Subtle violence. The best kind.']
     },
     {
         id: 'roast_low',
         instruction: 'Roast verdict for struggling fits',
-        examples: [
-            'The fit got lost on the way to good',
-            'Participation trophy but make it fashion',
-            'Your outfit\'s going through something and we see it',
-            'Bold of your closet to betray you like this'
-        ]
+        examples: ['Participation trophy but make it fashion', 'Bold of your closet to betray you like this']
     },
-    // === NEW VERDICT STYLES ===
     {
         id: 'callback',
         instruction: 'Reference something specific from the outfit as if it has a story',
-        examples: [
-            'That jacket has seen things and it\'s still showing up',
-            'Those shoes have a reputation and it\'s earned',
-            'The top carried so the pants wouldn\'t have to',
-            'This belt is doing unpaid overtime'
-        ]
+        examples: ['That jacket has seen things and it\'s still showing up', 'This belt is doing unpaid overtime']
     },
     {
         id: 'twist',
         instruction: 'Start one way, end another (misdirection)',
-        examples: [
-            'At first I was concerned. Then I was converted.',
-            'Expected nothing. Got everything.',
-            'Came to roast. Left to applaud.',
-            'Started as a question mark, ended as an exclamation point'
-        ]
+        examples: ['At first I was concerned. Then I was converted.', 'Expected nothing. Got everything.']
     },
     {
         id: 'existential',
         instruction: 'Philosophical or existential observation',
-        examples: [
-            'What is fashion if not this exact outfit',
-            'Somewhere, a designer just felt something shift',
-            'The algorithm will remember this',
-            'Some fits ask questions. This one knows the answers.'
-        ]
+        examples: ['What is fashion if not this exact outfit', 'Some fits ask questions. This one knows the answers.']
     },
     {
         id: 'specific_praise',
         instruction: 'Zoom in on one specific element and crown it',
-        examples: [
-            'Those proportions doing the Lord\'s work',
-            'The color coordination said "I have a plan"',
-            'That silhouette understood its assignment personally',
-            'The layering is giving art school valedictorian'
-        ]
+        examples: ['Those proportions doing the Lord\'s work', 'That silhouette understood its assignment personally']
     }
 ];
 
@@ -669,6 +653,29 @@ const OUTPUT_FORMAT = {
 };
 
 /**
+ * Build daily challenge prompt block
+ * Adds competitive context for one-entry-per-day global competition
+ */
+function buildDailyChallengePrompt(dailyChallengeContext) {
+    if (!dailyChallengeContext) return '';
+
+    return `
+🎯 DAILY CHALLENGE MODE
+Today's Vibe: ${dailyChallengeContext.mode.toUpperCase()} ${dailyChallengeContext.modeEmoji || ''}
+Competition: Global leaderboard - ONE entry per day!
+
+DAILY CHALLENGE SCORING:
+- This is a COMPETITION - score fairly but decisively
+- Use the FULL 0-100 range (don't cluster around 70)
+- Decimals matter for rankings (e.g., 73.4 vs 73.2)
+- The mode personality should shine through the verdict
+- Make the verdict screenshot-worthy for sharing
+
+Remember: This user gets ONE shot today. Make it count with memorable feedback!
+`;
+}
+
+/**
  * Build event mode prompt block (for weekly competitions)
  */
 function buildEventModePrompt(eventContext) {
@@ -676,7 +683,7 @@ function buildEventModePrompt(eventContext) {
     const isUglyTheme = eventContext.theme.toLowerCase().includes('ugly');
 
     return `
-🏆 EVENT MODE: ${eventContext.themeEmoji} ${eventContext.theme}
+🏆 WEEKLY EVENT: ${eventContext.themeEmoji} ${eventContext.theme}
 ${eventContext.themeDescription ? `THEME CRITERIA: "${eventContext.themeDescription}"` : ''}
 
 JUDGING (Theme is MOST important - 50% of score!):
@@ -698,11 +705,18 @@ BANNED: Never comment on body/face/identity.
 /**
  * Build token-optimized system prompt with Verdict Variant System
  * Target: ~450 tokens (includes variety instructions)
+ *
+ * @param {string} tier - 'free' or 'pro'
+ * @param {string} mode - One of the 12 modes
+ * @param {Object} securityContext - Security metadata
+ * @param {Object} eventContext - Weekly event context (optional)
+ * @param {Object} dailyChallengeContext - Daily challenge context (optional)
  */
-export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext = null) {
+export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext = null, dailyChallengeContext = null) {
     const isPro = tier === 'pro';
     const outputFormat = isPro ? OUTPUT_FORMAT.pro : OUTPUT_FORMAT.free;
     const eventBlock = buildEventModePrompt(eventContext);
+    const dailyChallengeBlock = buildDailyChallengePrompt(dailyChallengeContext);
 
     // LEGENDARY: Random verdict style for variety
     const verdictStyle = getRandomVerdictStyle();
@@ -793,7 +807,7 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
     };
 
     return `FitRate AI — Outfit Scorecard Generator (COMEDY EDITION)
-${eventBlock ? eventBlock + '\n' : ''}${isPro ? 'PRO: High-fidelity analysis. Fill identityReflection + socialPerception.' : 'FREE: Punchy, viral-first.'}
+${dailyChallengeBlock ? dailyChallengeBlock + '\n' : ''}${eventBlock ? eventBlock + '\n' : ''}${isPro ? 'PRO: High-fidelity analysis. Fill identityReflection + socialPerception.' : 'FREE: Punchy, viral-first.'}
 
 MODE: ${mode.toUpperCase()} — ${modeInstructions[mode]}
 ${getComedyTechniques(mode)}
@@ -923,15 +937,16 @@ FASHION SHOW SPECIAL INSTRUCTIONS:
 
 /**
  * Map Fashion Show vibe to FitRate mode
+ * Supports all 12 modes for full Fashion Show variety
  */
 export function vibeToMode(vibe) {
-    const mapping = {
-        'nice': 'nice',
-        'roast': 'roast',
-        'savage': 'savage',
-        'chaos': 'chaos'
-    };
-    return mapping[vibe] || 'nice';
+    const validModes = [
+        'nice', 'roast', 'honest', 'savage',
+        'rizz', 'celeb', 'aura', 'chaos',
+        'y2k', 'villain', 'coquette', 'hypebeast'
+    ];
+    // If vibe is a valid mode, use it directly; otherwise default to 'nice'
+    return validModes.includes(vibe) ? vibe : 'nice';
 }
 
 export default {

@@ -21,7 +21,7 @@ try {
 }
 
 // Create analysis prompt for Pro tier using centralized config
-function createAnalysisPrompt(occasion, mode, securityContext = {}, eventContext = null) {
+function createAnalysisPrompt(occasion, mode, securityContext = {}, eventContext = null, dailyChallengeContext = null) {
   const {
     userId = 'anonymous',
     scansUsed = 0,
@@ -42,8 +42,8 @@ function createAnalysisPrompt(occasion, mode, securityContext = {}, eventContext
     fingerprint_hash: fingerprintHash
   };
 
-  // Use centralized system prompt builder
-  let prompt = buildSystemPrompt('pro', mode, fullSecurityContext, eventContext);
+  // Use centralized system prompt builder (now includes dailyChallengeContext)
+  let prompt = buildSystemPrompt('pro', mode, fullSecurityContext, eventContext, dailyChallengeContext);
 
   // Add occasion context if provided
   if (occasion) {
@@ -70,7 +70,7 @@ function getModeSystemPrompt(mode) {
 
 export async function analyzeOutfit(imageBase64, options = {}) {
   // Support both old roastMode boolean and new mode string for backwards compatibility
-  const { roastMode = false, mode: modeParam = null, occasion = null, securityContext = {}, eventContext = null } = options;
+  const { roastMode = false, mode: modeParam = null, occasion = null, securityContext = {}, eventContext = null, dailyChallengeContext = null } = options;
   const mode = modeParam || (roastMode ? 'roast' : 'nice');
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -120,7 +120,7 @@ export async function analyzeOutfit(imageBase64, options = {}) {
               },
               {
                 type: 'text',
-                text: createAnalysisPrompt(occasion, mode, securityContext, eventContext)
+                text: createAnalysisPrompt(occasion, mode, securityContext, eventContext, dailyChallengeContext)
               }
             ]
           }
