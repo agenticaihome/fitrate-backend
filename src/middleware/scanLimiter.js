@@ -1,7 +1,7 @@
 /**
  * Daily Scan Rate Limiter
  * - Free users: 2 scans/day
- * - Pro users: 25 scans/day
+ * - Pro users: Unlimited (100/day fair use cap)
  * Uses Redis with in-memory fallback for local dev
  * SECURITY: Uses device fingerprint to prevent userId spoofing
  */
@@ -16,10 +16,10 @@ import { ERROR_MESSAGES, SCAN_LIMITS } from '../config/systemPrompt.js';
 const scanStoreFallback = new Map();
 const proPreviewStoreFallback = new Map(); // Track Pro Preview usage per user per day
 
-// NEW: 1 Pro Preview (GPT-4o) + 1 Free (Gemini) = 2 total per day
+// Pro = "Unlimited" (100/day fair use cap - 99% of users never hit this)
 const LIMITS = {
-    free: 2,   // Total scans (1 Pro Preview + 1 Free)
-    pro: 25
+    free: 2,   // Free tier daily limit
+    pro: 100   // "Unlimited" with fair use cap (still 70%+ margin at $3.99/mo)
 };
 
 // Redis key patterns
@@ -408,7 +408,7 @@ export async function isBlockedForInvalidAttempts(req) {
 /**
  * Main scan limiter middleware
  * HYBRID MODEL: Free users get 1 Pro Preview (GPT-4o) + 1 Free (Gemini) = 2/day
- * Pro users: 25 scans/day (all GPT-4o)
+ * Pro users: Unlimited scans (100/day fair use cap)
  * 
  * NEW: Frontend can send useProScan to let user CONSCIOUSLY choose:
  *   - useProScan: true  → Use Pro Preview (GPT-4o) for this scan
