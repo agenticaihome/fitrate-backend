@@ -12,6 +12,7 @@
 
 import { redis, isRedisAvailable } from './redisClient.js';
 import { createBattle } from './battleService.js';
+import { recordArenaScore } from './arenaLeaderboardService.js';
 
 // In-memory fallback
 const inMemoryQueue = new Map(); // mode -> Map(userId -> userData)
@@ -274,8 +275,37 @@ async function createBattleFromMatch(userId, userData, opponentId, opponentData,
     const battleId = battle.challengeId;
 
     // Immediately complete the battle with responder data
-    const { respondToBattle } = await import('./battleService.js');
+    const { respondToBattle, getBattle } = await import('./battleService.js');
     await respondToBattle(battleId, responderScore, responderId, responderThumb);
+
+    // Record scores to the arena leaderboard for both players
+    // Points: 10 for win, 3 for tie, 1 for loss (participation)
+    try {
+        const completedBattle = await getBattle(battleId);
+        if (completedBattle && completedBattle.winner) {
+            let creatorPoints, responderPoints;
+
+            if (completedBattle.winner === 'creator') {
+                creatorPoints = 10;   // Win
+                responderPoints = 1;  // Loss (participation)
+            } else if (completedBattle.winner === 'opponent') {
+                creatorPoints = 1;    // Loss (participation)
+                responderPoints = 10; // Win
+            } else {
+                // Tie
+                creatorPoints = 3;
+                responderPoints = 3;
+            }
+
+            // Record scores for both players
+            await recordArenaScore(creatorId, creatorPoints);
+            await recordArenaScore(responderId, responderPoints);
+
+            console.log(`[ARENA] Scores recorded: ${creatorId.slice(0, 8)} +${creatorPoints}pts, ${responderId.slice(0, 8)} +${responderPoints}pts (winner: ${completedBattle.winner})`);
+        }
+    } catch (err) {
+        console.error('[ARENA] Failed to record arena scores:', err.message);
+    }
 
     // Store match info for both users
     if (isRedisAvailable()) {
