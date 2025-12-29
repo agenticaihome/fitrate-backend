@@ -237,6 +237,7 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                         tagline: parsed.tagline,
                         aesthetic: parsed.aesthetic,
                         celebMatch: parsed.celebMatch,
+                        judgedBy: parsed.judgedBy || null,  // Character archetype who judged (for celeb mode share cards)
                         mode: mode,
                         roastMode: mode === 'roast',
                         shareHook: parsed.shareHook || modeConfig?.shareHook,
