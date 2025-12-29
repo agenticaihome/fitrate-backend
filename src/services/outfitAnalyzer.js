@@ -175,6 +175,7 @@ export async function analyzeOutfit(imageBase64, options = {}) {
         proTip: result.proTip || null,
         aesthetic: result.aesthetic,
         celebMatch: result.celebMatch,
+        celebVoice: result.celebVoice || null,  // Celebrity who judged (for celeb mode share cards)
         identityReflection: result.identityReflection || null,
         socialPerception: result.socialPerception || null,
         itemRoasts: result.itemRoasts || null,
