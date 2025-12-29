@@ -124,13 +124,23 @@ export async function getBattle(battleId, includeExpired = false) {
         }
 
         // Parse data from Redis (all values are strings)
-        // Use comparative scores if available (from head-to-head comparison)
-        const creatorScore = data.comparativeCreatorScore
+        // Store BOTH original and comparative scores to prevent user confusion
+        // Original = what user saw when they first scanned
+        // Comparative = head-to-head comparison score (used for winner determination)
+        const originalCreatorScore = parseFloat(data.creatorScore);
+        const originalResponderScore = data.responderScore ? parseFloat(data.responderScore) : null;
+
+        // Comparative scores from head-to-head (may differ from original)
+        const comparativeCreatorScore = data.comparativeCreatorScore
             ? parseFloat(data.comparativeCreatorScore)
-            : parseFloat(data.creatorScore);
-        const responderScore = data.comparativeResponderScore
+            : originalCreatorScore;
+        const comparativeResponderScore = data.comparativeResponderScore
             ? parseFloat(data.comparativeResponderScore)
-            : (data.responderScore ? parseFloat(data.responderScore) : null);
+            : originalResponderScore;
+
+        // For winner determination, use comparative scores
+        const creatorScore = comparativeCreatorScore;
+        const responderScore = comparativeResponderScore;
 
         // Determine winner from stored value or calculate it
         let winner = data.winner || null;
@@ -146,10 +156,17 @@ export async function getBattle(battleId, includeExpired = false) {
 
         const battle = {
             challengeId: battleId,
+            // Comparative scores (used for winner determination)
             creatorScore: creatorScore,
+            responderScore: responderScore,
+            // Original scores (what users saw when they first scanned)
+            // Frontend should display: "Your original score: 53 → Battle score: 67"
+            originalCreatorScore: originalCreatorScore,
+            originalResponderScore: originalResponderScore,
+            // Flag to indicate if scores were recalculated in head-to-head
+            scoresRecalculated: data.comparativeCreatorScore ? true : false,
             creatorId: data.creatorId || null,
             creatorThumb: data.creatorThumb || null,
-            responderScore: responderScore,
             responderId: data.responderId || null,
             responderThumb: data.responderThumb || null,
             mode: data.mode || 'nice',
@@ -203,10 +220,16 @@ export async function getBattle(battleId, includeExpired = false) {
 
         return {
             challengeId: battleId,
-            creatorScore: stored.creatorScore,
+            // Comparative scores (used for winner determination)
+            creatorScore: stored.comparativeCreatorScore || stored.creatorScore,
+            responderScore: stored.comparativeResponderScore || stored.responderScore || null,
+            // Original scores (what users saw when they first scanned)
+            originalCreatorScore: stored.creatorScore,
+            originalResponderScore: stored.responderScore || null,
+            // Flag to indicate if scores were recalculated in head-to-head
+            scoresRecalculated: stored.comparativeCreatorScore ? true : false,
             creatorId: stored.creatorId || null,
             creatorThumb: stored.creatorThumb || null,
-            responderScore: stored.responderScore || null,
             responderId: stored.responderId || null,
             responderThumb: stored.responderThumb || null,
             mode: stored.mode || 'nice',
@@ -393,13 +416,19 @@ export async function respondToBattle(battleId, responderScore, responderId, res
         await redis.hset(key, { winner: winner });
     }
 
-    // Return full battle object with comparative scores and winner
+    // Return full battle object with BOTH original and comparative scores
     return {
         challengeId: battleId,
-        creatorScore: finalCreatorScore,  // Use comparative score if available
+        // Comparative scores (used for winner determination)
+        creatorScore: finalCreatorScore,
+        responderScore: finalResponderScore,
+        // Original scores (what users saw when they first scanned)
+        originalCreatorScore: battle.creatorScore,
+        originalResponderScore: roundedResponderScore,
+        // Flag to indicate if scores were recalculated in head-to-head
+        scoresRecalculated: aiDeterminedWinner !== null,
         creatorId: battle.creatorId,
         creatorThumb: battle.creatorThumb,
-        responderScore: finalResponderScore,  // Use comparative score if available
         responderId: responderId,
         responderThumb: responderThumb || null,
         mode: battle.mode,

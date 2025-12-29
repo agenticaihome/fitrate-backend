@@ -344,12 +344,24 @@ router.post('/', scanLimiter, async (req, res) => {
       }
     }
 
+    // Build daily challenge context if this is a daily challenge submission
+    let dailyChallengeContext = null;
+    if (dailyChallenge) {
+      const modeConfig = MODE_CONFIGS[mode] || MODE_CONFIGS.nice;
+      dailyChallengeContext = {
+        mode: mode,
+        modeEmoji: modeConfig.emojis || ''
+      };
+      console.log(`[${requestId}] Daily Challenge context: mode=${mode}`);
+    }
+
     let result = await analyzer(sanitizedImage, {
       mode: mode,
       roastMode: mode === 'roast',
       occasion: occasion || null,
       securityContext,
-      eventContext
+      eventContext,
+      dailyChallengeContext
     });
 
     // SECURITY: Validate AI response structure

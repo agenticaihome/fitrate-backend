@@ -16,7 +16,7 @@ import {
 } from '../config/systemPrompt.js';
 
 // Create the full prompt for Gemini (Free tier)
-function createGeminiPrompt(mode, occasion, securityContext = {}, eventContext = null, battleMode = false) {
+function createGeminiPrompt(mode, occasion, securityContext = {}, eventContext = null, battleMode = false, dailyChallengeContext = null) {
     const {
         userId = 'anonymous',
         scansUsed = 0,
@@ -44,8 +44,8 @@ function createGeminiPrompt(mode, occasion, securityContext = {}, eventContext =
         fingerprint_hash: fingerprintHash
     };
 
-    // Use centralized system prompt builder
-    let prompt = buildSystemPrompt('free', mode, fullSecurityContext, eventContext);
+    // Use centralized system prompt builder (now includes dailyChallengeContext)
+    let prompt = buildSystemPrompt('free', mode, fullSecurityContext, eventContext, dailyChallengeContext);
 
     // Add occasion context if provided
     if (occasion) {
@@ -62,7 +62,7 @@ function createGeminiPrompt(mode, occasion, securityContext = {}, eventContext =
 
 export async function analyzeWithGemini(imageBase64, options = {}) {
     // Support both old roastMode boolean and new mode string for backwards compatibility
-    const { roastMode = false, mode: modeParam = null, occasion = null, securityContext = {}, eventContext = null, battleMode = false } = options;
+    const { roastMode = false, mode: modeParam = null, occasion = null, securityContext = {}, eventContext = null, battleMode = false, dailyChallengeContext = null } = options;
     const mode = modeParam || (roastMode ? 'roast' : 'nice');
     const requestId = `gemini_${Date.now()}`;
 
@@ -87,7 +87,7 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
     const requestBody = {
         contents: [{
             parts: [
-                { text: createGeminiPrompt(mode, occasion, securityContext, eventContext, battleMode) },
+                { text: createGeminiPrompt(mode, occasion, securityContext, eventContext, battleMode, dailyChallengeContext) },
                 {
                     inline_data: {
                         mime_type: 'image/jpeg',
