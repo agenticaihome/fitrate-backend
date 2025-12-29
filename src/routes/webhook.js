@@ -4,6 +4,7 @@ import { config } from '../config/index.js';
 import { EntitlementService } from '../services/entitlements.js';
 import { IdempotencyService } from '../services/idempotency.js';
 import { addProRoast, addPurchasedScans } from '../middleware/referralStore.js';
+import { redis, isRedisAvailable } from '../services/redisClient.js';
 
 const router = express.Router();
 
@@ -15,6 +16,41 @@ const stripe = config.stripe.secretKey
 // Product identifiers for routing (set in Stripe dashboard metadata or by price)
 const PRO_ROAST_PRICE = 99; // $0.99 in cents
 const PRO_WEEKLY_PRICE = 299; // $2.99 in cents
+
+// Email→UserId mapping prefix for recovery
+const EMAIL_USER_MAP_PREFIX = 'fitrate:email:user:';
+
+/**
+ * Link email to userId for purchase recovery
+ * Stores bidirectional mapping so user can recover via email
+ */
+async function linkEmailToUser(email, userId) {
+  if (!email || !userId) return;
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  if (isRedisAvailable()) {
+    // Store email→userId mapping (never expires)
+    await redis.set(`${EMAIL_USER_MAP_PREFIX}${normalizedEmail}`, userId);
+    // Also store userId→email for reference
+    await redis.set(`fitrate:user:email:${userId}`, normalizedEmail);
+    console.log(`🔗 Linked email ${normalizedEmail.slice(0, 3)}***@*** to user ${userId.slice(0, 8)}...`);
+  }
+}
+
+/**
+ * Get userId by email for recovery
+ */
+async function getUserIdByEmail(email) {
+  if (!email) return null;
+
+  const normalizedEmail = email.toLowerCase().trim();
+
+  if (isRedisAvailable()) {
+    return await redis.get(`${EMAIL_USER_MAP_PREFIX}${normalizedEmail}`);
+  }
+  return null;
+}
 
 router.post('/', async (req, res) => {
   if (!stripe) {
@@ -63,6 +99,11 @@ router.post('/', async (req, res) => {
 
       console.log(`✅ Payment: ${session.id} | $${amount / 100} | ${mode} | user:${maskedUserId}`);
 
+      // CRITICAL: Link email to userId for recovery (do this for ALL purchases)
+      if (email && userId) {
+        await linkEmailToUser(email, userId);
+      }
+
       // Differentiate between product types by amount
       if (mode === 'payment') {
         // One-time purchases
@@ -73,26 +114,46 @@ router.post('/', async (req, res) => {
           break;
         }
 
-        // Scan Packs (amounts in cents)
+        // Scan Packs (amounts in cents) - New Optimized Pricing
         const SCAN_PACK_AMOUNTS = {
-          199: 5,    // Starter Pack: $1.99 = 5 scans
-          399: 15,   // Popular Pack: $3.99 = 15 scans
-          999: 50,   // Power Pack: $9.99 = 50 scans
+          99: 10,    // First-Time Offer OR Impulse Pack: $0.99 = 10 or 3 scans
+          299: 10,   // Starter Pack: $2.99 = 10 scans
+          499: 25,   // Popular Pack: $4.99 = 25 scans ⭐
+          699: 50,   // Value Pack: $6.99 = 50 scans
+          999: 100,  // Mega Pack: $9.99 = 100 scans
         };
 
-        if (SCAN_PACK_AMOUNTS[amount]) {
-          const scansToAdd = SCAN_PACK_AMOUNTS[amount];
-          console.log(`📦 Scan Pack purchased: ${scansToAdd} scans for $${amount / 100}`);
-          await addPurchasedScans(targetUserId, scansToAdd);
-          console.log(`   Added ${scansToAdd} scans to user: ${targetUserId}`);
-        } else if (amount === PRO_ROAST_PRICE) {
-          // Pro Roast: $0.99 = 1 roast
-          console.log('🔥 Pro Roast purchased!');
-          await addProRoast(targetUserId);
-          console.log(`   Added Pro Roast to user: ${targetUserId}`);
+        // Special handling for $0.99 - could be First-Time (10) or Impulse (3)
+        // Check metadata to differentiate
+        const productType = session.metadata?.product_type;
+        let scansAdded = 0;
+
+        if (amount === 99) {
+          if (productType === 'impulse_pack' || productType === 'scan_pack_3') {
+            console.log(`📦 Impulse Pack purchased: 3 scans for $0.99`);
+            await addPurchasedScans(targetUserId, 3);
+            scansAdded = 3;
+          } else {
+            // First-Time Offer: 10 scans for $0.99
+            console.log(`🎁 First-Time Offer purchased: 10 scans for $0.99`);
+            await addPurchasedScans(targetUserId, 10);
+            scansAdded = 10;
+          }
+        } else if (SCAN_PACK_AMOUNTS[amount]) {
+          scansAdded = SCAN_PACK_AMOUNTS[amount];
+          console.log(`📦 Scan Pack purchased: ${scansAdded} scans for $${amount / 100}`);
+          await addPurchasedScans(targetUserId, scansAdded);
         } else {
           console.log(`⚠️ Unknown one-time purchase amount: $${amount / 100}`);
         }
+
+        // BACKUP: Also store scans under email if available (for double recovery)
+        if (email && scansAdded > 0 && email !== targetUserId) {
+          await addPurchasedScans(email.toLowerCase(), scansAdded);
+          console.log(`   💾 Backup: Also added ${scansAdded} scans to email: ${maskedEmail}`);
+        }
+
+        console.log(`   ✅ Added ${scansAdded} scans to user: ${maskedUserId}`);
       } else {
         // Pro subscription = add to Pro entitlement store
         console.log(`⚡ Pro subscription activated! userId:${maskedUserId} email:${maskedEmail}`);
