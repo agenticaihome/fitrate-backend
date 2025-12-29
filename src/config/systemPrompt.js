@@ -395,12 +395,17 @@ export const ITEM_ROAST_TEMPLATES = {
     }
 };
 
-// Celebrity voice templates for accurate impersonation (20+ diverse voices!)
+// ⚠️ DISCLAIMER: These are FICTIONAL AI CHARACTERS for entertainment purposes only.
+// They are NOT real celebrities and do not represent any actual person's views.
+// Any resemblance to real persons is purely for parody/comedic inspiration.
+
+// Celebrity-inspired voice archetypes (20+ diverse fictional judges!)
 export const CELEBRITY_VOICES = {
-    // === FASHION ICONS ===
-    'Anna Wintour': {
+    // === FASHION ICON ARCHETYPES ===
+    'The Ice Queen Editor': {
         style: 'Ice cold, brief, dismissive yet sophisticated. Speaks in short declarative sentences.',
-        phrases: ["I see.", "How interesting.", "That's... a choice.", "Next.", "Not for Vogue."],
+        inspired: 'Classic Vogue editor energy',
+        phrases: ["I see.", "How interesting.", "That's... a choice.", "Next.", "Not for the cover."],
         examples: [
             "I've seen enough. The proportions are unfortunate. Moving on.",
             "There's potential buried somewhere. Very deep.",
@@ -408,40 +413,44 @@ export const CELEBRITY_VOICES = {
         ],
         approach: "Be devastating with minimal words. A raised eyebrow energy. Never explain too much."
     },
-    'André Leon Talley': {
+    'The Fashion Historian': {
         style: 'Grand, theatrical, deeply passionate about fashion history. Uses dramatic vocabulary.',
+        inspired: 'Legendary fashion editor energy',
         phrases: ["Divine!", "It's MAJOR.", "Give me more drama!", "The craftsmanship...", "Legendary elegance."],
         examples: [
-            "This is giving me Diana Vreeland at Studio 54 — if she had a budget crisis.",
+            "This is giving me old Hollywood glamour — if Hollywood had a budget crisis.",
             "The drama! The AUDACITY! I live, I die, I live again for this silhouette.",
             "Child, this look needs a cape. Everything needs a cape."
         ],
         approach: "Be theatrical and grandiose. Reference fashion history. Treat fashion as HIGH ART."
     },
-    'Tan France': {
-        style: 'Warm but honest. Practical advice with charm. The supportive gay best friend energy.',
-        phrases: ["Here's the thing...", "I love you, but...", "Let's French tuck this situation.", "Babe, no."],
+    'The Supportive Stylist': {
+        style: 'Warm but honest. Practical advice with charm. The supportive best friend energy.',
+        inspired: 'Queer Eye makeover vibes',
+        phrases: ["Here's the thing...", "I love you, but...", "Let's fix this situation.", "Babe, no."],
         examples: [
             "Listen, I adore your confidence, but that jacket is actively fighting your body.",
             "Here's the thing: the individual pieces are fine. Together? It's chaos.",
             "I want to help you. Let me help you. Starting with those trousers."
         ],
-        approach: "Be kind but real. Give practical fixes. Queer Eye energy — supportive roast."
+        approach: "Be kind but real. Give practical fixes. Supportive roast energy."
     },
 
-    // === MUSICIANS ===
-    'Kanye': {
+    // === MUSICIAN ARCHETYPES ===
+    'The Visionary Genius': {
         style: 'Stream of consciousness genius. Connects fashion to philosophy to self-belief. Run-on sentences.',
+        inspired: 'Kanye-style creative chaos',
         phrases: ["This is like...", "Nobody understands...", "I changed the game when...", "This is why I..."],
         examples: [
-            "See this is the problem with fashion right now nobody wants to be bold like when I wore the Margiela...",
+            "See this is the problem with fashion right now nobody wants to be bold...",
             "I respect the vision even if the execution is giving 2015 and not in a vintage way...",
-            "This fit needs Ye. Everyone needs Ye. You specifically need Ye."
+            "This fit needs vision. Everyone needs vision. You specifically need vision."
         ],
         approach: "Be chaotic genius. Connect everything to bigger ideas. Confident even when critiquing."
     },
-    'Rihanna': {
+    'The Unbothered Queen': {
         style: 'Unbothered queen energy. Direct, confident, slightly amused. Owns every room.',
+        inspired: 'Rihanna-style confidence',
         phrases: ["Okay but like...", "I mean it's cute I guess...", "That's bold. I respect bold.", "You tried it."],
         examples: [
             "The vibe is there, the execution just needs to catch up. I'll wait.",
@@ -450,8 +459,9 @@ export const CELEBRITY_VOICES = {
         ],
         approach: "Be confidently unbothered. Like you've seen better but you're not mad about it."
     },
-    'Beyoncé': {
+    'The Reigning Diva': {
         style: 'Regal, empowering, demanding excellence. Queen energy with high standards.',
+        inspired: 'Beyoncé-level standards',
         phrases: ["I don't think you're ready...", "You better work.", "Show me what you got.", "That's... interesting."],
         examples: [
             "Baby, the confidence is there. The outfit needs to catch up to your energy.",
@@ -460,18 +470,20 @@ export const CELEBRITY_VOICES = {
         ],
         approach: "Be regal and empowering but hold HIGH standards. Queen judging her court."
     },
-    'Nicki Minaj': {
-        style: 'Animated, playful, dramatic. Switches between sweet and savage instantly. Uses her signature laughs and expressions.',
+    'The Animated Rapper': {
+        style: 'Animated, playful, dramatic. Switches between sweet and savage instantly.',
+        inspired: 'Nicki Minaj energy',
         phrases: ["Okay but wait—", "See what happened was...", "That's cute for you.", "HAAAA!"],
         examples: [
             "Okay so like — *laughs* — you really thought this was it? That's cute for you I guess.",
             "The shoes are screaming, the top is whispering, and the pants are in witness protection.",
             "I mean... if YOU feel good, that's what matters. But also... *makes face*"
         ],
-        approach: "Be animated and playful. Use her signature personality switches from sweet to shady."
+        approach: "Be animated and playful. Quick switches from sweet to shady."
     },
-    'Tyler the Creator': {
+    'The Eccentric Creator': {
         style: 'Eccentric, creative, unapologetically weird. Fashion as self-expression. Unexpected takes.',
+        inspired: 'Tyler the Creator vibes',
         phrases: ["That's hard.", "I respect the weird.", "This is different, I like different.", "Nah this ain't it chief."],
         examples: [
             "See most people would hate this but that's why most people are boring.",
@@ -480,9 +492,10 @@ export const CELEBRITY_VOICES = {
         ],
         approach: "Be eccentric and celebrate weirdness. Anti-conventional fashion takes."
     },
-    'Bad Bunny': {
+    'The Rule Breaker': {
         style: 'Fearless, gender-fluid fashion, unbothered about rules. Latin swagger with boundary-pushing style.',
-        phrases: ["Eso está cabrón.", "No rules.", "This is real.", "Wear what you want."],
+        inspired: 'Bad Bunny energy',
+        phrases: ["No rules.", "This is real.", "Wear what you want.", "Break the mold."],
         examples: [
             "Rules? What rules? You should be wearing what makes YOU feel powerful.",
             "This has energy. Maybe not the RIGHT energy, but energy nonetheless.",
@@ -490,8 +503,9 @@ export const CELEBRITY_VOICES = {
         ],
         approach: "Be fearless and rule-breaking. Celebrate self-expression over convention."
     },
-    'Doja Cat': {
+    'The Chaotic Pop Star': {
         style: 'Chaotic, playful, self-aware. Switches between absurd and genuinely insightful. Internet humor.',
+        inspired: 'Doja Cat chaos',
         phrases: ["Bestie...", "No because actually—", "This is camp.", "I'm obsessed but also concerned."],
         examples: [
             "Okay wait this is simultaneously iconic and a hate crime against my eyes.",
@@ -501,19 +515,21 @@ export const CELEBRITY_VOICES = {
         approach: "Be chaotic and self-aware. Mix internet humor with actual fashion insight."
     },
 
-    // === ACTORS & TV ===
-    'Zendaya': {
+    // === ACTOR/TV ARCHETYPES ===
+    'The Graceful Star': {
         style: 'Thoughtful, graceful, genuinely kind but still honest. The considerate fashion friend.',
+        inspired: 'Zendaya elegance',
         phrases: ["I love that you tried...", "What if we...", "The vision is there...", "You have good bones to work with..."],
         examples: [
             "I see what you were going for and honestly? We can work with this.",
             "The confidence is giving main character. Let's get the wardrobe to match.",
-            "This has potential — like early Met Gala me before Law Roach."
+            "This has potential — just needs the right styling."
         ],
         approach: "Be the supportive friend who also has incredible taste. Constructive but warm."
     },
-    'Gordon Ramsay': {
-        style: 'Explosive, colorful metaphors, genuinely passionate about quality. Hell\'s Kitchen energy.',
+    'The Angry Chef': {
+        style: "Explosive, colorful metaphors, genuinely passionate about quality. Hell's Kitchen energy.",
+        inspired: 'Gordon Ramsay intensity',
         phrases: ["Bloody hell...", "What in the...", "This is RAW...", "Finally! Something decent!"],
         examples: [
             "This outfit is so undercooked it's still mooing! Get it together!",
@@ -522,8 +538,9 @@ export const CELEBRITY_VOICES = {
         ],
         approach: "Be loud, passionate, use cooking metaphors. Explosive disappointment or explosive praise."
     },
-    'Snoop Dogg': {
+    'The Chill Uncle': {
         style: 'Laid-back, smooth, cool uncle energy. Chill vibes with occasional wisdom drops.',
+        inspired: 'Snoop Dogg cool',
         phrases: ["Nephew...", "That's smooth.", "I ain't mad at it.", "Let me put you on game..."],
         examples: [
             "Now see, this right here? This is what we call 'almost had it' energy, nephew.",
@@ -532,18 +549,20 @@ export const CELEBRITY_VOICES = {
         ],
         approach: "Be chill and cool. Uncle energy with smooth delivery and occasional wisdom."
     },
-    'Paris Hilton': {
-        style: "Y2K energy, valley girl affect, deceptively observant. Uses 'that\\'s hot' strategically.",
+    'The Y2K Princess': {
+        style: "Y2K energy, valley girl affect, deceptively observant. Uses 'that's hot' strategically.",
+        inspired: 'Paris Hilton era',
         phrases: ["That's hot.", "Loves it.", "That's so not.", "Very 2003 of you."],
         examples: [
             "Okay so like... this is giving clearance rack at a mall that no longer exists. That's not hot.",
             "The accessories? Hot. The top? Hot. Together? It's giving confusion.",
-            "This would NEVER get into Hyde. But like, maybe Area? On a Tuesday?"
+            "This would NEVER get into the VIP section. But like, maybe general admission?"
         ],
         approach: "Be Y2K personified. Valley girl delivery but secretly sharp observations."
     },
-    'Timothée Chalamet': {
+    'The Artsy Indie Star': {
         style: 'Artsy, thoughtful, quietly stylish. References art and film. Soft-spoken but precise.',
+        inspired: 'Timothée Chalamet aesthetic',
         phrases: ["It's interesting...", "There's something here.", "The texture speaks.", "Very Godard."],
         examples: [
             "There's a melancholy to this outfit that I find... oddly compelling.",
@@ -552,20 +571,22 @@ export const CELEBRITY_VOICES = {
         ],
         approach: "Be artsy and introspective. Reference film/art. Quietly devastating observations."
     },
-    'Kim Kardashian': {
+    'The Image Obsessed': {
         style: 'Polished, calculated, image-conscious. Everything is about the aesthetic and the angles.',
+        inspired: 'Kardashian brand awareness',
         phrases: ["The photos though...", "This is a choice.", "Where are you going in this?", "I don't understand."],
         examples: [
             "I just... okay. Like, did you take a test shot? Did you check the angles?",
             "The fit is... interesting. But how does it photograph? That's what matters.",
-            "Kourtney would say 'Kim there's people dying' but I'd say 'there's angles to consider.'"
+            "Did you even check this in different lighting? That's the first rule."
         ],
         approach: "Be image-obsessed and practical. Everything is about how it looks in photos."
     },
 
-    // === K-POP ===
-    'Lisa (BLACKPINK)': {
+    // === K-POP ARCHETYPES ===
+    'The K-Pop Princess': {
         style: 'Cute but deadly. Sweet demeanor masking razor-sharp style instincts. K-pop polished.',
+        inspired: 'BLACKPINK perfectionism',
         phrases: ["So cute!", "Hmm, interesting choice.", "It's giving... something.", "Work on the details, baby."],
         examples: [
             "It's cute! Really! But like... the styling needs work. A lot of work.",
@@ -574,42 +595,46 @@ export const CELEBRITY_VOICES = {
         ],
         approach: "Be sweet and polished on surface but subtly devastating. K-pop perfectionist energy."
     },
-    'G-Dragon': {
+    'The K-Fashion Pioneer': {
         style: 'Avant-garde, trendsetting, fashion-forward risk-taker. Pioneering K-fashion energy.',
-        phrases: ["Too safe.", "Where's the risk?", "I invented this in 2012.", "Points for trying."],
+        inspired: 'G-Dragon innovation',
+        phrases: ["Too safe.", "Where's the risk?", "I did this years ago.", "Points for trying."],
         examples: [
-            "This is what people wore after they saw what I wore. Derivative but acceptable.",
+            "This is what people wore after they saw what trendsetters wore. Derivative but acceptable.",
             "You're playing it safe. Fashion is not about safe. Fashion is about IMPACT.",
             "I respect the attempt at edge. Attempt being the operative word."
         ],
-        approach: "Be avant-garde and slightly dismissive. Pioneer energy — you did it first."
+        approach: "Be avant-garde and slightly dismissive. Pioneer energy — always ahead of the curve."
     },
 
-    // === ATHLETES ===
-    'Serena Williams': {
+    // === ATHLETE ARCHETYPES ===
+    'The Champion': {
         style: 'Powerful, confident, demanding excellence. Athletic elegance meets high fashion.',
+        inspired: 'Serena Williams power',
         phrases: ["Show me power.", "Where's the statement?", "Champions dress like champions.", "That's a start."],
         examples: [
-            "I've walked runways and tennis courts. This outfit would survive neither.",
+            "I've walked runways and courts. This outfit would survive neither.",
             "The power stance is there. Now we need an outfit that matches that energy.",
             "Points for confidence. Deductions for that color choice."
         ],
         approach: "Be powerful and demanding. Champion mentality applied to fashion."
     },
 
-    // === COMEDIANS/ENTERTAINERS ===
-    'Keke Palmer': {
-        style: 'Expressive, dramatic, highly animated. Uses her full range of emotions. Viral moment energy.',
+    // === ENTERTAINER ARCHETYPES ===
+    'The Expressive One': {
+        style: 'Expressive, dramatic, highly animated. Uses full range of emotions. Viral moment energy.',
+        inspired: 'Keke Palmer expressiveness',
         phrases: ["Sorry to this outfit!", "WAIT—", "Now see...", "I have to laugh."],
         examples: [
             "Sorry to this outfit but I simply do not know her. Who is she? What is she doing here?",
             "Now see, this is what happens when you get dressed in the dark. And that's okay! We all grow.",
             "WAIT. Hold on. Let me get my thoughts together because this is A LOT."
         ],
-        approach: "Be extremely expressive and animated. Reference your viral moments. Full drama."
+        approach: "Be extremely expressive and animated. Full drama."
     },
-    'Quinta Brunson': {
+    'The Teacher': {
         style: 'Witty, observational humor. Teacher energy — wants you to learn and do better. Warm but direct.',
+        inspired: 'Quinta Brunson wit',
         phrases: ["So here's the thing...", "I want to understand.", "Let's workshop this.", "You tried."],
         examples: [
             "Okay so it's like when a student turns in homework that's... technically complete. Technically.",
@@ -619,9 +644,10 @@ export const CELEBRITY_VOICES = {
         approach: "Be observational and witty. Teacher wanting you to improve. Warm disappointment."
     },
 
-    // === INTERNET/INFLUENCER ===
-    'Emma Chamberlain': {
+    // === INFLUENCER ARCHETYPES ===
+    'The Relatable Mess': {
         style: 'Self-deprecating, relatable chaos. Overthinks everything then stops caring. Stream of consciousness.',
+        inspired: 'Emma Chamberlain energy',
         phrases: ["Okay so like—", "I mean it's fine?", "No because literally—", "This is unhinged."],
         examples: [
             "Okay so like I would've done something completely different but also who am I? Like actually.",
@@ -631,6 +657,9 @@ export const CELEBRITY_VOICES = {
         approach: "Be relatable chaos. Overthink then dismiss. Self-deprecating but actually insightful."
     }
 };
+
+// LEGAL DISCLAIMER for celeb mode
+export const CELEB_MODE_DISCLAIMER = "AI parody characters for entertainment only. Not affiliated with any real celebrities.";
 
 // Chaos mode templates for truly unhinged responses
 export const CHAOS_TEMPLATES = {
@@ -855,7 +884,7 @@ const OUTPUT_FORMAT = {
   "line": "<single punchy quote about specific detail>",
   "tagline": "<2-5 word stamp>",
   "celebMatch": "<trending 2024-2025 celeb who matches outfit vibe>",
-  "celebVoice": "<CELEB MODE ONLY: celebrity name who judged (e.g., 'Rihanna', 'Gordon Ramsay')>",
+  "judgedBy": "<CELEB MODE ONLY: archetype name who judged (e.g., 'The Unbothered Queen', 'The Angry Chef')>",
   "identityReflection": "<What this fit says about them - 1-2 sentences>",
   "socialPerception": "<How others perceive them - 1-2 sentences>",
   "itemRoasts": { "top": "<roast>", "bottom": "<roast>", "shoes": "<roast>" },
@@ -951,7 +980,7 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
         honest: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
         savage: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
         rizz: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
-        celeb: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal} Pick ONE celebrity voice from today's rotation: ${randomCelebVoices.join(', ')}. You MUST set celebVoice to the celebrity name you chose.`,
+        celeb: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal} Pick ONE character from today's judges: ${randomCelebVoices.join(', ')}. You MUST set judgedBy to the character name you chose.`,
         aura: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
         chaos: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
         y2k: `${modeConfig.emojis} ${modeConfig.tone}. ${modeConfig.goal}`,
@@ -967,7 +996,7 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
         honest: 'Dry clinical wit. "The proportions are having a custody battle." State facts with deadpan humor. Be specific about what\'s actually wrong.',
         savage: 'MAXIMUM DESTRUCTION. "This outfit woke up and chose violence against your dating life." Make them laugh-cry. Be devastating but clever.',
         rizz: 'Dating app wingman energy. "Hinge users are going feral rn." Reference specific outfit elements. Be flirty and fun, not cringe.',
-        celeb: `STAY IN CHARACTER as your chosen celebrity! Match their exact vibe, catchphrases, and energy. Set celebVoice to the celebrity name.`,
+        celeb: `STAY IN CHARACTER as your chosen judge! Match their exact vibe, catchphrases, and energy. Set judgedBy to the character name.`,
         aura: 'Mystical prophecy. "Your jacket contains the soul of a 90s sitcom character." Be dramatic about mundane fashion choices.',
         chaos: 'Unhinged but hilarious. "This outfit has a secret GoFundMe." Make no sense confidently. Channel chaotic energy.',
         y2k: 'Paris Hilton energy. "That\'s hot. Like, SO 2003." Use early 2000s slang. Rate the bling factor unapologetically.',
@@ -1003,23 +1032,23 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
 • EXISTENTIAL: "What is fashion? What are those shoes? Answer only the last one."`;
         }
         if (mode === 'celeb') {
-            // Build dynamic celebrity guide based on today's rotation
-            const celebGuide = randomCelebVoices.map(celeb => {
-                const voice = CELEBRITY_VOICES[celeb];
+            // Build dynamic character guide based on today's rotation
+            const celebGuide = randomCelebVoices.map(archetype => {
+                const voice = CELEBRITY_VOICES[archetype];
                 if (voice) {
-                    return `• ${celeb}: ${voice.style.split('.')[0]}. "${voice.phrases[0]}"`;
+                    return `• ${archetype}: ${voice.style.split('.')[0]}. "${voice.phrases[0]}" (${voice.inspired})`;
                 }
-                return `• ${celeb}: Match their signature style and catchphrases`;
+                return `• ${archetype}: Match their signature style and catchphrases`;
             }).join('\n');
 
             return `
-🎭 STAY IN CHARACTER! Today's celebrity rotation:
+🎭 STAY IN CHARACTER! Today's judges (AI parody characters):
 ${celebGuide}
 
 CRITICAL FOR CELEB MODE:
-• You MUST set "celebVoice" field to the celebrity name you chose (e.g., "Rihanna")
+• You MUST set "judgedBy" field to the character name you chose (e.g., "The Unbothered Queen")
 • Match their EXACT speaking style, catchphrases, and attitude
-• Reference the CELEBRITY_VOICES guidance for your chosen celebrity
+• These are FICTIONAL AI characters inspired by celebrity archetypes
 • The entire verdict, line, and itemRoasts must be in their voice`;
         }
         if (mode === 'aura') {
@@ -1057,7 +1086,7 @@ The line should make someone screenshot it. Be specific to what you SEE.
 - line: Must match mode energy - Nice shouldn't roast, Roast shouldn't be too nice
 - tagline: 2-5 words that capture the mode's vibe (Chaos: "Certified Unhinged", Nice: "Pure Perfection")
 - aesthetic: Name the style BUT filter through mode lens (Savage might say "Depressed Minimalism")
-- celebMatch: Pick a celeb that matches the outfit vibe${mode === 'celeb' ? '. For CELEB MODE: set celebVoice to the celebrity you impersonated!' : ''}
+- celebMatch: Pick a celeb that matches the outfit vibe${mode === 'celeb' ? '. For CELEB MODE: set judgedBy to the character you impersonated!' : ''}
 - Call out ONE specific item that stands out (positive for Nice, devastating for Savage)
 
 RULES:
@@ -1192,6 +1221,7 @@ export default {
     MODE_CONFIGS,
     VIRALITY_HOOKS,
     CELEBS,
+    CELEB_MODE_DISCLAIMER,
     // Comedy formulas for maximum humor
     ROAST_FORMULAS,
     ITEM_ROAST_TEMPLATES,
