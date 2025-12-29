@@ -135,7 +135,7 @@ app.use('/api/', (req, res, next) => {
 app.use('/api/analyze', costTracker('scan'));
 
 // Routes
-// TEMPORARILY OPEN: Diag route for debugging (no admin key required)
+// Diag route now protected by admin key middleware
 app.use('/api/diag', diagRoutes);
 app.use('/api/analyze', analyzeRoutes);
 app.use('/api/webhook', webhookRoutes);

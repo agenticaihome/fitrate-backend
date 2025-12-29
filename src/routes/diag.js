@@ -3,6 +3,20 @@ import { config } from '../config/index.js';
 
 const router = express.Router();
 
+// Admin key middleware - protects all diag routes
+const requireAdminKey = (req, res, next) => {
+    const adminKey = req.headers['x-admin-key'] || req.query.adminKey;
+    const validKey = process.env.ADMIN_API_KEY || process.env.API_KEY;
+
+    if (!validKey || adminKey !== validKey) {
+        return res.status(401).json({ error: 'Unauthorized - Admin key required' });
+    }
+    next();
+};
+
+// Apply admin key check to all diag routes
+router.use(requireAdminKey);
+
 /**
  * Diagnostic endpoint to verify OpenAI configuration
  * GET /api/diag
