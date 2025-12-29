@@ -108,6 +108,7 @@ export async function createShow({
     vibe = 'nice',
     familySafe = true,  // DEFAULT ON per user requirement
     durationHours = SHOW_TTL_HOURS_DEFAULT,
+    maxParticipants = null,  // null = unlimited, otherwise auto-end when reached
     entriesPerPerson = 1,
     hostId
 }) {
@@ -156,6 +157,7 @@ export async function createShow({
         familySafe: familySafe ? '1' : '0',
         hostId: hostId || 'anonymous',
         entriesPerPerson: entriesPerPerson.toString(),
+        maxParticipants: maxParticipants ? maxParticipants.toString() : '0',  // 0 = unlimited
         expiresAt: expiresAt.toString(),
         status: 'active',
         createdAt: Date.now().toString()
@@ -178,6 +180,7 @@ export async function createShow({
         vibe,
         vibeLabel: VIBES[vibe].label,
         familySafe,
+        maxParticipants: maxParticipants || null,
         entriesPerPerson,
         expiresAt: new Date(expiresAt).toISOString(),
         createdAt: new Date(createdAt).toISOString(),
@@ -229,6 +232,7 @@ function parseShowData(data, showId) {
         vibeLabel: VIBES[data.vibe]?.label || data.vibe,
         familySafe: data.familySafe === '1',
         hostId: data.hostId,
+        maxParticipants: parseInt(data.maxParticipants) || null,  // null = unlimited
         entriesPerPerson: parseInt(data.entriesPerPerson) || 1,
         expiresAt: new Date(parseInt(data.expiresAt)).toISOString(),
         status: data.status,
@@ -391,6 +395,12 @@ export async function recordWalk(showId, {
 
     console.log(`[FashionShow] ${nickname} walked in "${show.name}" - Score: ${score}, Rank: ${rank + 1}/${totalEntries}`);
 
+    // Check if show is now full (auto-end when maxParticipants reached)
+    if (show.maxParticipants && totalEntries >= show.maxParticipants) {
+        console.log(`[FashionShow] Show "${show.name}" is now FULL (${totalEntries}/${show.maxParticipants}) - auto-ending`);
+        await redis.hset(showKey(showId), 'status', 'ended');
+    }
+
     return {
         success: true,
         rank: rank + 1,
@@ -398,7 +408,8 @@ export async function recordWalk(showId, {
         walksUsed,
         walksRemaining: maxWalks - walksUsed,
         showId,
-        showName: show.name
+        showName: show.name,
+        showFull: show.maxParticipants && totalEntries >= show.maxParticipants
     };
 }
 
