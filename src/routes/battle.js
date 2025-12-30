@@ -88,6 +88,19 @@ router.post('/', createLimiter, async (req, res) => {
             });
         }
 
+        // ============================================
+        // CONTENT MODERATION: Reject battles from flagged content
+        // AI flags nudity, shirtless, underwear-only, etc. as contentFlagged: true
+        // ============================================
+        const { contentFlagged } = req.body;
+        if (contentFlagged === true) {
+            console.warn(`[${requestId}] 🚫 BLOCKED: Attempt to create battle with flagged content (creatorId: ${creatorId?.slice(0, 12)}...)`);
+            return res.status(400).json({
+                error: 'This image cannot be used for battles due to content policy.',
+                code: 'CONTENT_FLAGGED'
+            });
+        }
+
         // Create battle with creatorId, mode and photo
         const battle = await createBattle(score, creatorId, mode || 'nice', creatorThumb || null);
         console.log(`[${requestId}] ✅ Battle created: ${battle.challengeId} (mode: ${battle.mode})`);
@@ -224,6 +237,19 @@ router.post('/:battleId/respond', respondLimiter, async (req, res) => {
             console.log(`[${requestId}] Error: Invalid score - ${responderScore}`);
             return res.status(400).json({
                 error: 'Score must be between 0 and 100'
+            });
+        }
+
+        // ============================================
+        // CONTENT MODERATION: Reject battle responses from flagged content
+        // AI flags nudity, shirtless, underwear-only, etc. as contentFlagged: true
+        // ============================================
+        const { contentFlagged } = req.body;
+        if (contentFlagged === true) {
+            console.warn(`[${requestId}] 🚫 BLOCKED: Attempt to respond to battle with flagged content (responderId: ${responderId?.slice(0, 12)}...)`);
+            return res.status(400).json({
+                error: 'This image cannot be used for battles due to content policy.',
+                code: 'CONTENT_FLAGGED'
             });
         }
 
