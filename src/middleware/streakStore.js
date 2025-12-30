@@ -56,6 +56,22 @@ function getYesterdayKey() {
 }
 
 /**
+ * P3.1: Get two days ago for 24h grace period check
+ * If user missed yesterday but scanned 2 days ago, grant grace period
+ */
+function getTwoDaysAgoKey() {
+    const now = new Date();
+    const hour = now.getHours();
+
+    // If before grace hour, 2 days ago is actually 3 days back
+    const daysBack = hour < GRACE_HOUR ? 3 : 2;
+
+    const twoDaysAgo = new Date(now);
+    twoDaysAgo.setDate(twoDaysAgo.getDate() - daysBack);
+    return twoDaysAgo.toISOString().split('T')[0];
+}
+
+/**
  * Get streak data for a user
  * Returns: { currentStreak, lastScanDate, maxStreak, totalScans }
  */
@@ -101,11 +117,13 @@ export async function recordScan(userId) {
 
     const todayKey = getStreakDateKey();
     const yesterdayKey = getYesterdayKey();
+    const twoDaysAgoKey = getTwoDaysAgoKey();  // P3.1: Grace period check
     const currentData = await getStreakData(userId);
 
     let newStreak = 1;
     let isNewStreak = false;
     let isMilestone = false;
+    let usedGracePeriod = false;  // P3.1: Track grace usage
 
     // Calculate new streak
     if (currentData.lastScanDate === todayKey) {
@@ -120,8 +138,14 @@ export async function recordScan(userId) {
         if ([3, 7, 14, 30, 50, 100].includes(newStreak)) {
             isMilestone = true;
         }
+    } else if (currentData.lastScanDate === twoDaysAgoKey && currentData.currentStreak > 0) {
+        // P3.1: GRACE PERIOD - Missed yesterday but scanned 2 days ago
+        // Continue streak without adding a day (same streak count)
+        newStreak = currentData.currentStreak;
+        usedGracePeriod = true;
+        console.log(`[STREAK] 🛡️ ${userId.slice(0, 12)} used 24h grace period (streak preserved at ${newStreak})`);
     } else if (currentData.currentStreak > 0) {
-        // Missed a day, streak resets to 1
+        // Missed more than 1 day, streak resets to 1
         newStreak = 1;
         isNewStreak = true;
         console.log(`[STREAK] ${userId.slice(0, 12)} streak reset (was ${currentData.currentStreak})`);
@@ -164,7 +188,8 @@ export async function recordScan(userId) {
     return {
         ...newData,
         isNewStreak,
-        isMilestone
+        isMilestone,
+        usedGracePeriod  // P3.1: Track if grace period was used
     };
 }
 
