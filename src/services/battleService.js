@@ -47,7 +47,8 @@ export async function createBattle(creatorScore, creatorId, mode = 'nice', creat
 
     const battleId = generateBattleId();
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours
+    const expiresAt = new Date(now.getTime() + 24 * 60 * 60 * 1000); // 24 hours total expiry
+    const forfeitAt = new Date(now.getTime() + 6 * 60 * 60 * 1000);  // P2.5: 6 hours for auto-forfeit
 
     const battleData = {
         id: battleId,
@@ -62,7 +63,8 @@ export async function createBattle(creatorScore, creatorId, mode = 'nice', creat
         winner: null,
         createdAt: now.toISOString(),
         respondedAt: null,
-        expiresAt: expiresAt.toISOString()
+        expiresAt: expiresAt.toISOString(),
+        forfeitAt: forfeitAt.toISOString()  // P2.5: Auto-win if no response
     };
 
     if (isRedisAvailable()) {
@@ -75,7 +77,8 @@ export async function createBattle(creatorScore, creatorId, mode = 'nice', creat
             mode: battleData.mode,
             status: battleData.status,
             createdAt: battleData.createdAt,
-            expiresAt: battleData.expiresAt
+            expiresAt: battleData.expiresAt,
+            forfeitAt: battleData.forfeitAt  // P2.5: 6h auto-forfeit
         };
 
         // Only store thumb if provided (saves Redis memory)
@@ -99,7 +102,8 @@ export async function createBattle(creatorScore, creatorId, mode = 'nice', creat
         mode: battleData.mode,
         status: battleData.status,
         createdAt: battleData.createdAt,
-        expiresAt: battleData.expiresAt
+        expiresAt: battleData.expiresAt,
+        forfeitAt: battleData.forfeitAt  // P2.5: 6h auto-forfeit
     };
 }
 
@@ -174,6 +178,7 @@ export async function getBattle(battleId, includeExpired = false) {
             winner: winner,
             createdAt: data.createdAt,
             expiresAt: data.expiresAt || null,
+            forfeitAt: data.forfeitAt || null,  // P2.5: 6h auto-forfeit timestamp
             // AI Commentary (populated by head-to-head comparison)
             battleCommentary: data.battleCommentary || null,
             winningFactor: data.winningFactor || null,
@@ -181,6 +186,24 @@ export async function getBattle(battleId, includeExpired = false) {
             outfit2Verdict: data.outfit2Verdict || null,
             marginOfVictory: data.marginOfVictory ? parseFloat(data.marginOfVictory) : null
         };
+
+        // P2.5: Check for auto-forfeit (6 hours with no response)
+        // If battle is still 'waiting' and forfeit time has passed, auto-complete with creator win
+        if (battle.status === 'waiting' && battle.forfeitAt && new Date(battle.forfeitAt) < new Date()) {
+            console.log(`[Battle] ⏰ Auto-forfeit triggered for ${battleId} - no response in 6 hours`);
+            await redis.hset(key, {
+                status: 'completed',
+                winner: 'creator',
+                responderScore: '0',
+                responderId: 'forfeited',
+                battleCommentary: 'Opponent didn\'t show up in time - you win by forfeit! 🏆'
+            });
+            battle.status = 'completed';
+            battle.winner = 'creator';
+            battle.responderScore = 0;
+            battle.responderId = 'forfeited';
+            battle.battleCommentary = 'Opponent didn\'t show up in time - you win by forfeit! 🏆';
+        }
 
         // Check if battle has expired
         if (battle.expiresAt && new Date(battle.expiresAt) < new Date()) {
