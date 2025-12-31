@@ -285,6 +285,53 @@ export async function getUserDailyStatus(userId) {
 }
 
 
+/**
+ * Get yesterday's complete leaderboard for reward distribution
+ * Called at midnight to distribute rewards for the previous day
+ * @param {number} limit - Max entries to fetch (default 100 for reward calculation)
+ * @returns {Object} { success, leaderboard: [{ userId, score, rank }], totalParticipants }
+ */
+export async function getYesterdaysFinalLeaderboard(limit = 100) {
+    const yesterdayKey = getYesterdayKey();
+    const scoresKey = `${DAILY_SCORES_PREFIX}${yesterdayKey}`;
+
+    if (!isRedisAvailable()) {
+        console.log('[DAILY REWARDS] Redis unavailable for yesterday leaderboard');
+        return { success: false, leaderboard: [], totalParticipants: 0 };
+    }
+
+    // Get all entries with scores
+    const results = await redis.zrevrange(scoresKey, 0, limit - 1, 'WITHSCORES');
+    const totalParticipants = await redis.zcard(scoresKey) || 0;
+
+    if (results.length === 0) {
+        console.log(`[DAILY REWARDS] No entries found for ${yesterdayKey}`);
+        return { success: true, leaderboard: [], totalParticipants: 0, dateKey: yesterdayKey };
+    }
+
+    const leaderboard = [];
+    for (let i = 0; i < results.length; i += 2) {
+        const userId = results[i];
+        const score = parseFloat(results[i + 1]);
+        const rank = Math.floor(i / 2) + 1;
+
+        leaderboard.push({
+            userId,  // Full userId needed for reward distribution
+            score: Math.round(score * 10) / 10,
+            rank
+        });
+    }
+
+    console.log(`[DAILY REWARDS] Retrieved ${leaderboard.length}/${totalParticipants} entries from ${yesterdayKey}`);
+
+    return {
+        success: true,
+        leaderboard,
+        totalParticipants,
+        dateKey: yesterdayKey
+    };
+}
+
 export default {
     getTodayKey,
     getYesterdayKey,
@@ -294,5 +341,6 @@ export default {
     hasEnteredToday,
     recordDailyChallengeScore,
     getDailyLeaderboard,
-    getUserDailyStatus
+    getUserDailyStatus,
+    getYesterdaysFinalLeaderboard
 };

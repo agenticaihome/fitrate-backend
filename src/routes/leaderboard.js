@@ -222,6 +222,143 @@ export async function recordScore(userId, score) {
 }
 
 // Re-export daily challenge function for use in analyze route
-export { recordDailyChallengeScore } from '../services/dailyChallengeService.js';
+export { recordDailyChallengeScore, getYesterdaysFinalLeaderboard } from '../services/dailyChallengeService.js';
+
+// Import reward service for admin endpoints
+import {
+    calculateRewards,
+    distributeRewards,
+    wasDistributed,
+    markDistributed,
+    getDistributionHistory,
+    DAILY_REWARDS
+} from '../services/rewardService.js';
+
+/**
+ * GET /api/leaderboard/rewards/history
+ * Get reward distribution history (admin)
+ */
+router.get('/rewards/history', async (req, res) => {
+    try {
+        // Check admin key
+        const adminKey = req.headers['x-admin-key'];
+        if (adminKey !== process.env.ADMIN_API_KEY) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const history = await getDistributionHistory(50);
+        res.json({ success: true, history });
+    } catch (error) {
+        console.error('[REWARDS] Error getting history:', error);
+        res.status(500).json({ success: false, error: 'Failed to get history' });
+    }
+});
+
+/**
+ * POST /api/leaderboard/rewards/distribute
+ * Manually trigger reward distribution for yesterday (admin, for testing)
+ */
+router.post('/rewards/distribute', async (req, res) => {
+    try {
+        // Check admin key
+        const adminKey = req.headers['x-admin-key'];
+        if (adminKey !== process.env.ADMIN_API_KEY) {
+            return res.status(401).json({ error: 'Unauthorized' });
+        }
+
+        const { type = 'daily', force = false } = req.body;
+
+        if (type !== 'daily') {
+            return res.status(400).json({ error: 'Only daily rewards supported for manual trigger' });
+        }
+
+        // Get yesterday's leaderboard
+        const { leaderboard, totalParticipants, dateKey } = await getYesterdaysFinalLeaderboard(100);
+
+        // Check if already distributed
+        if (!force && await wasDistributed(dateKey, 'daily')) {
+            return res.json({
+                success: false,
+                error: 'already_distributed',
+                message: `Daily rewards already distributed for ${dateKey}. Use force=true to re-run.`
+            });
+        }
+
+        if (leaderboard.length === 0) {
+            return res.json({
+                success: true,
+                message: `No entries found for ${dateKey}`,
+                distributed: 0,
+                totalScans: 0
+            });
+        }
+
+        // Calculate and distribute rewards
+        const rewards = calculateRewards(leaderboard, DAILY_REWARDS);
+        const result = await distributeRewards(rewards);
+
+        // Mark as distributed (unless force, to allow re-testing)
+        if (!force) {
+            await markDistributed(dateKey, 'daily', {
+                totalParticipants,
+                winnersCount: rewards.length,
+                ...result
+            });
+        }
+
+        res.json({
+            success: true,
+            dateKey,
+            totalParticipants,
+            rewards: rewards.map(r => ({
+                rank: r.rank,
+                scans: r.scans,
+                reason: r.reason
+            })),
+            ...result
+        });
+    } catch (error) {
+        console.error('[REWARDS] Error distributing:', error);
+        res.status(500).json({ success: false, error: 'Distribution failed' });
+    }
+});
+
+/**
+ * GET /api/leaderboard/rewards/preview
+ * Preview what rewards would be distributed for yesterday (doesn't actually distribute)
+ */
+router.get('/rewards/preview', async (req, res) => {
+    try {
+        const { leaderboard, totalParticipants, dateKey } = await getYesterdaysFinalLeaderboard(100);
+
+        if (leaderboard.length === 0) {
+            return res.json({
+                success: true,
+                message: `No entries for ${dateKey}`,
+                rewards: []
+            });
+        }
+
+        const rewards = calculateRewards(leaderboard, DAILY_REWARDS);
+        const wasAlreadyDistributed = await wasDistributed(dateKey, 'daily');
+
+        res.json({
+            success: true,
+            dateKey,
+            totalParticipants,
+            wasAlreadyDistributed,
+            totalScansToDistribute: rewards.reduce((sum, r) => sum + r.scans, 0),
+            rewards: rewards.map(r => ({
+                rank: r.rank,
+                score: r.score,
+                scans: r.scans,
+                reason: r.reason
+            }))
+        });
+    } catch (error) {
+        console.error('[REWARDS] Error previewing:', error);
+        res.status(500).json({ success: false, error: 'Preview failed' });
+    }
+});
 
 export default router;

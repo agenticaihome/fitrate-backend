@@ -173,4 +173,143 @@ const server = app.listen(config.port, () => {
 // Set server timeout to 30 seconds
 server.timeout = 30000;
 
+// ============================================
+// REWARD DISTRIBUTION SCHEDULER
+// Runs every minute, checks if it's midnight UTC
+// ============================================
+import {
+  calculateRewards,
+  distributeRewards,
+  wasDistributed,
+  markDistributed,
+  DAILY_REWARDS,
+  WEEKLY_REWARDS,
+  ARENA_REWARDS
+} from './services/rewardService.js';
+import { getYesterdaysFinalLeaderboard, getYesterdayKey } from './services/dailyChallengeService.js';
+import { getWeeklyLeaderboard } from './services/arenaLeaderboardService.js';
+
+let lastRewardCheck = null;
+
+async function checkAndDistributeRewards() {
+  const now = new Date();
+  const utcHour = now.getUTCHours();
+  const utcMinute = now.getUTCMinutes();
+  const utcDay = now.getUTCDay(); // 0 = Sunday, 1 = Monday
+  const todayKey = now.toISOString().split('T')[0];
+
+  // Only run at 00:00-00:02 UTC (first 3 minutes of the day)
+  if (utcHour !== 0 || utcMinute > 2) return;
+
+  // Prevent multiple runs in same minute
+  const checkKey = `${todayKey}-${utcMinute}`;
+  if (lastRewardCheck === checkKey) return;
+  lastRewardCheck = checkKey;
+
+  console.log(`\n🎁 ============================================`);
+  console.log(`🎁 REWARD DISTRIBUTION CHECK - ${now.toISOString()}`);
+  console.log(`🎁 ============================================\n`);
+
+  // --- DAILY REWARDS (every day at midnight) ---
+  try {
+    const yesterdayKey = getYesterdayKey();
+    if (!(await wasDistributed(yesterdayKey, 'daily'))) {
+      console.log(`📅 Distributing DAILY rewards for ${yesterdayKey}...`);
+
+      const { leaderboard, totalParticipants } = await getYesterdaysFinalLeaderboard(100);
+
+      if (leaderboard.length > 0) {
+        const rewards = calculateRewards(leaderboard, DAILY_REWARDS);
+        const result = await distributeRewards(rewards);
+
+        await markDistributed(yesterdayKey, 'daily', {
+          totalParticipants,
+          winnersCount: rewards.length,
+          ...result
+        });
+
+        console.log(`✅ Daily rewards distributed: ${result.distributed} winners, ${result.totalScans} total scans`);
+      } else {
+        await markDistributed(yesterdayKey, 'daily', { totalParticipants: 0, winnersCount: 0, totalScans: 0 });
+        console.log(`📅 No daily challenge entries for ${yesterdayKey}`);
+      }
+    } else {
+      console.log(`📅 Daily rewards already distributed for ${yesterdayKey}`);
+    }
+  } catch (error) {
+    console.error('❌ Daily reward distribution failed:', error);
+  }
+
+  // --- WEEKLY REWARDS (Sunday at midnight) ---
+  if (utcDay === 0) { // Sunday
+    try {
+      // Get last week's key (we're now in a new week)
+      const lastWeek = new Date(now);
+      lastWeek.setUTCDate(lastWeek.getUTCDate() - 1);
+      const weekKey = `${lastWeek.getUTCFullYear()}-W${String(Math.ceil((lastWeek.getTime() - new Date(lastWeek.getUTCFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))).padStart(2, '0')}`;
+
+      if (!(await wasDistributed(weekKey, 'weekly'))) {
+        console.log(`📅 Distributing WEEKLY rewards for ${weekKey}...`);
+        // TODO: Implement weekly event leaderboard fetch
+        // For now, log that it would run
+        console.log(`⚠️ Weekly rewards not yet implemented - needs event leaderboard service`);
+        await markDistributed(weekKey, 'weekly', { note: 'Not implemented yet' });
+      }
+    } catch (error) {
+      console.error('❌ Weekly reward distribution failed:', error);
+    }
+  }
+
+  // --- ARENA REWARDS (Monday at midnight) ---
+  if (utcDay === 1) { // Monday
+    try {
+      // Get last week's arena key
+      const lastWeek = new Date(now);
+      lastWeek.setUTCDate(lastWeek.getUTCDate() - 1);
+      const weekKey = `arena-${lastWeek.getUTCFullYear()}-W${String(Math.ceil((lastWeek.getTime() - new Date(lastWeek.getUTCFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))).padStart(2, '0')}`;
+
+      if (!(await wasDistributed(weekKey, 'arena'))) {
+        console.log(`⚔️ Distributing ARENA rewards for ${weekKey}...`);
+
+        const { entries, totalEntries } = await getWeeklyLeaderboard(null, 100);
+
+        if (entries && entries.length > 0) {
+          // Transform arena entries to match reward format
+          const leaderboard = entries.map((e, i) => ({
+            userId: e.userId?.replace?.('...', '') || e.odlUserId || `user_${i}`,
+            score: e.points,
+            rank: i + 1
+          }));
+
+          const rewards = calculateRewards(leaderboard, ARENA_REWARDS);
+          const result = await distributeRewards(rewards);
+
+          await markDistributed(weekKey, 'arena', {
+            totalEntries,
+            winnersCount: rewards.length,
+            ...result
+          });
+
+          console.log(`✅ Arena rewards distributed: ${result.distributed} winners, ${result.totalScans} total scans`);
+        } else {
+          await markDistributed(weekKey, 'arena', { totalEntries: 0, winnersCount: 0, totalScans: 0 });
+          console.log(`⚔️ No arena entries for ${weekKey}`);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Arena reward distribution failed:', error);
+    }
+  }
+
+  console.log(`\n🎁 Reward distribution check complete\n`);
+}
+
+// Check every minute for midnight UTC
+setInterval(checkAndDistributeRewards, 60 * 1000);
+
+// Also run once on startup (in case server restarted right after midnight)
+setTimeout(checkAndDistributeRewards, 5000);
+
+console.log('🎁 Reward distribution scheduler initialized (checks every minute for midnight UTC)');
+
 export default app;
