@@ -1098,16 +1098,19 @@ RULES:
 
 📊 SCORING DISTRIBUTION (USE THE FULL RANGE!):
 - CRITICAL: Do NOT cluster all scores at 85-95. Use the FULL 0-100 range!
+- ANTI-CLUSTERING RULE: NEVER give the same score twice in a row. Add randomness!
+- If you're about to give 90-93, STOP and reconsider: is this REALLY exceptional? Try 75-85 instead.
 - Target distribution: 10% under 60 | 25% in 60-75 | 40% in 75-88 | 20% in 88-94 | 5% at 95+
 - "Good outfit" = 70-79 (not 88!)
 - "Great outfit" = 80-87 
-- "Exceptional outfit" = 88-94 (genuinely impressive styling)
+- "Exceptional outfit" = 88-94 (genuinely impressive, top 15%)
 - "Legendary" = 95+ (maybe 1 in 20 outfits - truly perfect)
 - Average well-dressed person = 72-78
 - Professional model-quality styling = 85-92
 - If you'd score something 90+, ask: "Is this REALLY top 10%?" If not, score it 80-88.
-- Nice Mode: Be encouraging in WORDS but honest in SCORES. You can hype a 75 outfit!
-- Decimal precision matters: use 73.4 not 73.0
+- Nice Mode: Be encouraging in WORDS but honest in SCORES. You can hype a 68 outfit with positive language!
+- VARIATION IS KEY: Even similar outfits should get scores 5-15 points apart. Use decimals for variety.
+- Decimal precision matters: use scores like 73.4, 81.7, 76.2 - NOT round numbers!
 
 🏷️ EMOJI RULES (verdict only):
 - 95+: End with 👑 or 💎 or 🔥
