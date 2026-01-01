@@ -12,7 +12,8 @@ import {
     OUTPUT_LENGTHS,
     VIRALITY_HOOKS,
     getViralityHooks,
-    BATTLE_SCORING_INSTRUCTIONS
+    BATTLE_SCORING_INSTRUCTIONS,
+    getDynamicTemperature
 } from '../config/systemPrompt.js';
 
 // Create the full prompt for Gemini (Free tier)
@@ -81,8 +82,10 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
     console.log(`[${requestId}] Starting Gemini analysis (mode: ${mode})`);
     console.log(`[${requestId}] Image data length: ${base64Data.length}`);
 
-    // Use higher temperature in battle mode for more varied scoring
-    const temperature = battleMode ? 0.9 : 0.7;
+    // Dynamic temperature based on mode (battle mode gets extra boost)
+    const baseTemp = getDynamicTemperature(mode);
+    const temperature = battleMode ? Math.min(baseTemp + 0.15, 1.1) : baseTemp;
+    console.log(`[${requestId}] Using dynamic temperature: ${temperature.toFixed(2)} (mode: ${mode}, battle: ${battleMode})`);
 
     const requestBody = {
         contents: [{
@@ -241,7 +244,14 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                         mode: mode,
                         roastMode: mode === 'roast',
                         shareHook: parsed.shareHook || modeConfig?.shareHook,
-                        virality_hooks: parsed.virality_hooks || viralityHooks
+                        virality_hooks: parsed.virality_hooks || viralityHooks,
+                        // 🎁 SURPRISE BONUS FIELDS (randomly generated ~10% chance each)
+                        outfitFortune: parsed.outfitFortune || null,
+                        outfitLore: parsed.outfitLore || null,
+                        outfitSoundtrack: parsed.outfitSoundtrack || null,
+                        outfitEnemy: parsed.outfitEnemy || null,
+                        outfitDatingApp: parsed.outfitDatingApp || null,
+                        outfitPowerMove: parsed.outfitPowerMove || null
                     }
                 };
             } catch (error) {

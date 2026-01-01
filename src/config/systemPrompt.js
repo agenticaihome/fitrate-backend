@@ -839,6 +839,160 @@ function getRandomCelebMatches() {
     return { male: shuffledMale, female: shuffledFemale };
 }
 
+// ============================================
+// 🎲 VARIETY SYSTEM - Makes Each Scan Feel Different
+// ============================================
+
+/**
+ * SURPRISE FIELDS - Random bonus content (15% chance each)
+ * These add unexpected delight that users screenshot
+ */
+const SURPRISE_FIELDS = [
+    {
+        field: 'outfitFortune',
+        chance: 0.12,
+        instruction: 'Add "outfitFortune": a cryptic 1-sentence prediction about their fashion future',
+        examples: ['A belt you ignore will save a future outfit', 'Someone will steal this look. Let them.']
+    },
+    {
+        field: 'outfitLore',
+        chance: 0.10,
+        instruction: 'Add "outfitLore": a dramatic backstory for the outfit as if it has history',
+        examples: ['This jacket survived a breakup and came out stronger', 'These shoes have walked away from drama before']
+    },
+    {
+        field: 'outfitSoundtrack',
+        chance: 0.10,
+        instruction: 'Add "outfitSoundtrack": name 1 song that plays when they walk in wearing this',
+        examples: ['This fit plays: "Levitating" - Dua Lipa', 'Walking in to: "HUMBLE." - Kendrick Lamar']
+    },
+    {
+        field: 'outfitEnemy',
+        chance: 0.08,
+        instruction: 'Add "outfitEnemy": what outfit/style is the sworn enemy of this look',
+        examples: ['This outfit\'s mortal enemy: cargo shorts with sandals', 'Natural rival: anything beige']
+    },
+    {
+        field: 'outfitDatingApp',
+        chance: 0.09,
+        instruction: 'Add "outfitDatingApp": a 1-sentence dating app bio written BY the outfit',
+        examples: ['Looking for someone who appreciates layering', 'Will definitely steal your hoodies']
+    },
+    {
+        field: 'outfitPowerMove',
+        chance: 0.08,
+        instruction: 'Add "outfitPowerMove": the one confidence move this outfit enables',
+        examples: ['Unlocked: walking slow on purpose', 'New ability: ignoring DMs']
+    }
+];
+
+/**
+ * Get random surprise fields to inject (each has independent chance)
+ * Returns array of fields that "hit" based on probability
+ */
+function getSurpriseFields() {
+    const activated = SURPRISE_FIELDS.filter(f => Math.random() < f.chance);
+    return activated;
+}
+
+/**
+ * TIME-AWARE RESPONSES - Different energy based on time of day
+ */
+function getTimeContext() {
+    const hour = new Date().getUTCHours();
+
+    if (hour >= 5 && hour < 12) {
+        return {
+            period: 'morning',
+            injection: '☀️ MORNING ENERGY: They woke up and got dressed. That already deserves acknowledgment. Vibe: fresh start.',
+            examples: ['Bold choice for pre-coffee', 'Morning main character energy']
+        };
+    } else if (hour >= 12 && hour < 17) {
+        return {
+            period: 'afternoon',
+            injection: '🌤️ AFTERNOON ENERGY: They\'re IN IT. The day is happening. Judge accordingly.',
+            examples: ['Surviving the day in style', 'Peak productivity fit']
+        };
+    } else if (hour >= 17 && hour < 21) {
+        return {
+            period: 'evening',
+            injection: '🌆 EVENING ENERGY: Transitional hour. Are they going OUT or going HOME? The outfit tells the story.',
+            examples: ['This fit has plans tonight', 'Day-to-night transition executed']
+        };
+    } else {
+        return {
+            period: 'night',
+            injection: '🌙 LATE NIGHT ENERGY: Nocturnal fashion hits different. More chaotic. More honest. Match the energy.',
+            examples: ['2 AM confidence unlocked', 'This outfit makes decisions']
+        };
+    }
+}
+
+/**
+ * GUEST VOICE INJECTION - 15% chance to channel a random personality
+ * Even in normal modes, sometimes inject a celebrity archetype voice
+ */
+const GUEST_VOICE_POOL = [
+    { name: 'The Angry Chef', style: 'Gordon Ramsay intensity - colorful metaphors, explosive passion', phrases: ['Bloody hell...', 'Finally! BEAUTIFUL.'] },
+    { name: 'The Chill Uncle', style: 'Snoop Dogg cool - laid-back, smooth wisdom drops', phrases: ['Nephew...', 'I ain\'t mad at it.'] },
+    { name: 'The Fashion Therapist', style: 'Dr. Phil meets Vogue - asks probing questions about choices', phrases: ['What were you THINKING?', 'Tell me about your relationship with this jacket.'] },
+    { name: 'The Overhyped Bestie', style: 'Maximum support energy - aggressive encouragement', phrases: ['EXCUSE ME?!', 'ARE YOU KIDDING ME RN?!', 'OBSESSED.'] },
+    { name: 'The Disappointed Parent', style: 'You\'re not mad, you\'re just disappointed', phrases: ['I expected more from you.', 'We talked about this.'] },
+    { name: 'The Art Critic', style: 'Pretentious gallery reviewer energy', phrases: ['Interesting.', 'I see what you were attempting.', 'This makes a statement, certainly.'] }
+];
+
+function getGuestVoice() {
+    if (Math.random() < 0.15) {
+        const guest = GUEST_VOICE_POOL[Math.floor(Math.random() * GUEST_VOICE_POOL.length)];
+        return {
+            active: true,
+            ...guest,
+            injection: `🎭 GUEST ENERGY: Channel "${guest.name}" vibes! Style: ${guest.style}. Phrases to work in: "${guest.phrases.join('", "')}"`
+        };
+    }
+    return { active: false };
+}
+
+/**
+ * DYNAMIC TEMPERATURE - Different modes need different creativity levels
+ * Returns a temperature value in the appropriate range for the mode
+ */
+const MODE_TEMP_RANGES = {
+    nice: [0.7, 0.85],
+    roast: [0.8, 0.95],
+    honest: [0.6, 0.75],
+    savage: [0.85, 1.0],
+    rizz: [0.75, 0.9],
+    celeb: [0.8, 0.95],
+    aura: [0.85, 1.0],
+    chaos: [0.95, 1.1],   // Highest for max unpredictability
+    y2k: [0.75, 0.9],
+    villain: [0.8, 0.95],
+    coquette: [0.7, 0.85],
+    hypebeast: [0.75, 0.9]
+};
+
+export function getDynamicTemperature(mode) {
+    const range = MODE_TEMP_RANGES[mode] || [0.7, 0.9];
+    return range[0] + Math.random() * (range[1] - range[0]);
+}
+
+/**
+ * EASTER EGG SCORES - Special responses for memorable numbers
+ */
+const EASTER_EGG_SCORES = {
+    69: { note: '( ͡° ͜ʖ ͡°) Nice number detected. You know what to do.' },
+    100: { note: '💯 PERFECT SCORE! This is RARE. Make the verdict legendary. Maximum celebration.' },
+    0: { note: '☠️ Zero. They actually hit zero. This is historic. Roast accordingly.' },
+    42: { note: '🌌 The answer to life, the universe, and everything. A cosmic outfit.' },
+    99: { note: '😤 So close to perfect. The ONE thing holding them back must be mentioned.' }
+};
+
+function getEasterEggNote(score) {
+    const rounded = Math.round(score);
+    return EASTER_EGG_SCORES[rounded] || null;
+}
+
 /**
  * Get score tier for emoji rules
  */
@@ -970,6 +1124,33 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
     // DIVERSITY: Random celebrity pools by gender for accurate matching
     const randomCelebPools = getRandomCelebMatches();
 
+    // ============================================
+    // 🎲 VARIETY SYSTEM - Inject randomness for fresh feels
+    // ============================================
+
+    // Time-aware context (morning/afternoon/evening/night energy)
+    const timeContext = getTimeContext();
+
+    // Guest voice injection (15% chance for bonus personality)
+    const guestVoice = getGuestVoice();
+
+    // Surprise fields (each has ~10% chance)
+    const surpriseFields = getSurpriseFields();
+
+    // Build variety injections
+    let varietyBlock = `\n⏰ TIME VIBE: ${timeContext.injection}\n`;
+
+    if (guestVoice.active) {
+        varietyBlock += `\n${guestVoice.injection}\n`;
+    }
+
+    if (surpriseFields.length > 0) {
+        varietyBlock += `\n🎁 BONUS FIELDS (Include these in your JSON!):\n`;
+        surpriseFields.forEach(sf => {
+            varietyBlock += `• ${sf.instruction} (Examples: "${sf.examples.join('", "')}")\n`;
+        });
+    }
+
     // Mode-specific config - pulls from rich MODE_CONFIGS for full comedic context
     // Mode-specific flavor comes through in verdict/line/itemRoasts - not separate JSON fields
     const modeConfig = MODE_CONFIGS[mode] || MODE_CONFIGS.nice;
@@ -1069,7 +1250,7 @@ CRITICAL FOR CELEB MODE:
 
     return `FitRate AI — Outfit Scorecard Generator (COMEDY EDITION)
 ${dailyChallengeBlock ? dailyChallengeBlock + '\n' : ''}${eventBlock ? eventBlock + '\n' : ''}${isPro ? 'PRO: High-fidelity analysis. Fill identityReflection + socialPerception.' : 'FREE: Punchy, viral-first.'}
-
+${varietyBlock}
 MODE: ${mode.toUpperCase()} — ${modeInstructions[mode]}
 ${getComedyTechniques(mode)}
 
