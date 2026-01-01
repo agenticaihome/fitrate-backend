@@ -16,6 +16,7 @@ import {
     respondToBattle
 } from '../services/battleService.js';
 import { compareBattleOutfits } from '../services/battleAnalyzer.js';
+import { PushService } from '../services/pushService.js';
 
 const router = express.Router();
 
@@ -256,6 +257,23 @@ router.post('/:battleId/respond', respondLimiter, async (req, res) => {
         // Submit response with responderId and photo
         const result = await respondToBattle(battleId, score, responderId, responderThumb || null);
         console.log(`[${requestId}] ✅ Response recorded: ${battleId} - status: completed`);
+
+        // PUSH NOTIFICATION: Notify the battle creator that someone responded
+        // This is non-blocking - we don't wait for push to complete
+        if (result.creatorId) {
+            const winnerEmoji = result.winner === 'creator' ? '👑' : result.winner === 'responder' ? '😅' : '⚔️';
+            const winnerText = result.winner === 'creator' ? 'You won!' : result.winner === 'responder' ? 'They beat you!' : 'Battle complete!';
+
+            PushService.sendNotification(result.creatorId, {
+                title: `${winnerEmoji} Battle Results Are In!`,
+                body: `Someone accepted your challenge! ${winnerText}`,
+                data: {
+                    type: 'battle_response',
+                    battleId,
+                    winner: result.winner
+                }
+            }).catch(err => console.log(`[${requestId}] Push notification failed (non-blocking):`, err.message));
+        }
 
         return res.status(200).json(result);
     } catch (error) {
