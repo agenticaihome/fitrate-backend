@@ -1,7 +1,9 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { EntitlementService } from '../services/entitlements.js';
-import { setProStatus } from '../middleware/scanLimiter.js';
+import { setProStatus, LIMITS } from '../middleware/scanLimiter.js';
+import { redis, isRedisAvailable } from '../services/redisClient.js';
+import { getPurchasedScans } from '../middleware/referralStore.js';
 
 const router = express.Router();
 
@@ -105,6 +107,61 @@ router.post('/add', adminLimiter, async (req, res) => {
 
     await EntitlementService.grantPro(null, email, 'admin_add');
     res.json({ success: true, email: email.toLowerCase().trim() });
+});
+
+/**
+ * Get server-side scan status (prevents cache bypass)
+ * GET /api/pro/scan-status?userId=xxx
+ * Returns: { scansUsed, scansLimit, purchasedScans, resetsAt }
+ * SECURITY: Returns counts only, no sensitive data
+ */
+router.get('/scan-status', async (req, res) => {
+    const { userId } = req.query;
+
+    if (!userId || userId.length < 16) {
+        return res.status(400).json({
+            success: false,
+            error: 'Valid userId required'
+        });
+    }
+
+    try {
+        // Get today's date for Redis key
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        const redisKey = `fitrate:scans:simple:${userId}:${today}`;
+
+        let scansUsed = 0;
+
+        if (isRedisAvailable()) {
+            const count = await redis.get(redisKey);
+            scansUsed = parseInt(count) || 0;
+        }
+
+        // Get purchased scans
+        const purchasedScans = await getPurchasedScans(userId);
+
+        // Calculate reset time (midnight UTC)
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        tomorrow.setHours(0, 0, 0, 0);
+
+        res.json({
+            success: true,
+            scansUsed,
+            scansLimit: LIMITS.free, // 2 for free users
+            purchasedScans: purchasedScans || 0,
+            resetsAt: tomorrow.toISOString(),
+            // Derived fields for frontend convenience
+            scansRemaining: Math.max(0, LIMITS.free - scansUsed),
+            canScan: scansUsed < LIMITS.free || purchasedScans > 0
+        });
+    } catch (err) {
+        console.error('[scan-status] Error:', err);
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get scan status'
+        });
+    }
 });
 
 export default router;
