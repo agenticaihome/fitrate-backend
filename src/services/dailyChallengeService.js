@@ -33,29 +33,52 @@ const RANK_TITLES = {
 };
 
 /**
- * Get today's date key (YYYY-MM-DD) in UTC
+ * EST offset in hours (Eastern Standard Time = UTC-5)
+ * Note: This doesn't account for DST. For EDT (summer), it would be UTC-4.
+ * Using fixed EST for consistency.
+ */
+const EST_OFFSET_HOURS = 5;
+
+/**
+ * Get the current time adjusted to EST
+ */
+function getESTDate() {
+    const now = new Date();
+    // Subtract 5 hours to convert UTC to EST
+    return new Date(now.getTime() - (EST_OFFSET_HOURS * 60 * 60 * 1000));
+}
+
+/**
+ * Get today's date key (YYYY-MM-DD) in EST
+ * Leaderboard resets at midnight EST
  */
 export function getTodayKey() {
-    return new Date().toISOString().split('T')[0];
+    return getESTDate().toISOString().split('T')[0];
 }
 
 /**
- * Get yesterday's date key (YYYY-MM-DD) in UTC
+ * Get yesterday's date key (YYYY-MM-DD) in EST
  */
 export function getYesterdayKey() {
-    const yesterday = new Date();
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-    return yesterday.toISOString().split('T')[0];
+    const estNow = getESTDate();
+    estNow.setUTCDate(estNow.getUTCDate() - 1);
+    return estNow.toISOString().split('T')[0];
 }
 
 /**
- * Get midnight UTC reset time for today
+ * Get midnight EST reset time for today (returned as UTC ISO string)
+ * This is when the next leaderboard reset will occur
  */
 export function getMidnightResetTime() {
-    const tomorrow = new Date();
-    tomorrow.setUTCDate(tomorrow.getUTCDate() + 1);
-    tomorrow.setUTCHours(0, 0, 0, 0);
-    return tomorrow.toISOString();
+    const now = new Date();
+    // Get tomorrow's date in EST
+    const estNow = getESTDate();
+    const tomorrowEST = new Date(estNow);
+    tomorrowEST.setUTCDate(tomorrowEST.getUTCDate() + 1);
+    tomorrowEST.setUTCHours(0, 0, 0, 0);
+    // Convert back to UTC by adding EST offset
+    const resetUTC = new Date(tomorrowEST.getTime() + (EST_OFFSET_HOURS * 60 * 60 * 1000));
+    return resetUTC.toISOString();
 }
 
 /**

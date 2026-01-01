@@ -27,10 +27,23 @@ const EVENT_ENTRIES_WEEKLY = 1;        // All users get 1 entry per week (Pro in
 const TOP_5_THUMBNAIL_LIMIT = 5;       // Only store thumbnails for top 5
 
 /**
- * Get today's date key (YYYY-MM-DD)
+ * EST offset in hours (Eastern Standard Time = UTC-5)
+ * All leaderboards reset at midnight EST
+ */
+const EST_OFFSET_HOURS = 5;
+
+/**
+ * Get the current time adjusted to EST
+ */
+function getESTDate(date = new Date()) {
+    return new Date(date.getTime() - (EST_OFFSET_HOURS * 60 * 60 * 1000));
+}
+
+/**
+ * Get today's date key (YYYY-MM-DD) in EST
  */
 function getTodayKey() {
-    return new Date().toISOString().split('T')[0];
+    return getESTDate().toISOString().split('T')[0];
 }
 
 // Default themes to rotate through
@@ -59,11 +72,13 @@ const RANK_TITLES = [
 ];
 
 /**
- * Get ISO week ID for a given date
+ * Get ISO week ID for a given date (EST-based)
  * Format: YYYY-Www (e.g., 2025-W51)
+ * Week boundaries are at midnight EST
  */
 export function getWeekId(date = new Date()) {
-    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const estDate = getESTDate(date);
+    const d = new Date(Date.UTC(estDate.getFullYear(), estDate.getMonth(), estDate.getDate()));
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
     const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
@@ -72,19 +87,21 @@ export function getWeekId(date = new Date()) {
 }
 
 /**
- * Get the start of the current week (Monday 00:00 UTC)
+ * Get the start of the current week (Monday 00:00 EST, returned as UTC)
  */
-function getWeekStart(date = new Date()) {
-    const d = new Date(date);
+export function getWeekStart(date = new Date()) {
+    const estDate = getESTDate(date);
+    const d = new Date(estDate);
     const day = d.getUTCDay();
     const diff = d.getUTCDate() - day + (day === 0 ? -6 : 1);
     d.setUTCDate(diff);
     d.setUTCHours(0, 0, 0, 0);
-    return d;
+    // Convert back to UTC by adding EST offset
+    return new Date(d.getTime() + (EST_OFFSET_HOURS * 60 * 60 * 1000));
 }
 
 /**
- * Get the end of the current week (Sunday 23:59:59 UTC)
+ * Get the end of the current week (Sunday 23:59:59 EST, returned as UTC)
  */
 function getWeekEnd(date = new Date()) {
     const start = getWeekStart(date);

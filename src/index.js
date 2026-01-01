@@ -198,8 +198,9 @@ async function checkAndDistributeRewards() {
   const utcDay = now.getUTCDay(); // 0 = Sunday, 1 = Monday
   const todayKey = now.toISOString().split('T')[0];
 
-  // Only run at 00:00-00:02 UTC (first 3 minutes of the day)
-  if (utcHour !== 0 || utcMinute > 2) return;
+  // Only run at 05:00-05:02 UTC (midnight EST = first 3 minutes)
+  // Note: Midnight EST = 5 AM UTC (EST is UTC-5)
+  if (utcHour !== 5 || utcMinute > 2) return;
 
   // Prevent multiple runs in same minute
   const checkKey = `${todayKey}-${utcMinute}`;
@@ -347,6 +348,6 @@ setInterval(checkAndDistributeRewards, 60 * 1000);
 // Also run once on startup (in case server restarted right after midnight)
 setTimeout(checkAndDistributeRewards, 5000);
 
-console.log('🎁 Reward distribution scheduler initialized (checks every minute for midnight UTC)');
+console.log('🎁 Reward distribution scheduler initialized (checks every minute for midnight EST / 5 AM UTC)');
 
 export default app;

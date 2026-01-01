@@ -28,15 +28,30 @@ const inMemoryLeaderboard = new Map(); // weekKey -> Map(userId -> points)
 const inMemoryProfiles = new Map(); // userId -> {displayName, createdAt, updatedAt}
 
 /**
- * Get the current week key for leaderboard storage
+ * EST offset in hours (Eastern Standard Time = UTC-5)
+ * Using fixed EST for consistency across all leaderboards.
+ */
+const EST_OFFSET_HOURS = 5;
+
+/**
+ * Get the current time adjusted to EST
+ */
+function getESTDate() {
+    const now = new Date();
+    return new Date(now.getTime() - (EST_OFFSET_HOURS * 60 * 60 * 1000));
+}
+
+/**
+ * Get the current week key for leaderboard storage (EST-based)
+ * Week resets at midnight EST Monday
  * @returns {string} Format: YYYY-WXX
  */
 function getWeekKey() {
-    const now = new Date();
-    const startOfYear = new Date(now.getFullYear(), 0, 1);
-    const days = Math.floor((now - startOfYear) / (24 * 60 * 60 * 1000));
+    const estNow = getESTDate();
+    const startOfYear = new Date(estNow.getFullYear(), 0, 1);
+    const days = Math.floor((estNow - startOfYear) / (24 * 60 * 60 * 1000));
     const week = Math.ceil((days + startOfYear.getDay() + 1) / 7);
-    return `${now.getFullYear()}-W${week.toString().padStart(2, '0')}`;
+    return `${estNow.getFullYear()}-W${week.toString().padStart(2, '0')}`;
 }
 
 /**
