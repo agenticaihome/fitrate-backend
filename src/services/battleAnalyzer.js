@@ -103,8 +103,8 @@ export async function compareBattleOutfits(image1Base64, image2Base64, options =
     };
 
     const models = [
-        config.gemini.model || 'gemini-2.0-flash',
-        'gemini-1.5-flash'
+        config.gemini.model || 'gemini-2.5-flash',  // Primary - fast and reliable
+        'gemini-2.0-flash'  // Fallback
     ];
 
     for (const modelName of models) {
