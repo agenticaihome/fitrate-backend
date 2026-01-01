@@ -15,11 +15,14 @@ import {
     getActivity,
     getParticipantCount,
     getUserWalks,
+    addReaction,
+    getUserReactions,
     VIBES,
     WALKS_FREE,
     WALKS_PRO
 } from '../services/fashionShowService.js';
 import { getProStatus } from '../middleware/scanLimiter.js';
+import { PushService } from '../services/pushService.js';
 
 const router = express.Router();
 
@@ -292,5 +295,55 @@ function formatTimeRemaining(ms) {
 
     return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 }
+
+/**
+ * POST /api/show/:showId/react
+ * Add a 🔥 reaction to an entry
+ */
+router.post('/:showId/react', async (req, res) => {
+    try {
+        const { showId } = req.params;
+        const { userId, targetUserId } = req.body;
+
+        if (!userId || !targetUserId) {
+            return res.status(400).json({ error: 'Missing userId or targetUserId' });
+        }
+
+        const result = await addReaction(showId, userId, targetUserId);
+
+        // Send push notification to target user (non-blocking)
+        PushService.sendNotification(targetUserId, {
+            title: '🔥 Someone liked your fit!',
+            body: 'Your outfit just got a reaction in the Fashion Show!',
+            data: { type: 'show_reaction', showId }
+        }).catch(err => console.log(`[FashionShow] Push failed (non-blocking):`, err.message));
+
+        res.json(result);
+    } catch (error) {
+        console.error('[FashionShow] React error:', error.message);
+        res.status(400).json({ error: error.message });
+    }
+});
+
+/**
+ * GET /api/show/:showId/my-reactions
+ * Get user's reactions in a show (for UI state restoration)
+ */
+router.get('/:showId/my-reactions', async (req, res) => {
+    try {
+        const { showId } = req.params;
+        const { userId } = req.query;
+
+        if (!userId) {
+            return res.status(400).json({ error: 'Missing userId' });
+        }
+
+        const reactions = await getUserReactions(showId, userId);
+        res.json({ reactions });
+    } catch (error) {
+        console.error('[FashionShow] My-reactions error:', error.message);
+        res.status(500).json({ error: 'Failed to get reactions' });
+    }
+});
 
 export default router;

@@ -75,6 +75,11 @@ function userWalksKey(showId, userId) {
     return `fashionshow:${showId}:walks:${userId}`;
 }
 
+// Reactions: Set of userIds who reacted to a specific entry
+function reactionsKey(showId, targetUserId) {
+    return `fashionshow:${showId}:reactions:${targetUserId}`;
+}
+
 // ============================================
 // TIME FORMATTING
 // ============================================
@@ -290,7 +295,7 @@ export async function joinShow(showId, userId, nickname, emoji = '😎') {
 /**
  * Get scoreboard for a show
  * @param {string} showId - Show ID
- * @returns {Array} Ranked entries
+ * @returns {Array} Ranked entries with reaction counts
  */
 export async function getScoreboard(showId) {
     if (!isRedisAvailable()) {
@@ -305,6 +310,9 @@ export async function getScoreboard(showId) {
         const entryData = JSON.parse(entries[i]);
         const score = parseFloat(entries[i + 1]);
 
+        // Get reaction count for this entry
+        const reactionCount = await redis.scard(reactionsKey(showId, entryData.userId));
+
         scoreboard.push({
             rank: Math.floor(i / 2) + 1,
             userId: entryData.userId,
@@ -313,7 +321,8 @@ export async function getScoreboard(showId) {
             score,
             verdict: entryData.verdict,
             walkedAt: entryData.walkedAt,
-            imageThumb: entryData.imageThumb || null  // Include outfit thumbnail
+            imageThumb: entryData.imageThumb || null,  // Include outfit thumbnail
+            reactionCount: reactionCount || 0  // 🔥 reaction count
         });
     }
 
@@ -450,6 +459,93 @@ export async function getUserWalks(showId, userId) {
     }
     const walks = await redis.get(userWalksKey(showId, userId));
     return parseInt(walks) || 0;
+}
+
+/**
+ * Add a 🔥 reaction to an entry
+ * @param {string} showId - Show ID
+ * @param {string} reactorUserId - User giving the reaction
+ * @param {string} targetUserId - User receiving the reaction
+ * @returns {Object} Result with new count
+ */
+export async function addReaction(showId, reactorUserId, targetUserId) {
+    if (!isRedisAvailable()) {
+        throw new Error('Reactions require Redis');
+    }
+
+    // Can't react to yourself
+    if (reactorUserId === targetUserId) {
+        throw new Error("Can't react to your own entry");
+    }
+
+    // Check if already reacted
+    const alreadyReacted = await redis.sismember(reactionsKey(showId, targetUserId), reactorUserId);
+    if (alreadyReacted) {
+        throw new Error('Already reacted to this entry');
+    }
+
+    // Add reaction
+    await redis.sadd(reactionsKey(showId, targetUserId), reactorUserId);
+
+    // Set TTL to match show
+    const showTTL = await redis.ttl(showKey(showId));
+    if (showTTL > 0) {
+        await redis.expire(reactionsKey(showId, targetUserId), showTTL);
+    }
+
+    // Get new count
+    const count = await redis.scard(reactionsKey(showId, targetUserId));
+
+    console.log(`[FashionShow] 🔥 Reaction: ${reactorUserId.slice(0, 8)} → ${targetUserId.slice(0, 8)} (now ${count} reactions)`);
+
+    return {
+        success: true,
+        reactionCount: count,
+        targetUserId
+    };
+}
+
+/**
+ * Get reaction count for an entry
+ */
+export async function getReactionCount(showId, targetUserId) {
+    if (!isRedisAvailable()) {
+        return 0;
+    }
+    return await redis.scard(reactionsKey(showId, targetUserId));
+}
+
+/**
+ * Check if user has reacted to an entry
+ */
+export async function hasUserReacted(showId, reactorUserId, targetUserId) {
+    if (!isRedisAvailable()) {
+        return false;
+    }
+    return await redis.sismember(reactionsKey(showId, targetUserId), reactorUserId) === 1;
+}
+
+/**
+ * Get all user's reactions in a show (for UI state)
+ */
+export async function getUserReactions(showId, userId) {
+    if (!isRedisAvailable()) {
+        return [];
+    }
+
+    // Get all entry userIds that this user has reacted to
+    // We need to scan through entries and check each one
+    const scoreboard = await getScoreboard(showId);
+    const reactedTo = [];
+
+    for (const entry of scoreboard) {
+        const hasReacted = await redis.sismember(reactionsKey(showId, entry.userId), userId);
+        if (hasReacted) {
+            reactedTo.push(entry.userId);
+        }
+    }
+
+    return reactedTo;
 }
 
 // Export constants for routes
