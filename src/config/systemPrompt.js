@@ -831,12 +831,12 @@ function getRandomCelebVoices(count = 5) {
 
 /**
  * Get random celebs from CELEBS list for diversity in celebMatch
- * Returns celebs from both genders for variety
+ * Returns SEPARATE male and female pools so AI can match to apparent gender
  */
-function getRandomCelebMatches(count = 6) {
-    const allCelebs = [...CELEBS.male, ...CELEBS.female];
-    const shuffled = [...allCelebs].sort(() => Math.random() - 0.5);
-    return shuffled.slice(0, count);
+function getRandomCelebMatches() {
+    const shuffledMale = [...CELEBS.male].sort(() => Math.random() - 0.5).slice(0, 6);
+    const shuffledFemale = [...CELEBS.female].sort(() => Math.random() - 0.5).slice(0, 6);
+    return { male: shuffledMale, female: shuffledFemale };
 }
 
 /**
@@ -967,9 +967,8 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
     // LEGENDARY: Random verdict style for variety
     const verdictStyle = getRandomVerdictStyle();
 
-    // DIVERSITY: Random celebrity voices and matches for variety
-    const randomCelebVoices = getRandomCelebVoices(5);
-    const randomCelebMatches = getRandomCelebMatches(8);
+    // DIVERSITY: Random celebrity pools by gender for accurate matching
+    const randomCelebPools = getRandomCelebMatches();
 
     // Mode-specific config - pulls from rich MODE_CONFIGS for full comedic context
     // Mode-specific flavor comes through in verdict/line/itemRoasts - not separate JSON fields
@@ -1092,8 +1091,10 @@ The line should make someone screenshot it. Be specific to what you SEE.
 RULES:
 - Score: XX.X (one decimal, not .0/.5). Must match mode tone.
 - color/fit/style subscores roughly average to overall (±10 allowed)
-- celebMatch: Pick from TODAY's celeb pool for variety: ${randomCelebMatches.join(', ')} (or similar trending 2024-2025 celebs that match the outfit)
-- DIVERSITY RULE: Don't default to the same celebs every time! Match the outfit's SPECIFIC vibe to a celeb.
+- celebMatch: CRITICAL - First detect if the person appears male or female, then pick from the matching pool:
+  * For male-presenting: ${randomCelebPools.male.join(', ')}
+  * For female-presenting: ${randomCelebPools.female.join(', ')}
+- DIVERSITY RULE: NEVER default to Timothée Chalamet or Zendaya. Match the outfit's SPECIFIC style/vibe to a celeb from today's pool.
 - MOST IMPORTANT: Every response should be so good they screenshot it
 
 📊 SCORING DISTRIBUTION (USE THE FULL RANGE!):

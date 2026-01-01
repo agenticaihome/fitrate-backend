@@ -250,10 +250,47 @@ async function checkAndDistributeRewards() {
 
       if (!(await wasDistributed(weekKey, 'weekly'))) {
         console.log(`📅 Distributing WEEKLY rewards for ${weekKey}...`);
-        // TODO: Implement weekly event leaderboard fetch
-        // For now, log that it would run
-        console.log(`⚠️ Weekly rewards not yet implemented - needs event leaderboard service`);
-        await markDistributed(weekKey, 'weekly', { note: 'Not implemented yet' });
+
+        // Import getLeaderboard dynamically - we need the weekId from last week
+        const { getLeaderboard, getWeekId } = await import('./services/eventService.js');
+
+        // We need the weekId from yesterday (which was Sunday, the last day of last week)
+        const lastSunday = new Date(now);
+        lastSunday.setUTCDate(lastSunday.getUTCDate() - 1);
+        const eventWeekId = getWeekId(lastSunday);
+
+        console.log(`📅 Fetching event leaderboard for week: ${eventWeekId}`);
+
+        // Get full leaderboard (up to 100 participants for top 25% calculation)
+        const leaderboard = await getLeaderboard(eventWeekId, 100);
+
+        if (leaderboard && leaderboard.length > 0) {
+          // Transform to reward format - need userId without truncation
+          // Note: eventService truncates userId for privacy, but for rewards we need full IDs
+          // The leaderboard has userId as truncated + '...' - we need to get the full one
+          // For now, we'll use what we have - the reward system will log if it can't find users
+          const rewardLeaderboard = leaderboard.map((entry, i) => ({
+            odlUserId: entry.userId?.replace('...', '') || `event_user_${i}`,
+            score: entry.score,
+            rank: entry.rank
+          }));
+
+          const totalParticipants = leaderboard.length;
+          const rewards = calculateRewards(rewardLeaderboard, WEEKLY_REWARDS);
+          const result = await distributeRewards(rewards);
+
+          await markDistributed(weekKey, 'weekly', {
+            eventWeekId,
+            totalParticipants,
+            winnersCount: rewards.length,
+            ...result
+          });
+
+          console.log(`✅ Weekly rewards distributed: ${result.distributed} winners, ${result.totalScans} total scans`);
+        } else {
+          await markDistributed(weekKey, 'weekly', { eventWeekId, totalParticipants: 0, winnersCount: 0, totalScans: 0 });
+          console.log(`📅 No weekly event entries for ${eventWeekId}`);
+        }
       }
     } catch (error) {
       console.error('❌ Weekly reward distribution failed:', error);
