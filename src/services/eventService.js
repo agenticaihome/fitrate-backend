@@ -21,9 +21,9 @@ const FREE_ENTRIES_PREFIX = 'fitrate:event:free:';  // Track free user weekly en
 const PRO_ENTRIES_PREFIX = 'fitrate:event:pro:';    // Track pro user daily entries
 const THUMBS_PREFIX = 'fitrate:event:thumbs:';       // Store outfit thumbnails (top 5 only)
 
-// Freemium limits
+// Freemium limits - NOW SAME FOR EVERYONE
 const FREE_EVENT_ENTRIES_WEEKLY = 1;   // Free users get 1 entry per week
-const PRO_EVENT_ENTRIES_WEEKLY = 5;    // Pro users get 5 entries per week
+const EVENT_ENTRIES_WEEKLY = 1;        // All users get 1 entry per week (Pro included)
 const TOP_5_THUMBNAIL_LIMIT = 5;       // Only store thumbnails for top 5
 
 /**
@@ -341,11 +341,12 @@ async function markFreeUserEntry(userId, weekId) {
 
 /**
  * Check if a Pro user can submit to the event this week
+ * NOW SAME AS FREE: 1 entry per week for everyone
  * Returns { canSubmit: boolean, entriesUsed: number, entriesLimit: number, entriesRemaining: number }
  */
 export async function canProUserSubmit(userId) {
     if (!userId || !isRedisAvailable()) {
-        return { canSubmit: true, entriesUsed: 0, entriesLimit: PRO_EVENT_ENTRIES_WEEKLY, entriesRemaining: PRO_EVENT_ENTRIES_WEEKLY };
+        return { canSubmit: true, entriesUsed: 0, entriesLimit: EVENT_ENTRIES_WEEKLY, entriesRemaining: EVENT_ENTRIES_WEEKLY };
     }
 
     const weekId = getWeekId();
@@ -353,10 +354,10 @@ export async function canProUserSubmit(userId) {
     const entriesUsed = parseInt(await redis.get(proEntryKey)) || 0;
 
     return {
-        canSubmit: entriesUsed < PRO_EVENT_ENTRIES_WEEKLY,
+        canSubmit: entriesUsed < EVENT_ENTRIES_WEEKLY,
         entriesUsed,
-        entriesLimit: PRO_EVENT_ENTRIES_WEEKLY,
-        entriesRemaining: Math.max(0, PRO_EVENT_ENTRIES_WEEKLY - entriesUsed)
+        entriesLimit: EVENT_ENTRIES_WEEKLY,
+        entriesRemaining: Math.max(0, EVENT_ENTRIES_WEEKLY - entriesUsed)
     };
 }
 
