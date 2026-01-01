@@ -1124,6 +1124,9 @@ export function buildSystemPrompt(tier, mode, securityContext = {}, eventContext
     // DIVERSITY: Random celebrity pools by gender for accurate matching
     const randomCelebPools = getRandomCelebMatches();
 
+    // CELEB MODE: Get random celebrity voices for variety
+    const randomCelebVoices = getRandomCelebVoices();
+
     // ============================================
     // 🎲 VARIETY SYSTEM - Inject randomness for fresh feels
     // ============================================
