@@ -21,6 +21,7 @@ import leaderboardRoutes from './routes/leaderboard.js';
 import showRoutes from './routes/show.js';
 import battleRoutes from './routes/battle.js';
 import matchmakingRoutes from './routes/matchmaking.js';  // Global Arena
+import wardrobeRoutes from './routes/wardrobe.js';        // Wardrobe Wars
 
 // Security middleware
 import { validateOrigin, costTracker } from './middleware/apiKeyAuth.js';
@@ -151,6 +152,7 @@ app.use('/api/streak', streakRoutes);        // Daily streak system
 app.use('/api/leaderboard', leaderboardRoutes);  // Today's Top Fits
 app.use('/api/battle', battleRoutes);         // 1v1 Outfit Battles
 app.use('/api/arena', matchmakingRoutes);     // Global Arena Matchmaking
+app.use('/api/wardrobe', wardrobeRoutes);     // Wardrobe Wars
 
 // 404 handler
 app.use((req, res) => {
