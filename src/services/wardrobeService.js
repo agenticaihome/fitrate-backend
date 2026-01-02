@@ -69,8 +69,9 @@ export async function saveWardrobe(userId, outfits, displayName = 'Anonymous') {
     if (isRedisAvailable()) {
         const key = `wardrobe:${userId}`;
         await redis.hset(key, wardrobeData);
-        // Wardrobes persist for 7 days
-        await redis.expire(key, 60 * 60 * 24 * 7);
+        // PRIVACY: Wardrobes only persist for queue duration + buffer (5 min)
+        // Photos are deleted when leaving queue or when queue expires
+        await redis.expire(key, QUEUE_TTL + 180);
 
         console.log(`[Wardrobe] Saved ${cleanOutfits.length} outfits for ${userId.slice(0, 12)}`);
         return { success: true, outfitCount: cleanOutfits.length };
@@ -354,8 +355,11 @@ export async function pollWardrobeMatch(userId) {
         const waitTime = Math.floor((Date.now() - joinedAt) / 1000);
 
         if (waitTime > QUEUE_TTL) {
+            // PRIVACY: Delete photos when queue expires without match
             await redis.del(userKey);
+            await redis.del(`wardrobe:${userId}`);
             await redis.zrem('wardrobe_queue', userId);
+            console.log(`[Wardrobe] Queue expired, deleted photos for ${userId.slice(0, 12)}`);
             return { status: 'expired' };
         }
 
@@ -406,7 +410,10 @@ export async function pollWardrobeMatch(userId) {
         // Check expiration
         const waitTime = Math.floor((Date.now() - userData.joinedAt) / 1000);
         if (waitTime > QUEUE_TTL) {
+            // PRIVACY: Delete photos when queue expires without match
             inMemoryQueue.delete(userId);
+            inMemoryWardrobes.delete(userId);
+            console.log(`[Wardrobe] Queue expired, deleted photos for ${userId.slice(0, 12)}`);
             return { status: 'expired' };
         }
 
@@ -427,8 +434,13 @@ export async function leaveWardrobeQueue(userId) {
     if (isRedisAvailable()) {
         await redis.zrem('wardrobe_queue', userId);
         await redis.del(`wardrobe_queue_user:${userId}`);
+        // PRIVACY: Delete photos when leaving queue
+        await redis.del(`wardrobe:${userId}`);
+        console.log(`[Wardrobe] User left queue, deleted photos for ${userId.slice(0, 12)}`);
     } else {
         inMemoryQueue.delete(userId);
+        // PRIVACY: Delete photos when leaving queue
+        inMemoryWardrobes.delete(userId);
     }
     return { success: true };
 }
