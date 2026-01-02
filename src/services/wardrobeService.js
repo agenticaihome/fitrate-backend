@@ -11,6 +11,7 @@
 
 import { redis, isRedisAvailable } from './redisClient.js';
 import { v4 as uuidv4 } from 'uuid';
+import { recordArenaScore } from './arenaLeaderboardService.js';
 
 // In-memory fallback
 const inMemoryWardrobes = new Map(); // userId → { outfits, displayName, updatedAt }
@@ -273,6 +274,28 @@ async function createWardrobeBattle(userId1, userId2) {
         status: 'complete'
     };
 
+    // Calculate points
+    const POINTS_WIN = 15;
+    const POINTS_LOSS = 3;
+    const POINTS_TIE = 5;
+
+    let points1 = POINTS_LOSS;
+    let points2 = POINTS_LOSS;
+
+    if (winner === 'user1') {
+        points1 = POINTS_WIN;
+    } else if (winner === 'user2') {
+        points2 = POINTS_WIN;
+    } else {
+        points1 = POINTS_TIE;
+        points2 = POINTS_TIE;
+    }
+
+    // Award points immediately
+    // no await to not block the response
+    recordArenaScore(userId1, points1).catch(err => console.error('Failed to record score u1', err));
+    recordArenaScore(userId2, points2).catch(err => console.error('Failed to record score u2', err));
+
     if (isRedisAvailable()) {
         await redis.hset(`wardrobe_battle:${battleId}`, {
             ...battleData,
@@ -328,6 +351,12 @@ export async function pollWardrobeMatch(userId) {
                 const isUser1 = battleData.user1Id === userId;
                 const result = battleData.winner === 'tie' ? 'tie' :
                     (battleData.winner === 'user1' && isUser1) || (battleData.winner === 'user2' && !isUser1) ? 'win' : 'loss';
+
+                // Award leaderboard points if not already awarded for this user
+                // (We check a flag in redis/memory to ensure we only award once per battle view)
+                // Actually, safer to award when CREATING the battle to ensure atomic scoring
+                // But we want to award points only when they see the result? No, award immediately on conclusion.
+                // Re-implementation: see createWardrobeBattle
 
                 return {
                     status: 'matched',

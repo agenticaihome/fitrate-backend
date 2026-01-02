@@ -208,6 +208,48 @@ const leaderboardLimiter = rateLimit({
     legacyHeaders: false,
 });
 
+const scoreLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 10, // 10 per minute per user (limit abuse)
+    message: { error: true, code: 'RATE_LIMITED', message: 'Too many requests.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+/**
+ * POST /api/arena/record-score
+ * Record scores for client-side games (KOTH)
+ * Trusted endpoint - rate limited to prevent abuse
+ */
+router.post('/record-score', scoreLimiter, async (req, res) => {
+    const requestId = `arena_score_${Date.now()}`;
+
+    try {
+        const { userId, points, source } = req.body;
+
+        if (!userId) {
+            return res.status(400).json({ error: true, message: 'userId is required' });
+        }
+
+        if (!points || typeof points !== 'number' || points <= 0 || points > 100) {
+            return res.status(400).json({ error: true, message: 'Points must be 1-100' });
+        }
+
+        if (!source || typeof source !== 'string') {
+            return res.status(400).json({ error: true, message: 'Source is required (e.g. koth:claim)' });
+        }
+
+        console.log(`[${requestId}] 🏆 Recording score for ${userId.slice(0, 8)}: +${points}pts (${source})`);
+
+        const result = await recordArenaScore(userId, points);
+        return res.status(200).json({ success: true, ...result });
+
+    } catch (error) {
+        console.error(`[${requestId}] Error recording score:`, error.message);
+        return res.status(500).json({ error: true, message: 'Failed to record score' });
+    }
+});
+
 /**
  * GET /api/arena/leaderboard
  * Get weekly arena leaderboard (top 50 + user's rank)
