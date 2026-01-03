@@ -570,21 +570,23 @@ export async function recordEventScore(userId, score, themeCompliant, isPro, ima
 
     const currentScore = extractRealScore(parseFloat(currentComposite));
 
-    if (score > currentScore) {
+    // Compare using finalScore (rounded for free users) for consistency
+    if (finalScore > currentScore) {
         // New personal best
-        const composite = createCompositeScore(score, timestamp);
+        const composite = createCompositeScore(finalScore, timestamp);
         await redis.zadd(scoresKey, composite, userId);
 
         const entryJson = await redis.get(entryKey);
         const entry = entryJson ? JSON.parse(entryJson) : {};
-        entry.bestScore = score;
+        entry.bestScore = finalScore;
+        entry.originalScore = score;  // Keep original for reference
         entry.themeCompliant = themeCompliant;
         entry.bestSubmissionAt = now;
         entry.submissionCount = (entry.submissionCount || 0) + 1;
         entry.isPro = isPro;
         await redis.set(entryKey, JSON.stringify(entry));
 
-        console.log(`📈 Score improved: ${userId.slice(0, 8)}... ${currentScore} → ${score}`);
+        console.log(`📈 Score improved: ${userId.slice(0, 8)}... ${currentScore} → ${finalScore}${!isPro ? ' (rounded)' : ''}`);
 
         const rank = await getUserRank(weekId, userId);
 
@@ -597,7 +599,7 @@ export async function recordEventScore(userId, score, themeCompliant, isPro, ima
         // Cleanup thumbnails for users no longer in top 5
         await cleanupNonTop5Thumbnails(weekId);
 
-        return { action: 'improved', oldScore: currentScore, newScore: score, rank };
+        return { action: 'improved', oldScore: currentScore, newScore: finalScore, rank };
     }
 
     // Score not better — just increment count
