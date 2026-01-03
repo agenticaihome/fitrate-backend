@@ -21,6 +21,20 @@ export const SCAN_LIMITS = {
     pro: { base: 25, packs: [5, 15, 50] }
 };
 
+// === FREE TIER DAILY LIMITS ===
+// These limits apply to free users only. Pro users have unlimited access.
+export const FREE_TIER_LIMITS = {
+    ARENA_BATTLES_DAILY: 5,       // 5 arena battles per day
+    WARDROBE_BATTLES_DAILY: 1,    // 1 wardrobe war per day
+    KOTH_ATTEMPTS_DAILY: 3,       // 3 KOTH challenge attempts per day
+    DAILY_CHALLENGE_ENTRIES: 3    // 3 daily challenge entries (currently 1, but prepared for future)
+};
+
+// === MODE ACCESS CONTROL ===
+// Defines which modes are available to free vs pro users
+export const FREE_MODES = ['nice', 'roast', 'honest', 'chaos', 'coquette', 'hypebeast'];
+export const PRO_MODES = ['savage', 'rizz', 'celeb', 'aura', 'y2k', 'villain'];
+
 // === BATTLE MODE SCORING (High Variance) ===
 // Used when scoring outfits for 1v1 battles - maximizes score differentiation
 export const BATTLE_SCORING_INSTRUCTIONS = `
@@ -84,7 +98,7 @@ export const MODE_CONFIGS = {
         challenge: 'Start a chain for referral rewards! 🔥'
     },
     honest: {
-        name: 'Honest', tier: 'pro', scoreRange: [0, 100], emojis: '🧠📊💡',
+        name: 'Honest', tier: 'free', scoreRange: [0, 100], emojis: '🧠📊💡',
         tone: 'Fashion editor giving private, off-the-record feedback',
         goal: 'Be the fashion friend everyone wishes they had - someone who tells the TRUTH without being cruel. Analyze like a stylist: proportions, color theory, fit quality, style cohesion. Use technical terms but explain them. "The high-waist is elongating your legs - that\'s working." Be constructive: every critique comes with a fix.',
         techniques: [
@@ -135,7 +149,7 @@ export const MODE_CONFIGS = {
         challenge: 'Compare auras with friends! ✨'
     },
     chaos: {
-        name: 'Chaos', tier: 'pro', scoreRange: [0, 100], emojis: '🎪🤡🌀',
+        name: 'Chaos', tier: 'free', scoreRange: [0, 100], emojis: '🎪🤡🌀',
         tone: 'Unhinged AI having an existential crisis about fashion',
         goal: 'Full Tim Robinson "I Think You Should Leave" energy. Go on tangents. Create lore about this outfit. Ask questions that don\'t need answers. "This outfit has a secret. It won\'t tell me. I\'ve asked." Reference things that don\'t exist. Break the fourth wall. The goal is CONFUSION mixed with laughter.',
         techniques: ['surreal-tangent', 'lore-creation', 'fourth-wall-break', 'existential-observation', 'confident-nonsense'],
@@ -143,7 +157,7 @@ export const MODE_CONFIGS = {
         challenge: 'Dare friends to survive chaos! 🌀'
     },
     y2k: {
-        name: 'Y2K', tier: 'free', scoreRange: [0, 100], emojis: '💎🦋✨',
+        name: 'Y2K', tier: 'pro', scoreRange: [0, 100], emojis: '💎🦋✨',
         tone: 'Paris Hilton hosting a fashion show at the 2003 VMAs',
         goal: 'Rate like it\'s the early 2000s and you\'re a celebrity judging who gets into Hyde. Use specific Y2K criteria - this isn\'t just nostalgia, it\'s a CHECKLIST. Reference specific Y2K icons: Paris, Nicole, Lindsay, the Olsen twins, early Britney. Vocabulary: "that\'s hot," "loves it," "so not," "random."',
         techniques: [
@@ -162,7 +176,7 @@ export const MODE_CONFIGS = {
         challenge: 'Challenge your BFF to a Y2K-off! 🦋'
     },
     villain: {
-        name: 'Villain', tier: 'free', scoreRange: [0, 100], emojis: '🖤🦹👿',
+        name: 'Villain', tier: 'pro', scoreRange: [0, 100], emojis: '🖤🦹👿',
         tone: 'A fashion critic who only respects those with PRESENCE',
         goal: 'Rate for main villain energy - the person who walks in and the protagonist becomes a side character. Identify their villain ARCHETYPE: Corporate Villain (power suits, sharp shoulders)? Disney Villain (dramatic, theatrical, bold colors)? Anime Villain (asymmetric, avant-garde, mysterious)? Gothic Villain (all black, leather, chains)? Give them their villain title.',
         techniques: [

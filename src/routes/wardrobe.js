@@ -19,6 +19,8 @@ import {
     leaveWardrobeQueue,
     getWardrobeStats
 } from '../services/wardrobeService.js';
+import { recordAction } from '../services/dailyLimitsService.js';
+import { FREE_TIER_LIMITS } from '../config/systemPrompt.js';
 
 const router = express.Router();
 
@@ -156,6 +158,20 @@ router.post('/join', joinLimiter, async (req, res) => {
             });
         }
 
+        // Check daily wardrobe battle limit for free users
+        const limitCheck = await recordAction('wardrobe', userId);
+        if (!limitCheck.allowed) {
+            console.log(`[${requestId}] ⛔ User ${userId.slice(0, 12)} hit wardrobe daily limit: ${limitCheck.used}/${limitCheck.limit}`);
+            return res.status(403).json({
+                error: true,
+                code: 'DAILY_LIMIT_REACHED',
+                message: `You've used your ${FREE_TIER_LIMITS.WARDROBE_BATTLES_DAILY} free Wardrobe War today. Upgrade to Pro for unlimited battles!`,
+                used: limitCheck.used,
+                limit: limitCheck.limit,
+                isPro: false
+            });
+        }
+
         const result = await joinWardrobeQueue(userId, displayName);
 
         if (result.status === 'error') {
@@ -166,7 +182,16 @@ router.post('/join', joinLimiter, async (req, res) => {
             });
         }
 
-        console.log(`[${requestId}] User ${userId.slice(0, 12)} joined Wardrobe Wars queue: ${result.status}`);
+        // Include limit info in response
+        result.dailyLimits = {
+            wardrobe: {
+                used: limitCheck.used,
+                limit: limitCheck.isPro ? 'unlimited' : limitCheck.limit,
+                remaining: limitCheck.isPro ? 'unlimited' : limitCheck.remaining
+            }
+        };
+
+        console.log(`[${requestId}] User ${userId.slice(0, 12)} joined Wardrobe Wars queue: ${result.status} (battles: ${limitCheck.used}/${limitCheck.limit})`);
         return res.status(200).json(result);
 
     } catch (error) {
