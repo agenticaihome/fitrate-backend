@@ -12,6 +12,8 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
 import { joinQueue, pollForMatch, leaveQueue, getQueueStats } from '../services/matchmakingService.js';
+import { recordAction, canPerformAction, getAllLimitsStatus } from '../services/dailyLimitsService.js';
+import { FREE_TIER_LIMITS } from '../config/systemPrompt.js';
 
 const router = express.Router();
 
@@ -76,8 +78,31 @@ router.post('/join', joinLimiter, async (req, res) => {
             });
         }
 
+        // Check daily arena battle limit for free users
+        const limitCheck = await recordAction('arena', userId);
+        if (!limitCheck.allowed) {
+            console.log(`[${requestId}] ⛔ User ${userId.slice(0, 12)} hit arena daily limit: ${limitCheck.used}/${limitCheck.limit}`);
+            return res.status(403).json({
+                error: true,
+                code: 'DAILY_LIMIT_REACHED',
+                message: `You've used all ${FREE_TIER_LIMITS.ARENA_BATTLES_DAILY} free arena battles today. Upgrade to Pro for unlimited battles!`,
+                used: limitCheck.used,
+                limit: limitCheck.limit,
+                isPro: false
+            });
+        }
+
         const result = await joinQueue(userId, score, thumb || null, mode || 'nice');
-        console.log(`[${requestId}] ✅ User ${userId} joined queue: ${result.status}`);
+        console.log(`[${requestId}] ✅ User ${userId} joined queue: ${result.status} (battles: ${limitCheck.used}/${limitCheck.limit})`);
+
+        // Include limit info in response
+        result.dailyLimits = {
+            arena: {
+                used: limitCheck.used,
+                limit: limitCheck.isPro ? 'unlimited' : limitCheck.limit,
+                remaining: limitCheck.isPro ? 'unlimited' : limitCheck.remaining
+            }
+        };
 
         return res.status(200).json(result);
 
@@ -237,6 +262,22 @@ router.post('/record-score', scoreLimiter, async (req, res) => {
 
         if (!source || typeof source !== 'string') {
             return res.status(400).json({ error: true, message: 'Source is required (e.g. koth:claim)' });
+        }
+
+        // Check daily KOTH limit for free users (only for koth:claim source)
+        if (source.startsWith('koth:')) {
+            const limitCheck = await recordAction('koth', userId);
+            if (!limitCheck.allowed) {
+                console.log(`[${requestId}] ⛔ User ${userId.slice(0, 8)} hit KOTH daily limit: ${limitCheck.used}/${limitCheck.limit}`);
+                return res.status(403).json({
+                    error: true,
+                    code: 'DAILY_LIMIT_REACHED',
+                    message: `You've used all ${FREE_TIER_LIMITS.KOTH_ATTEMPTS_DAILY} free KOTH attempts today. Upgrade to Pro for unlimited plays!`,
+                    used: limitCheck.used,
+                    limit: limitCheck.limit,
+                    isPro: false
+                });
+            }
         }
 
         console.log(`[${requestId}] 🏆 Recording score for ${userId.slice(0, 8)}: +${points}pts (${source})`);
@@ -444,6 +485,43 @@ router.post('/claim-rewards', profileLimiter, async (req, res) => {
             error: true,
             code: 'INTERNAL_ERROR',
             message: 'Failed to claim rewards'
+        });
+    }
+});
+
+/**
+ * GET /api/arena/limits
+ * Get daily limits status for all game modes
+ */
+router.get('/limits', statsLimiter, async (req, res) => {
+    try {
+        const { userId } = req.query;
+
+        if (!userId) {
+            return res.status(400).json({
+                error: true,
+                code: 'INVALID_USER_ID',
+                message: 'userId is required'
+            });
+        }
+
+        const limits = await getAllLimitsStatus(userId);
+
+        // Add cache headers for 30 seconds
+        res.set('Cache-Control', 'private, max-age=30');
+
+        return res.status(200).json({
+            success: true,
+            ...limits,
+            resetsAt: new Date(new Date().setUTCHours(24, 0, 0, 0)).toISOString() // Next midnight UTC
+        });
+
+    } catch (error) {
+        console.error('Error getting limits status:', error.message);
+        return res.status(500).json({
+            error: true,
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to get limits'
         });
     }
 });

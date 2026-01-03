@@ -7,7 +7,8 @@ import { getReferralStats, consumeProRoast, hasProRoast, consumePurchasedScan, g
 import { getImageHash, getCachedResult, cacheResult } from '../services/imageHasher.js';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
 import { validateAndSanitizeImage, quickImageCheck } from '../utils/imageValidator.js';
-import { ERROR_MESSAGES, MODE_CONFIGS } from '../config/systemPrompt.js';
+import { ERROR_MESSAGES, MODE_CONFIGS, PRO_MODES } from '../config/systemPrompt.js';
+import { EntitlementService } from '../services/entitlements.js';
 import { getActiveEvent, recordEventScore, canFreeUserSubmit, canProUserSubmit } from '../services/eventService.js';
 import { sanitizeAIResponse, checkEventFreezeWindow } from '../utils/contentSanitizer.js';
 import { recordScan, getStreakDisplay, getMilestoneInfo } from '../middleware/streakStore.js';
@@ -151,20 +152,20 @@ router.post('/', scanLimiter, async (req, res) => {
       });
     }
 
-    // TEMPORARY: All modes available via Gemini - Pro tier check disabled
-    // TODO: Re-enable when Pro/GPT-4o subscriptions are configured:
-    // const isPro = req.scanInfo?.isPro;
-    // const hasPurchasedScans = req.scanInfo?.userId ? await getPurchasedScans(req.scanInfo.userId) > 0 : false;
-    // const hasProAccess = isPro || hasPurchasedScans;
-    // if (modeConfig.tier === 'pro' && !hasProAccess) {
-    //   console.log(`[${requestId}] Error: Pro-only mode requested by free user - ${mode}`);
-    //   return res.status(403).json({
-    //     success: false,
-    //     error: ERROR_MESSAGES.mode_restricted,
-    //     code: 'PRO_MODE_REQUIRED'
-    //   });
-    // }
-    const isPro = req.scanInfo?.isPro; // Keep for other logic that uses isPro
+    // Pro mode access control
+    const userId = req.scanInfo?.userId || req.body.userId;
+    const isPro = userId ? await EntitlementService.isPro(userId, null) : false;
+
+    // Check if user is trying to access a Pro-only mode
+    if (PRO_MODES.includes(mode) && !isPro) {
+      console.log(`[${requestId}] Error: Pro-only mode "${mode}" requested by free user`);
+      return res.status(403).json({
+        success: false,
+        error: 'This mode requires Pro subscription',
+        code: 'PRO_MODE_REQUIRED',
+        proModes: PRO_MODES
+      });
+    }
 
     // DAILY CHALLENGE: Check if user already entered today
     // Daily challenge is free for all, mode MUST be "nice", one entry per day
