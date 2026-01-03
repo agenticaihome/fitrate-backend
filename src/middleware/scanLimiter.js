@@ -456,38 +456,60 @@ export async function scanLimiter(req, res, next) {
         currentCount = data.count;
     }
 
+    // DUAL-KEY ENFORCEMENT: Check Fingerprint Usage
+    // This blocks users who clear cache (new userId) but are on the same device
+    const fingerprint = generateFingerprint(req);
+    const fpKey = `${SCAN_KEY_PREFIX}fp:${fingerprint}:${today}`;
+    let fingerprintCount = 0;
+
+    if (isRedisAvailable()) {
+        const fpVal = await redis.get(fpKey);
+        fingerprintCount = parseInt(fpVal) || 0;
+    } else {
+        // Fallback for local dev
+        const key = `fp:${fingerprint}:${today}`;
+        const data = scanStoreFallback.get(key) || { count: 0 };
+        fingerprintCount = data.count;
+    }
+
+    // The effective count is the HIGHER of the two
+    // If I clear cache, my userId count is 0, but my fingerprint count is 2 -> BLOCKED
+    const effectiveCount = Math.max(currentCount, fingerprintCount);
+
+    // Log if there's a discrepancy (exploit attempt detection)
+    if (fingerprintCount > currentCount) {
+        console.log(`[SCAN] ⚠️ Exploit detected: User ${userId.slice(0, 8)} has count ${currentCount} but fingerprint has ${fingerprintCount}`);
+    }
+
     // Check Pro status
     const isPro = await getProStatus(userId, ip);
     const limit = isPro ? LIMITS.pro : LIMITS.free;
 
-    // SIMPLIFIED: No more Pro Preview - just 2 free Gemini scans/day
-    // Pro scans are earned via referrals (handled by proRoasts in analyze route)
-
-    console.log(`[SCAN] userId:${userId.slice(0, 12)} count:${currentCount}/${limit} isPro:${isPro}`);
+    console.log(`[SCAN] userId:${userId.slice(0, 12)} count:${currentCount} fpCount:${fingerprintCount} effective:${effectiveCount}/${limit}`);
 
     // Check if daily limit reached
-    if (currentCount >= limit) {
+    if (effectiveCount >= limit) {
         // OVERFLOW MODEL: Check if user has purchased scans before blocking
         const purchasedScans = await getPurchasedScans(userId);
 
         if (purchasedScans > 0) {
-            // User has purchased scans - allow through and mark for consumption
-            console.log(`[SCAN] Daily limit reached but user has ${purchasedScans} purchased scans - allowing overflow`);
+            // User has purchased scans - allow through
+            console.log(`[SCAN] Limit reached (${effectiveCount}/${limit}) but has ${purchasedScans} purchased scans`);
             req.scanInfo = {
                 userId,
                 ip,
-                currentCount,
+                currentCount: effectiveCount,
                 limit,
                 isPro,
                 useProPreview: false,
-                usePurchasedScan: true,  // Flag to consume purchased scan in analyze.js
+                usePurchasedScan: true,
                 purchasedScansRemaining: purchasedScans
             };
             return next();
         }
 
         // No purchased scans - block the request
-        console.log(`[SCAN] BLOCKED - limit reached, no purchased scans`);
+        console.log(`[SCAN] BLOCKED - effective limit reached (${effectiveCount}/${limit})`);
         return res.status(429).json({
             success: false,
             error: isPro
@@ -496,30 +518,43 @@ export async function scanLimiter(req, res, next) {
             code: 'LIMIT_REACHED',
             limitReached: true,
             isPro,
-            scansUsed: currentCount,
+            scansUsed: effectiveCount,
             scansLimit: limit,
             purchasedScansRemaining: 0,
             resetTime: getResetTime()
         });
     }
 
-    // ATOMIC INCREMENT: Increment count NOW, before AI call
+    // ATOMIC INCREMENT: Increment BOTH counters
     // If AI fails, analyze.js will decrement using decrementScanSimple()
+    // We need to export a helper to decrement fingerprint too, or just accept the tiny loss on failure
     const newCount = await incrementScanSimple(userId);
-    console.log(`[SCAN] ATOMIC increment userId:${userId.slice(0, 12)} to ${newCount}/${limit}`);
+
+    // Also increment fingerprint counter
+    if (isRedisAvailable()) {
+        const newFpCount = await redis.incr(fpKey);
+        if (newFpCount === 1) await redis.expire(fpKey, 172800); // 48h
+    } else {
+        const key = `fp:${fingerprint}:${today}`;
+        const data = scanStoreFallback.get(key) || { count: 0 };
+        data.count += 1;
+        scanStoreFallback.set(key, data);
+    }
+
+    console.log(`[SCAN] Incremented userId:${userId.slice(0, 12)} to ${newCount}, FP to ${fingerprintCount + 1}`);
 
     // Attach info for route handler
     const purchasedScans = await getPurchasedScans(userId);
     req.scanInfo = {
         userId,
         ip,
-        currentCount: newCount, // Now reflects the NEW count after increment
+        currentCount: Math.max(newCount, fingerprintCount + 1), // Use new max
         limit,
         isPro,
         useProPreview: false,
         usePurchasedScan: false,
         purchasedScansRemaining: purchasedScans,
-        scanIncremented: true // Flag for analyze.js to know it should decrement on failure
+        scanIncremented: true
     };
     next();
 }
