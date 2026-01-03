@@ -58,11 +58,13 @@ export function getTodayKey() {
 
 /**
  * Get yesterday's date key (YYYY-MM-DD) in EST
+ * Uses proper date arithmetic to handle month/year boundaries correctly
  */
 export function getYesterdayKey() {
-    const estNow = getESTDate();
-    estNow.setUTCDate(estNow.getUTCDate() - 1);
-    return estNow.toISOString().split('T')[0];
+    const now = new Date();
+    // Subtract 5 hours for EST, then subtract 1 day (24 hours)
+    const yesterdayEST = new Date(now.getTime() - (EST_OFFSET_HOURS * 60 * 60 * 1000) - (24 * 60 * 60 * 1000));
+    return yesterdayEST.toISOString().split('T')[0];
 }
 
 /**

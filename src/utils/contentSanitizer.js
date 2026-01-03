@@ -86,6 +86,7 @@ export function scanForViolations(text) {
 
 /**
  * Sanitize full AI response object
+ * Scans all text fields in result and result.scores for banned content
  * @param {object} result - AI analysis result
  * @returns {{ sanitized: object, hadViolations: boolean, logEntry: object|null }}
  */
@@ -97,28 +98,77 @@ export function sanitizeAIResponse(result) {
     let hadViolations = false;
     const allViolations = [];
 
-    // Fields to scan
-    const textFields = ['review', 'verdict', 'shareHook'];
-
-    for (const field of textFields) {
-        if (result[field]) {
-            const scan = scanForViolations(result[field]);
+    // Helper to scan and update a field
+    const scanField = (obj, field, prefix = '') => {
+        if (obj[field] && typeof obj[field] === 'string') {
+            const scan = scanForViolations(obj[field]);
             if (!scan.clean) {
                 hadViolations = true;
-                allViolations.push({ field, violations: scan.violations });
-                result[field] = scan.sanitized;
+                allViolations.push({ field: prefix + field, violations: scan.violations });
+                obj[field] = scan.sanitized;
+            }
+        }
+    };
+
+    // Fields to scan at root level
+    const rootTextFields = ['review', 'verdict', 'shareHook', 'error'];
+    for (const field of rootTextFields) {
+        scanField(result, field);
+    }
+
+    // Fields to scan in result.scores (where most AI output lives)
+    if (result.scores) {
+        const scoreTextFields = [
+            'text', 'verdict', 'line', 'tagline', 'aesthetic',
+            'celebMatch', 'shareHook', 'proTip',
+            'identityReflection', 'socialPerception',
+            'outfitFortune', 'outfitLore', 'outfitSoundtrack',
+            'outfitEnemy', 'outfitDatingApp', 'outfitPowerMove'
+        ];
+        for (const field of scoreTextFields) {
+            scanField(result.scores, field, 'scores.');
+        }
+
+        // Scan item roasts if present (can be object or array)
+        if (result.scores.itemRoasts) {
+            if (Array.isArray(result.scores.itemRoasts)) {
+                result.scores.itemRoasts = result.scores.itemRoasts.map((roast, idx) => {
+                    if (typeof roast === 'string') {
+                        const scan = scanForViolations(roast);
+                        if (!scan.clean) {
+                            hadViolations = true;
+                            allViolations.push({ field: `scores.itemRoasts[${idx}]`, violations: scan.violations });
+                            return scan.sanitized;
+                        }
+                    }
+                    return roast;
+                });
+            } else if (typeof result.scores.itemRoasts === 'object') {
+                // itemRoasts as object: { top: "...", bottom: "...", shoes: "..." }
+                for (const [key, roast] of Object.entries(result.scores.itemRoasts)) {
+                    if (typeof roast === 'string') {
+                        const scan = scanForViolations(roast);
+                        if (!scan.clean) {
+                            hadViolations = true;
+                            allViolations.push({ field: `scores.itemRoasts.${key}`, violations: scan.violations });
+                            result.scores.itemRoasts[key] = scan.sanitized;
+                        }
+                    }
+                }
             }
         }
     }
 
-    // Scan item roasts if present
+    // Legacy: Scan item roasts at root level (backwards compatibility)
     if (result.itemRoasts && Array.isArray(result.itemRoasts)) {
         result.itemRoasts = result.itemRoasts.map((roast, idx) => {
-            const scan = scanForViolations(roast);
-            if (!scan.clean) {
-                hadViolations = true;
-                allViolations.push({ field: `itemRoasts[${idx}]`, violations: scan.violations });
-                return scan.sanitized;
+            if (typeof roast === 'string') {
+                const scan = scanForViolations(roast);
+                if (!scan.clean) {
+                    hadViolations = true;
+                    allViolations.push({ field: `itemRoasts[${idx}]`, violations: scan.violations });
+                    return scan.sanitized;
+                }
             }
             return roast;
         });
