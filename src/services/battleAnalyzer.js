@@ -206,3 +206,175 @@ export async function compareBattleOutfits(image1Base64, image2Base64, options =
         code: 'BATTLE_COMPARISON_FAILED'
     };
 }
+
+/**
+ * Score multiple wardrobe outfits in a SINGLE API call (cost-efficient)
+ * @param {Array} outfitImages - Array of base64 images (up to 5)
+ * @param {Object} options - { mode: string }
+ * @returns {Object} { success: boolean, scores: number[], error?: string }
+ */
+export async function scoreWardrobeOutfits(outfitImages, options = {}) {
+    const { mode = 'nice' } = options;
+    const requestId = `wardrobe_batch_${Date.now()}`;
+    const modeConfig = MODE_CONFIGS[mode] || MODE_CONFIGS.nice;
+
+    if (!config.gemini.apiKey) {
+        console.error(`[${requestId}] ❌ CRITICAL: GEMINI_API_KEY not set!`);
+        return { success: false, error: 'AI service unavailable', scores: [] };
+    }
+
+    if (!outfitImages || outfitImages.length === 0) {
+        return { success: false, error: 'No outfit images provided', scores: [] };
+    }
+
+    console.log(`[${requestId}] Batch scoring ${outfitImages.length} wardrobe outfits (mode: ${mode})`);
+
+    // Build prompt for batch scoring
+    const batchPrompt = `FitRate AI — WARDROBE BATCH SCORING
+
+You are scoring ${outfitImages.length} outfits for a Wardrobe Wars battle.
+Score each outfit INDEPENDENTLY on a scale of 0-100.
+
+MODE: ${mode.toUpperCase()} ${modeConfig.emojis}
+Tone: ${modeConfig.tone}
+
+SCORING CRITERIA:
+- Color coordination (25%)
+- Fit quality (25%)
+- Style cohesion (25%)
+- Overall vibe and impact (25%)
+
+SCORING RANGE:
+- 85-100: Outstanding, head-turning outfit
+- 70-84: Good, solid outfit
+- 55-69: Average, nothing special
+- Below 55: Needs improvement
+
+OUTPUT FORMAT (JSON only):
+{
+    "scores": [<score1>, <score2>, <score3>, <score4>, <score5>],
+    "verdicts": ["<verdict1>", "<verdict2>", "<verdict3>", "<verdict4>", "<verdict5>"]
+}
+
+Each score should be 0.00-100.00 (2 decimal places).
+Each verdict should be 3-6 words summarizing that outfit.`;
+
+    // Build parts array with all images
+    const parts = [{ text: batchPrompt }];
+    
+    outfitImages.forEach((img, index) => {
+        const base64Data = img.replace(/^data:image\/\w+;base64,/, '');
+        parts.push({ text: `OUTFIT ${index + 1}:` });
+        parts.push({
+            inline_data: {
+                mime_type: 'image/jpeg',
+                data: base64Data
+            }
+        });
+    });
+
+    const requestBody = {
+        contents: [{ parts }],
+        generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 400
+        }
+    };
+
+    const models = [
+        config.gemini.model || 'gemini-2.5-flash',
+        'gemini-2.0-flash'
+    ];
+
+    for (const modelName of models) {
+        const maxRetries = 2;
+
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+            try {
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
+                console.log(`[${requestId}] Calling Gemini for batch wardrobe (model: ${modelName}, attempt: ${attempt})`);
+
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 45000); // 45s for 5 images
+
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'x-goog-api-key': config.gemini.apiKey
+                    },
+                    body: JSON.stringify(requestBody),
+                    signal: controller.signal
+                });
+
+                clearTimeout(timeoutId);
+                const data = await response.json();
+
+                if (response.status === 503 || data.error?.status === 'UNAVAILABLE') {
+                    console.warn(`[${requestId}] Model ${modelName} overloaded (attempt ${attempt})`);
+                    if (attempt < maxRetries) {
+                        await new Promise(r => setTimeout(r, 1000 * attempt));
+                        continue;
+                    }
+                    throw new Error('Model overloaded');
+                }
+
+                if (!response.ok) {
+                    console.error(`[${requestId}] API error:`, data);
+                    throw new Error(data.error?.message || `API returned ${response.status}`);
+                }
+
+                const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (!content) {
+                    throw new Error('No response from Gemini');
+                }
+
+                // Parse JSON response
+                let jsonStr = content.trim();
+                if (jsonStr.startsWith('```')) {
+                    jsonStr = jsonStr.replace(/```json?\n?/g, '').replace(/```$/g, '').trim();
+                }
+                const jsonMatch = jsonStr.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                    jsonStr = jsonMatch[0];
+                }
+
+                const parsed = JSON.parse(jsonStr);
+                const scores = parsed.scores.map(s => parseFloat(parseFloat(s).toFixed(2)));
+                const verdicts = parsed.verdicts || [];
+
+                console.log(`[${requestId}] ✅ Wardrobe scored: [${scores.join(', ')}]`);
+
+                return {
+                    success: true,
+                    scores,
+                    verdicts,
+                    mode
+                };
+
+            } catch (error) {
+                console.error(`[${requestId}] Error with ${modelName} (attempt ${attempt}):`, error.message);
+
+                if (error.message === 'Model overloaded') {
+                    break;
+                }
+
+                if (error.name === 'AbortError' && attempt < maxRetries) {
+                    console.log(`[${requestId}] Timeout, retrying...`);
+                    continue;
+                }
+
+                if (attempt === maxRetries) {
+                    break;
+                }
+            }
+        }
+    }
+
+    console.error(`[${requestId}] ❌ Wardrobe batch scoring failed after all retries`);
+    return {
+        success: false,
+        error: 'Unable to score wardrobe. Please try again.',
+        scores: []
+    };
+}

@@ -12,6 +12,7 @@
 import { redis, isRedisAvailable } from './redisClient.js';
 import { v4 as uuidv4 } from 'uuid';
 import { recordArenaScore } from './arenaLeaderboardService.js';
+import { scoreWardrobeOutfits } from './battleAnalyzer.js';
 
 // In-memory fallback
 const inMemoryWardrobes = new Map(); // userId → { outfits, displayName, updatedAt }
@@ -58,8 +59,37 @@ export async function saveWardrobe(userId, outfits, displayName = 'Anonymous') {
     // Clean outfit data (only keep id and thumb)
     const cleanOutfits = outfits.slice(0, REQUIRED_OUTFITS).map((o, i) => ({
         id: o.id || `outfit_${i}`,
-        thumb: o.thumb || null
+        thumb: o.thumb || null,
+        score: null,  // Will be set by AI
+        verdict: null // Will be set by AI
     }));
+
+    // BATCH AI SCORING - Score all 5 outfits in ONE API call
+    const outfitImages = cleanOutfits.map(o => o.thumb).filter(Boolean);
+    if (outfitImages.length === REQUIRED_OUTFITS) {
+        console.log(`[Wardrobe] Batch scoring ${outfitImages.length} outfits for ${userId.slice(0, 12)}...`);
+        const scoreResult = await scoreWardrobeOutfits(outfitImages, { mode: 'nice' });
+
+        if (scoreResult.success && scoreResult.scores.length === REQUIRED_OUTFITS) {
+            // Apply scores to outfits
+            scoreResult.scores.forEach((score, i) => {
+                cleanOutfits[i].score = score;
+                cleanOutfits[i].verdict = scoreResult.verdicts?.[i] || null;
+            });
+            console.log(`[Wardrobe] ✅ AI scores: [${scoreResult.scores.join(', ')}]`);
+        } else {
+            console.warn(`[Wardrobe] ⚠️ AI scoring failed, using fallback random scores`);
+            // Fallback to random if AI fails
+            cleanOutfits.forEach(o => {
+                o.score = Math.floor(Math.random() * 30) + 70;
+            });
+        }
+    } else {
+        console.warn(`[Wardrobe] ⚠️ Missing images, using fallback random scores`);
+        cleanOutfits.forEach(o => {
+            o.score = Math.floor(Math.random() * 30) + 70;
+        });
+    }
 
     const wardrobeData = {
         outfits: JSON.stringify(cleanOutfits),
@@ -75,7 +105,7 @@ export async function saveWardrobe(userId, outfits, displayName = 'Anonymous') {
         await redis.expire(key, QUEUE_TTL + 180);
 
         console.log(`[Wardrobe] Saved ${cleanOutfits.length} outfits for ${userId.slice(0, 12)}`);
-        return { success: true, outfitCount: cleanOutfits.length };
+        return { success: true, outfitCount: cleanOutfits.length, scores: cleanOutfits.map(o => o.score) };
     } else {
         inMemoryWardrobes.set(userId, {
             outfits: cleanOutfits,
@@ -84,7 +114,7 @@ export async function saveWardrobe(userId, outfits, displayName = 'Anonymous') {
         });
 
         console.log(`[Wardrobe] (In-memory) Saved ${cleanOutfits.length} outfits for ${userId.slice(0, 12)}`);
-        return { success: true, outfitCount: cleanOutfits.length };
+        return { success: true, outfitCount: cleanOutfits.length, scores: cleanOutfits.map(o => o.score) };
     }
 }
 
@@ -233,27 +263,31 @@ async function createWardrobeBattle(userId1, userId2) {
     const wardrobe1 = await getWardrobe(userId1);
     const wardrobe2 = await getWardrobe(userId2);
 
-    // Simulate scoring for each round (5 rounds, one per outfit)
+    // Use pre-scored outfits (scored during wardrobe upload)
     const rounds = [];
     let user1Wins = 0;
     let user2Wins = 0;
 
     for (let i = 0; i < REQUIRED_OUTFITS; i++) {
-        // Random scores for each outfit (70-100 range)
-        const score1 = Math.floor(Math.random() * 30) + 70;
-        const score2 = Math.floor(Math.random() * 30) + 70;
+        // Use stored AI scores from wardrobe upload
+        const score1 = wardrobe1.outfits[i]?.score ?? Math.floor(Math.random() * 30) + 70;
+        const score2 = wardrobe2.outfits[i]?.score ?? Math.floor(Math.random() * 30) + 70;
 
         rounds.push({
             round: i + 1,
             user1Outfit: wardrobe1.outfits[i],
             user2Outfit: wardrobe2.outfits[i],
             user1Score: score1,
-            user2Score: score2
+            user2Score: score2,
+            user1Verdict: wardrobe1.outfits[i]?.verdict || null,
+            user2Verdict: wardrobe2.outfits[i]?.verdict || null
         });
 
         if (score1 > score2) user1Wins++;
         else if (score2 > score1) user2Wins++;
     }
+
+    console.log(`[Wardrobe] Battle using AI scores - User1: ${wardrobe1.outfits.map(o => o.score).join(',')} vs User2: ${wardrobe2.outfits.map(o => o.score).join(',')}`);
 
     // Determine winner
     let winner = 'tie';
