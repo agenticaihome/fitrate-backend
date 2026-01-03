@@ -434,6 +434,36 @@ export async function scanLimiter(req, res, next) {
         return next();
     }
 
+    // DAILY CHALLENGE: Free entry, quota managed by dailyChallengeService (1/day)
+    if (req.body?.dailyChallenge === true) {
+        console.log(`[SCAN] Daily Challenge mode - bypassing scan limit for ${userId?.slice(0, 12) || 'unknown'}`);
+        req.scanInfo = {
+            userId,
+            ip,
+            currentCount: 0,
+            limit: 999,
+            isPro: false,
+            dailyChallengeMode: true,
+            scanIncremented: false
+        };
+        return next();
+    }
+
+    // WEEKLY CHALLENGE (EVENT MODE): Free entry, quota managed by eventService (1/week)
+    if (req.body?.eventMode === true) {
+        console.log(`[SCAN] Event mode (Weekly Challenge) - bypassing scan limit for ${userId?.slice(0, 12) || 'unknown'}`);
+        req.scanInfo = {
+            userId,
+            ip,
+            currentCount: 0,
+            limit: 999,
+            isPro: false,
+            eventMode: true,
+            scanIncremented: false
+        };
+        return next();
+    }
+
     // Must have userId
     if (!userId) {
         console.log(`[SCAN] No userId provided, allowing through`);
