@@ -11,6 +11,7 @@ import { consumeBonusScan, getReferralStats, getPurchasedScans, consumePurchased
 import { generateFingerprint, getClientIP } from '../utils/fingerprint.js';
 import { EntitlementService } from '../services/entitlements.js';
 import { ERROR_MESSAGES, SCAN_LIMITS } from '../config/systemPrompt.js';
+import { getTodayKeyEST, getMidnightResetTimeEST } from '../utils/dateUtils.js';
 
 // In-memory fallback for local dev
 const scanStoreFallback = new Map();
@@ -34,9 +35,9 @@ const MAX_INVALID_ATTEMPTS = 20;
 const INVALID_BLOCK_DURATION = 3600;
 const PERMANENT_BAN_DURATION = 604800;
 
-// Get today's date string for key
+// Get today's date string for key - uses EST for consistent midnight reset
 function getTodayKey() {
-    return new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    return getTodayKeyEST();
 }
 
 /**
@@ -590,11 +591,8 @@ export async function scanLimiter(req, res, next) {
 }
 
 function getResetTime() {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    return tomorrow.toISOString();
+    // Returns midnight EST as UTC ISO string
+    return getMidnightResetTimeEST();
 }
 
 export { LIMITS };

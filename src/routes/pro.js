@@ -4,6 +4,7 @@ import { EntitlementService } from '../services/entitlements.js';
 import { setProStatus, LIMITS } from '../middleware/scanLimiter.js';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
 import { getPurchasedScans } from '../middleware/referralStore.js';
+import { getTodayKeyEST, getMidnightResetTimeEST } from '../utils/dateUtils.js';
 
 const router = express.Router();
 
@@ -114,6 +115,7 @@ router.post('/add', adminLimiter, async (req, res) => {
  * GET /api/pro/scan-status?userId=xxx
  * Returns: { scansUsed, scansLimit, purchasedScans, resetsAt }
  * SECURITY: Returns counts only, no sensitive data
+ * NOTE: Uses EST timezone for consistent midnight reset
  */
 router.get('/scan-status', async (req, res) => {
     const { userId } = req.query;
@@ -126,8 +128,8 @@ router.get('/scan-status', async (req, res) => {
     }
 
     try {
-        // Get today's date for Redis key
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+        // Get today's date in EST for Redis key
+        const today = getTodayKeyEST();
         const redisKey = `fitrate:scans:simple:${userId}:${today}`;
 
         let scansUsed = 0;
@@ -140,17 +142,15 @@ router.get('/scan-status', async (req, res) => {
         // Get purchased scans
         const purchasedScans = await getPurchasedScans(userId);
 
-        // Calculate reset time (midnight UTC)
-        const tomorrow = new Date();
-        tomorrow.setDate(tomorrow.getDate() + 1);
-        tomorrow.setHours(0, 0, 0, 0);
+        // Calculate reset time (midnight EST)
+        const resetsAt = getMidnightResetTimeEST();
 
         res.json({
             success: true,
             scansUsed,
             scansLimit: LIMITS.free, // 2 for free users
             purchasedScans: purchasedScans || 0,
-            resetsAt: tomorrow.toISOString(),
+            resetsAt,
             // Derived fields for frontend convenience
             scansRemaining: Math.max(0, LIMITS.free - scansUsed),
             canScan: scansUsed < LIMITS.free || purchasedScans > 0

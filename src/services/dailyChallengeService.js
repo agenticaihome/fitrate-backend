@@ -10,6 +10,7 @@
  */
 
 import { redis, isRedisAvailable } from './redisClient.js';
+import { getESTDate, getTodayKeyEST, getYesterdayKeyEST, getMidnightResetTimeEST, EST_OFFSET } from '../utils/dateUtils.js';
 
 // Redis key patterns
 const DAILY_SCORES_PREFIX = 'fitrate:daily:scores:';
@@ -33,27 +34,11 @@ const RANK_TITLES = {
 };
 
 /**
- * EST offset in hours (Eastern Standard Time = UTC-5)
- * Note: This doesn't account for DST. For EDT (summer), it would be UTC-4.
- * Using fixed EST for consistency.
- */
-const EST_OFFSET_HOURS = 5;
-
-/**
- * Get the current time adjusted to EST
- */
-function getESTDate() {
-    const now = new Date();
-    // Subtract 5 hours to convert UTC to EST
-    return new Date(now.getTime() - (EST_OFFSET_HOURS * 60 * 60 * 1000));
-}
-
-/**
  * Get today's date key (YYYY-MM-DD) in EST
  * Leaderboard resets at midnight EST
  */
 export function getTodayKey() {
-    return getESTDate().toISOString().split('T')[0];
+    return getTodayKeyEST();
 }
 
 /**
@@ -61,10 +46,7 @@ export function getTodayKey() {
  * Uses proper date arithmetic to handle month/year boundaries correctly
  */
 export function getYesterdayKey() {
-    const now = new Date();
-    // Subtract 5 hours for EST, then subtract 1 day (24 hours)
-    const yesterdayEST = new Date(now.getTime() - (EST_OFFSET_HOURS * 60 * 60 * 1000) - (24 * 60 * 60 * 1000));
-    return yesterdayEST.toISOString().split('T')[0];
+    return getYesterdayKeyEST();
 }
 
 /**
@@ -72,15 +54,7 @@ export function getYesterdayKey() {
  * This is when the next leaderboard reset will occur
  */
 export function getMidnightResetTime() {
-    const now = new Date();
-    // Get tomorrow's date in EST
-    const estNow = getESTDate();
-    const tomorrowEST = new Date(estNow);
-    tomorrowEST.setUTCDate(tomorrowEST.getUTCDate() + 1);
-    tomorrowEST.setUTCHours(0, 0, 0, 0);
-    // Convert back to UTC by adding EST offset
-    const resetUTC = new Date(tomorrowEST.getTime() + (EST_OFFSET_HOURS * 60 * 60 * 1000));
-    return resetUTC.toISOString();
+    return getMidnightResetTimeEST();
 }
 
 /**
