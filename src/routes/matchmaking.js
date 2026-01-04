@@ -11,7 +11,7 @@
 
 import express from 'express';
 import rateLimit from 'express-rate-limit';
-import { joinQueue, pollForMatch, leaveQueue, getQueueStats } from '../services/matchmakingService.js';
+import { joinQueue, pollForMatch, leaveQueue, getQueueStats, updatePresence } from '../services/matchmakingService.js';
 import { recordAction, canPerformAction, getAllLimitsStatus } from '../services/dailyLimitsService.js';
 import { FREE_TIER_LIMITS } from '../config/systemPrompt.js';
 
@@ -523,6 +523,29 @@ router.get('/limits', statsLimiter, async (req, res) => {
             code: 'INTERNAL_ERROR',
             message: 'Failed to get limits'
         });
+    }
+});
+
+// ============================================
+// PRESENCE HEARTBEAT
+// ============================================
+
+/**
+ * POST /api/arena/presence
+ * Passive heartbeat to count user as "Online" without joining a queue.
+ * Called every 30s by frontend.
+ */
+router.post('/presence', async (req, res) => {
+    try {
+        const { userId } = req.body;
+        if (userId) {
+            // updatePresence is fire-and-forget for speed
+            updatePresence(userId).catch(err => console.error('Presence update error:', err));
+        }
+        return res.status(200).json({ success: true });
+    } catch (error) {
+        // Silent fail is fine for presence
+        return res.status(200).json({ success: true });
     }
 });
 

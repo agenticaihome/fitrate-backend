@@ -518,6 +518,36 @@ export async function leaveQueue(userId) {
 }
 
 /**
+ * Update user presence (heartbeat)
+ * Uses a Sorted Set (arena_active_users) with timestamp scores
+ * allows for efficient counting and automatic cleanup of inactive users.
+ */
+export async function updatePresence(userId) {
+    if (!userId) return;
+    const now = Date.now();
+
+    if (isRedisAvailable()) {
+        // Add/Update user in active set with current timestamp
+        await redis.zadd('arena_active_users', now, userId);
+
+        // Extended memory fallback sync (optional, keeping simple for now)
+    } else {
+        // In-memory fallback
+        inMemoryPresence.set(userId, now);
+
+        // Cleanup memory
+        for (const [uid, timestamp] of inMemoryPresence.entries()) {
+            if (now - timestamp > 45000) { // 45s timeout
+                inMemoryPresence.delete(uid);
+            }
+        }
+    }
+}
+
+// In-memory presence map fallback
+const inMemoryPresence = new Map();
+
+/**
  * Get queue statistics
  * @returns {{ online: number, battlesToday: number, avgWaitTime: number }}
  */
@@ -531,11 +561,19 @@ export async function getQueueStats() {
     let stats;
 
     if (isRedisAvailable()) {
-        // Count total users in all queues
-        let totalOnline = 0;
-        for (const mode of ALL_MODES) {
-            const count = await redis.zcard(`arena_queue:${mode}`);
-            totalOnline += count;
+        // 1. Cleanup old users (inactive for > 40 seconds)
+        const fortySecondsAgo = now - 40000;
+        await redis.zremrangebyscore('arena_active_users', 0, fortySecondsAgo);
+
+        // 2. Count active users (Surfers + Queuers)
+        let totalOnline = await redis.zcard('arena_active_users');
+
+        // Fallback: If ZCARD is empty (migration period), use queue counts
+        if (totalOnline === 0) {
+            for (const mode of ALL_MODES) {
+                const count = await redis.zcard(`arena_queue:${mode}`);
+                totalOnline += count;
+            }
         }
 
         // Get battles today
@@ -543,25 +581,31 @@ export async function getQueueStats() {
         const battlesData = await redis.hgetall(`arena_battles:${today}`);
         const battlesToday = parseInt(battlesData?.count || 0);
 
-        // Calculate average wait time (estimate based on queue size)
-        // If no one in queue, estimate 5-10 seconds
-        // Otherwise, estimate based on typical match rate
-        let avgWaitTime = 8; // default
-        if (totalOnline > 0) {
-            avgWaitTime = Math.max(3, Math.min(30, Math.floor(15 / Math.max(1, totalOnline / 2))));
+        // Calculate average wait time
+        let avgWaitTime = 8;
+        if (totalOnline > 5) {
+            // More users = faster matches usually
+            avgWaitTime = Math.max(3, Math.min(30, Math.floor(20 / Math.sqrt(totalOnline))));
         }
 
         stats = {
-            online: Math.max(totalOnline, 1), // Show at least 1 for social proof
+            online: Math.max(totalOnline, 1), // Always show at least 1
             battlesToday: battlesToday,
             avgWaitTime: avgWaitTime
         };
     } else {
         // In-memory fallback
-        let totalOnline = 0;
-        for (const queue of inMemoryQueue.values()) {
-            totalOnline += queue.size;
+        // Cleanup first
+        for (const [uid, timestamp] of inMemoryPresence.entries()) {
+            if (now - timestamp > 45000) inMemoryPresence.delete(uid);
         }
+
+        // Count total unique users (Presence map + Queue maps)
+        const uniqueUsers = new Set(inMemoryPresence.keys());
+        for (const queue of inMemoryQueue.values()) {
+            for (const uid of queue.keys()) uniqueUsers.add(uid);
+        }
+        let totalOnline = uniqueUsers.size;
 
         // Reset daily counter if new day
         const today = new Date().toDateString();
