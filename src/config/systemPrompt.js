@@ -243,7 +243,12 @@ export const VIRALITY_HOOKS = {
     rizz: ["What's YOUR rizz score? 😏 #FitRateRizz", 'Challenge your crush!', 'Dating app audit complete 💋'],
     celeb: ['Judged by a legend 👑 #FitRateCeleb', 'What would YOUR celeb say?', 'Celebrity verdict is in 🎭'],
     aura: ['Your aura has been read 🔮 #FitRateAura', 'Compare vibes with friends!', 'Main character or NPC? ✨'],
-    chaos: ['The AI went FERAL 🎪 #FitRateChaos', 'Dare friends to try chaos mode!', 'Unhinged rating unlocked 🌀']
+    chaos: ['The AI went FERAL 🎪 #FitRateChaos', 'Dare friends to try chaos mode!', 'Unhinged rating unlocked 🌀'],
+    // NEW: Previously missing hooks
+    y2k: ["That's hot 💎 #FitRateY2K", 'Challenge your BFF to a Y2K-off!', 'Paris Hilton energy unlocked 🦋'],
+    villain: ['Villain origin story 🖤 #FitRateVillain', 'Who has the most villain energy?', 'Main character threat detected 👿'],
+    coquette: ['So coquette 🎀 #FitRateCoquette', 'Who is the most coquette?', 'Bow count certified 🩰'],
+    hypebeast: ['Certified drip 👟 #FitRateHypebeast', 'Drip battle! Who wins? 💸', 'StockX-verified heat 🔥']
 };
 
 // === CELEB LISTS (40+ per gender for maximum variety!) ===
