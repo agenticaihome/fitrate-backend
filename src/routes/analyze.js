@@ -157,7 +157,10 @@ router.post('/', scanLimiter, async (req, res) => {
     const isPro = userId ? await EntitlementService.isPro(userId, null) : false;
 
     // Check if user is trying to access a Pro-only mode
-    if (PRO_MODES.includes(mode) && !isPro) {
+    // EXCEPTION: Daily Challenge and Weekly Event are FREE for everyone, 
+    // even when the rotating mode is a Pro-only mode!
+    const isFreeChallenge = dailyChallenge || eventMode;
+    if (PRO_MODES.includes(mode) && !isPro && !isFreeChallenge) {
       console.log(`[${requestId}] Error: Pro-only mode "${mode}" requested by free user`);
       return res.status(403).json({
         success: false,
