@@ -17,6 +17,7 @@ import {
     canProUserSubmit
 } from '../services/eventService.js';
 import { getProStatus } from '../middleware/scanLimiter.js';
+import { castVote, getVotingStatus, getVotableEntries } from '../services/challengeVotingService.js';
 
 const router = express.Router();
 
@@ -245,6 +246,87 @@ router.get('/stats', async (req, res) => {
     } catch (error) {
         console.error('Error getting event stats:', error);
         res.status(500).json({ success: false, error: 'Failed to get stats' });
+    }
+});
+
+// =====================================================
+// VOTING ENDPOINTS - "Judge Others, Get Judged"
+// =====================================================
+
+/**
+ * POST /api/event/vote
+ * Cast a 🔥 Fire vote on an entry
+ * Body: { voterId, entryId, type: 'daily' | 'weekly' }
+ */
+router.post('/vote', eventLimiter, async (req, res) => {
+    try {
+        const { voterId, entryId, type = 'daily' } = req.body;
+
+        if (!voterId || !entryId) {
+            return res.status(400).json({
+                success: false,
+                error: 'voterId and entryId required'
+            });
+        }
+
+        const result = await castVote(voterId, entryId, type);
+
+        if (!result.success) {
+            return res.status(400).json(result);
+        }
+
+        res.json(result);
+    } catch (error) {
+        console.error('Error casting vote:', error);
+        res.status(500).json({ success: false, error: 'Failed to cast vote' });
+    }
+});
+
+/**
+ * GET /api/event/vote/status
+ * Get user's voting status (votes remaining, entries voted for)
+ * Query: userId, type
+ */
+router.get('/vote/status', eventLimiter, async (req, res) => {
+    try {
+        const { userId, type = 'daily' } = req.query;
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                error: 'userId required'
+            });
+        }
+
+        const status = await getVotingStatus(userId, type);
+        res.json({ success: true, ...status });
+    } catch (error) {
+        console.error('Error getting vote status:', error);
+        res.status(500).json({ success: false, error: 'Failed to get vote status' });
+    }
+});
+
+/**
+ * GET /api/event/vote/entries
+ * Get entries available to vote on (randomized, excludes own + already voted)
+ * Query: userId, type, limit
+ */
+router.get('/vote/entries', eventLimiter, async (req, res) => {
+    try {
+        const { userId, type = 'daily', limit = 5 } = req.query;
+
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                error: 'userId required'
+            });
+        }
+
+        const result = await getVotableEntries(userId, type, parseInt(limit));
+        res.json(result);
+    } catch (error) {
+        console.error('Error getting votable entries:', error);
+        res.status(500).json({ success: false, error: 'Failed to get entries' });
     }
 });
 
