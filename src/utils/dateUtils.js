@@ -55,6 +55,21 @@ export function getMidnightResetTimeEST() {
 }
 
 /**
+ * Get current week key (YYYY-Www) in EST
+ * Used for weekly challenge tracking
+ * @returns {string} Week string like "2026-W02"
+ */
+export function getCurrentWeekKeyEST() {
+    const estDate = getESTDate();
+    const d = new Date(Date.UTC(estDate.getFullYear(), estDate.getMonth(), estDate.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+    return `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
+}
+
+/**
  * Get the EST offset in hours (exported for services that need it)
  */
 export const EST_OFFSET = EST_OFFSET_HOURS;
@@ -63,6 +78,7 @@ export default {
     getESTDate,
     getTodayKeyEST,
     getYesterdayKeyEST,
+    getCurrentWeekKeyEST,
     getMidnightResetTimeEST,
     EST_OFFSET
 };
