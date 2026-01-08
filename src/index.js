@@ -22,6 +22,7 @@ import showRoutes from './routes/show.js';
 import battleRoutes from './routes/battle.js';
 import matchmakingRoutes from './routes/matchmaking.js';  // Global Arena
 import wardrobeRoutes from './routes/wardrobe.js';        // Wardrobe Wars
+import warRoutes from './routes/war.js';                  // Fashion Wars
 
 // Security middleware
 import { validateOrigin, costTracker } from './middleware/apiKeyAuth.js';
@@ -153,6 +154,7 @@ app.use('/api/leaderboard', leaderboardRoutes);  // Today's Top Fits
 app.use('/api/battle', battleRoutes);         // 1v1 Outfit Battles
 app.use('/api/arena', matchmakingRoutes);     // Global Arena Matchmaking
 app.use('/api/wardrobe', wardrobeRoutes);     // Wardrobe Wars
+app.use('/api/war', warRoutes);               // Fashion Wars
 
 // 404 handler
 app.use((req, res) => {
@@ -241,6 +243,19 @@ async function checkAndDistributeRewards() {
     }
   } catch (error) {
     console.error('❌ Daily reward distribution failed:', error);
+  }
+
+  // --- FASHION WARS: Finalize daily battles (every day at midnight) ---
+  try {
+    const { finalizeDailyBattles, getWarDayNumber, getCurrentWarId } = await import('./services/warService.js');
+    const yesterdayDate = new Date(now);
+    yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1);
+    const yesterdayISO = yesterdayDate.toISOString().split('T')[0];
+
+    console.log(`⚔️ Fashion Wars: Finalizing battles for ${yesterdayISO} (War: ${getCurrentWarId()}, Day: ${getWarDayNumber()})`);
+    await finalizeDailyBattles(yesterdayISO);
+  } catch (error) {
+    console.error('❌ Fashion Wars daily finalization failed:', error);
   }
 
   // --- WEEKLY REWARDS (Sunday at midnight) ---
