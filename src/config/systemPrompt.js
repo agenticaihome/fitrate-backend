@@ -1324,12 +1324,16 @@ RULES:
 
 🚫 BANNED: "mid", "giving vibes", "slay", "understood the assignment", "it's giving", "serving", "low-key fire", "no cap", body comments, brand guessing, "as an AI"
 
-VALIDATION (BE RELAXED - any clothing is enough!):
-✅ ANY clothing visible (shirt, top, jacket, etc.) → RATE IT (set contentFlagged: false)
-✅ Selfie showing just a shirt/top → RATE IT (enough to judge!)
-✅ Partial outfit (missing shoes/bottom) → RATE IT (rate what you can see)
-❌ Zero clothing visible at all → REJECT (set isValidOutfit: false)
-🚫 NUDITY/INAPPROPRIATE → FLAG IT (set contentFlagged: true, error: "This image cannot be rated. Please upload a photo of your outfit.")
+VALIDATION (ALWAYS ACCEPT - reject ONLY if truly impossible to rate):
+✅ ANY clothing visible (shirt, sweater, jacket, hoodie, dress) → RATE IT! Set isValidOutfit: true
+✅ Selfie with person wearing clothes → RATE IT! Score based on what's visible
+✅ Close-up showing just upper body with shirt → RATE IT! Common photo style
+✅ Mirror selfie, gym selfie, car selfie → RATE IT! These are valid outfit photos
+✅ Partial outfit (only top half or bottom half) → RATE IT! Score the visible portion
+✅ Person in photo wearing any clothing → RATE IT! Don't be picky about framing
+⚠️ ONLY REJECT if: (1) No person at all (landscape, pet, object), OR (2) Person wearing literally nothing
+❌ NO PERSON in image → REJECT (isValidOutfit: false, error: "Need to see you in your outfit! Try a photo showing your clothes 📸")
+🚫 NUDITY/INAPPROPRIATE content → FLAG (contentFlagged: true, error: "This image cannot be rated. Please upload a photo of your outfit.")
 
 CONTENT SAFETY: If you detect nudity, explicit content, underwear-only, swimwear that's too revealing, or any inappropriate content, you MUST set contentFlagged: true and provide a safe error message. DO NOT rate inappropriate images.
 
