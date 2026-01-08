@@ -7,6 +7,7 @@
  * GET  /api/arena/poll   - Poll for match status
  * POST /api/arena/leave  - Leave queue
  * GET  /api/arena/stats  - Get online count
+ * POST /api/arena/ghost-battle - Create async ghost battle (timeout fallback)
  */
 
 import express from 'express';
@@ -14,6 +15,8 @@ import rateLimit from 'express-rate-limit';
 import { joinQueue, pollForMatch, leaveQueue, getQueueStats, updatePresence } from '../services/matchmakingService.js';
 import { recordAction, canPerformAction, getAllLimitsStatus } from '../services/dailyLimitsService.js';
 import { FREE_TIER_LIMITS } from '../config/systemPrompt.js';
+import { getGhostOpponent, addToGhostPool } from '../services/ghostPool.js';
+import { createBattle, respondToBattle, getBattle } from '../services/battleService.js';
 
 const router = express.Router();
 
@@ -546,6 +549,122 @@ router.post('/presence', async (req, res) => {
     } catch (error) {
         // Silent fail is fine for presence
         return res.status(200).json({ success: true });
+    }
+});
+
+// ============================================
+// GHOST BATTLE - Async fallback when queue times out
+// ============================================
+
+const ghostLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 5, // 5 ghost battles per minute per user
+    message: { error: true, code: 'RATE_LIMITED', message: 'Too many requests.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+/**
+ * POST /api/arena/ghost-battle
+ * Create an async battle with a ghost opponent
+ * Called when queue times out (15s) - user never sees "no opponents found"
+ */
+router.post('/ghost-battle', ghostLimiter, async (req, res) => {
+    const requestId = `ghost_battle_${Date.now()}`;
+
+    try {
+        console.log(`[${requestId}] POST /api/arena/ghost-battle`);
+        const { userId, score, thumb, mode, displayName } = req.body;
+
+        // Validate required fields
+        if (!userId || typeof userId !== 'string') {
+            return res.status(400).json({
+                error: true,
+                code: 'INVALID_USER_ID',
+                message: 'userId is required'
+            });
+        }
+
+        if (score === undefined || typeof score !== 'number' || score < 0 || score > 100) {
+            return res.status(400).json({
+                error: true,
+                code: 'INVALID_SCORE',
+                message: 'Score must be between 0 and 100'
+            });
+        }
+
+        // Get a ghost opponent from the pool
+        const ghost = await getGhostOpponent({
+            targetScore: score,
+            excludeUserId: userId,
+            preferMode: mode || 'nice'
+        });
+
+        if (!ghost) {
+            console.log(`[${requestId}] ⚠️ Ghost pool empty, cannot create ghost battle`);
+            return res.status(503).json({
+                error: true,
+                code: 'NO_GHOSTS_AVAILABLE',
+                message: 'No opponents available right now. Try again!'
+            });
+        }
+
+        // Create the battle with user as creator
+        const battle = await createBattle(score, userId, mode || 'nice', thumb);
+        const battleId = battle.challengeId;
+
+        // Immediately respond with ghost as opponent
+        const ghostUserId = `ghost_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        await respondToBattle(battleId, ghost.score, ghostUserId, ghost.thumb);
+
+        // Fetch completed battle for results
+        const completedBattle = await getBattle(battleId);
+
+        // Add user's outfit to ghost pool for future matches
+        addToGhostPool({
+            userId,
+            score,
+            thumb,
+            mode: mode || 'nice',
+            displayName: displayName || 'Player'
+        }).catch(err => console.warn('[GhostPool] Add failed:', err));
+
+        console.log(`[${requestId}] 👻 Ghost battle created: ${battleId} (user: ${score} vs ghost: ${ghost.score})`);
+
+        // Determine result
+        const isCreator = true;
+        const myScore = score;
+        const opponentScore = ghost.score;
+        let result = 'tie';
+        if (completedBattle?.winner === 'creator') {
+            result = 'win';
+        } else if (completedBattle?.winner === 'opponent') {
+            result = 'loss';
+        }
+
+        return res.status(200).json({
+            status: 'matched',
+            battleId,
+            isGhostBattle: true,
+            myScore,
+            opponentScore,
+            opponentName: ghost.displayName,
+            opponentThumb: ghost.thumb,
+            isCreator,
+            result,
+            winner: completedBattle?.winner,
+            battleCommentary: completedBattle?.battleCommentary,
+            winningFactor: completedBattle?.winningFactor,
+            marginOfVictory: completedBattle?.marginOfVictory
+        });
+
+    } catch (error) {
+        console.error(`[${requestId}] Error creating ghost battle:`, error.message);
+        return res.status(500).json({
+            error: true,
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to create ghost battle'
+        });
     }
 });
 

@@ -13,6 +13,7 @@
 import { redis, isRedisAvailable } from './redisClient.js';
 import { createBattle } from './battleService.js';
 import { recordArenaScore } from './arenaLeaderboardService.js';
+import { addToGhostPool, getGhostOpponent } from './ghostPool.js';
 
 // In-memory fallback
 const inMemoryQueue = new Map(); // mode -> Map(userId -> userData)
