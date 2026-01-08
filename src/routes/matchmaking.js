@@ -549,4 +549,126 @@ router.post('/presence', async (req, res) => {
     }
 });
 
+// ============================================
+// KING OF THE HILL (KotH) ENDPOINTS
+// ============================================
+
+import {
+    getAllKings,
+    getKing,
+    challengeThrone
+} from '../services/kingService.js';
+
+const kothLimiter = rateLimit({
+    windowMs: 60 * 1000,
+    max: 30, // 30 per minute per IP
+    message: { error: true, code: 'RATE_LIMITED', message: 'Too many requests.' },
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
+/**
+ * GET /api/arena/koth/thrones
+ * Get all current throne kings
+ */
+router.get('/koth/thrones', kothLimiter, async (req, res) => {
+    try {
+        const kings = await getAllKings();
+
+        // Cache for 10 seconds
+        res.set('Cache-Control', 'public, max-age=10');
+
+        return res.status(200).json({
+            success: true,
+            kings,
+            timestamp: Date.now()
+        });
+    } catch (error) {
+        console.error('Error getting KotH thrones:', error.message);
+        return res.status(500).json({
+            error: true,
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to get thrones'
+        });
+    }
+});
+
+/**
+ * POST /api/arena/koth/challenge
+ * Challenge a throne (or claim if vacant)
+ */
+router.post('/koth/challenge', kothLimiter, async (req, res) => {
+    const requestId = `koth_challenge_${Date.now()}`;
+
+    try {
+        const { userId, displayName, throneId, score, thumb } = req.body;
+
+        if (!userId || !throneId) {
+            return res.status(400).json({
+                error: true,
+                code: 'INVALID_PARAMS',
+                message: 'userId and throneId are required'
+            });
+        }
+
+        if (score === undefined || typeof score !== 'number' || score < 0 || score > 100) {
+            return res.status(400).json({
+                error: true,
+                code: 'INVALID_SCORE',
+                message: 'Score must be between 0 and 100'
+            });
+        }
+
+        // Check daily KotH limit
+        const limitCheck = await recordAction('koth', userId);
+        if (!limitCheck.allowed) {
+            console.log(`[${requestId}] ⛔ User ${userId.slice(0, 8)} hit KotH daily limit`);
+            return res.status(403).json({
+                error: true,
+                code: 'DAILY_LIMIT_REACHED',
+                message: `You've used all ${FREE_TIER_LIMITS.KOTH_ATTEMPTS_DAILY} free throne attempts today!`,
+                used: limitCheck.used,
+                limit: limitCheck.limit
+            });
+        }
+
+        console.log(`[${requestId}] 👑 ${displayName || userId.slice(0, 8)} challenging throne ${throneId} with score ${score}`);
+
+        const result = await challengeThrone(throneId, {
+            userId,
+            displayName: displayName || 'Anonymous',
+            score,
+            thumb
+        });
+
+        if (!result.success) {
+            return res.status(500).json({
+                error: true,
+                code: 'CHALLENGE_FAILED',
+                message: result.error || 'Challenge failed'
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            ...result,
+            dailyLimits: {
+                koth: {
+                    used: limitCheck.used,
+                    limit: limitCheck.limit,
+                    remaining: limitCheck.remaining
+                }
+            }
+        });
+
+    } catch (error) {
+        console.error(`[${requestId}] Error in KotH challenge:`, error.message);
+        return res.status(500).json({
+            error: true,
+            code: 'INTERNAL_ERROR',
+            message: 'Failed to challenge throne'
+        });
+    }
+});
+
 export default router;
