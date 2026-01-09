@@ -133,7 +133,7 @@ router.post('/', scanLimiter, async (req, res) => {
 
   try {
     console.log(`[${requestId}] POST /api/analyze - IP: ${req.ip || 'unknown'}`);
-    const { image, roastMode, mode: modeParam, occasion, eventMode, imageThumb, dailyChallenge } = req.body;
+    const { image, roastMode, mode: modeParam, occasion, eventMode, imageThumb, dailyChallenge, arenaMode } = req.body;
     // Support both new mode string and legacy roastMode boolean
     const mode = modeParam || (roastMode ? 'roast' : 'nice');
 
@@ -157,9 +157,9 @@ router.post('/', scanLimiter, async (req, res) => {
     const isPro = userId ? await EntitlementService.isPro(userId, null) : false;
 
     // Check if user is trying to access a Pro-only mode
-    // EXCEPTION: Daily Challenge and Weekly Event are FREE for everyone, 
+    // EXCEPTION: Daily Challenge, Weekly Event, and Arena Battles are FREE for everyone, 
     // even when the rotating mode is a Pro-only mode!
-    const isFreeChallenge = dailyChallenge || eventMode;
+    const isFreeChallenge = dailyChallenge || eventMode || arenaMode;
     if (PRO_MODES.includes(mode) && !isPro && !isFreeChallenge) {
       console.log(`[${requestId}] Error: Pro-only mode "${mode}" requested by free user`);
       return res.status(403).json({
