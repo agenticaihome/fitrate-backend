@@ -28,11 +28,8 @@ function createGeminiPrompt(mode, occasion, securityContext = {}, eventContext =
         fingerprintHash = ''
     } = securityContext;
 
-    // Check if mode is valid for free tier (backend also enforces this)
-    if (mode === 'honest' || mode === 'savage') {
-        return `You must respond with this exact JSON:
-{"isValidOutfit": false, "error": "${ERROR_MESSAGES.mode_restricted}"}`;
-    }
+    // NOTE: All modes now work in Gemini - no more Pro/GPT-4o restrictions
+    // Previously honest/savage were restricted but that caused Daily Challenge failures
 
     // Build full security context for the prompt
     const fullSecurityContext = {

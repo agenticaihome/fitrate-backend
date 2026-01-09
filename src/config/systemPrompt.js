@@ -10,7 +10,7 @@ export const ERROR_MESSAGES = {
         `${scansUsed} scans used${extras > 0 ? ` (+${extras} extras earned)` : ''}. Refer securely for +1 Pro Roast or upgrade for 25/day perfection. Your last card is viral — post it!`,
     pro_limit_reached: '25 crushed — resets soon. You\'re Pro elite — share your best for mass inspo 😎',
     activity_paused: 'Activity paused — verify via app.',
-    mode_restricted: 'Pro-exclusive GPT-4o power — upgrade for Honest/Savage perfection! Share your Roast to earn referrals 🚀',
+    mode_restricted: 'This mode is temporarily unavailable. Please try again.',
     referral_tease: 'Share your unique link (app-generated) for +1 Pro Roast!',
     feature_request: 'Contact support for ideas.'
 };
