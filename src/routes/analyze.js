@@ -189,8 +189,9 @@ router.post('/', scanLimiter, async (req, res) => {
         console.log(`[${requestId}] User ${userId.slice(0, 12)}... already entered daily challenge today`);
         return res.json({
           success: false,
-          error: 'already_entered',
-          message: "You've already entered today's challenge. Come back tomorrow!"
+          error: "You've already entered today's challenge. Come back tomorrow!",
+          code: 'DAILY_CHALLENGE_ALREADY_ENTERED',
+          alreadyEntered: true
         });
       }
 
