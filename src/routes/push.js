@@ -185,4 +185,58 @@ router.post('/daily-ootd', async (req, res) => {
     }
 });
 
+/**
+ * POST /api/push/daily-fitrate
+ * Send "Daily FitRate is LIVE!" notification at 12:00 PM EST
+ * Called by external cron job
+ * Body: { adminKey }
+ */
+router.post('/daily-fitrate', async (req, res) => {
+    try {
+        const { adminKey } = req.body;
+
+        // Admin key check
+        if (adminKey !== process.env.ADMIN_KEY) {
+            return res.status(403).json({ error: 'Unauthorized' });
+        }
+
+        // Get today's mode (same logic as frontend)
+        const DAILY_MODES = [
+            { id: 'roast', emoji: '🔥', label: 'Roast' },
+            { id: 'nice', emoji: '😇', label: 'Nice' },
+            { id: 'savage', emoji: '💀', label: 'Savage' },
+            { id: 'rizz', emoji: '😏', label: 'Rizz' },
+            { id: 'honest', emoji: '📊', label: 'Honest' },
+            { id: 'chaos', emoji: '🎪', label: 'Chaos' },
+            { id: 'celeb', emoji: '⭐', label: 'Celebrity' },
+            { id: 'aura', emoji: '🔮', label: 'Aura' },
+            { id: 'y2k', emoji: '💎', label: 'Y2K' },
+            { id: 'villain', emoji: '🖤', label: 'Villain' },
+            { id: 'coquette', emoji: '🎀', label: 'Coquette' },
+            { id: 'hypebeast', emoji: '👟', label: 'Hypebeast' },
+        ];
+        const now = new Date();
+        const start = new Date(now.getFullYear(), 0, 0);
+        const diff = now - start;
+        const dayOfYear = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const todaysMode = DAILY_MODES[dayOfYear % DAILY_MODES.length];
+
+        const count = await PushService.sendBroadcast({
+            title: '⚡ Daily FitRate is LIVE!',
+            body: `${todaysMode.emoji} ${todaysMode.label} Mode — You have 30 minutes to compete!`,
+            data: { type: 'daily_fitrate', action: 'open_home', mode: todaysMode.id }
+        });
+
+        res.json({
+            success: true,
+            sentCount: count,
+            message: `Daily FitRate broadcast sent to ${count} users`,
+            mode: todaysMode.label
+        });
+    } catch (err) {
+        console.error('Daily FitRate push error:', err);
+        res.status(500).json({ error: 'Failed to send daily fitrate notification' });
+    }
+});
+
 export default router;
