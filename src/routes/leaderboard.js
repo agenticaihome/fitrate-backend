@@ -12,6 +12,7 @@
 
 import express from 'express';
 import { redis, isRedisAvailable } from '../services/redisClient.js';
+import { getTodayKeyEST } from '../utils/dateUtils.js';
 import {
     getDailyLeaderboard,
     getUserDailyStatus,
@@ -48,13 +49,7 @@ function getRankTitle(rank) {
     return { title: '🎯 Main Character in Training', description: 'Keep climbing!' };
 }
 
-/**
- * Get today's leaderboard key
- */
-function getTodayKey() {
-    const now = new Date();
-    return now.toISOString().split('T')[0]; // YYYY-MM-DD
-}
+
 
 /**
  * Generate anonymous display name from userId
@@ -130,7 +125,7 @@ router.get('/rank', async (req, res) => {
             return res.status(400).json({ error: 'userId required' });
         }
 
-        const todayKey = getTodayKey();
+        const todayKey = getTodayKeyEST();
         const redisKey = `${LEADERBOARD_KEY_PREFIX}${todayKey}`;
 
         if (!isRedisAvailable()) {
@@ -182,7 +177,7 @@ router.get('/rank', async (req, res) => {
 export async function recordScore(userId, score) {
     if (!userId || !score) return null;
 
-    const todayKey = getTodayKey();
+    const todayKey = getTodayKeyEST();
     const redisKey = `${LEADERBOARD_KEY_PREFIX}${todayKey}`;
 
     try {
