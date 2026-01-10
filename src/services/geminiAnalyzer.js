@@ -233,7 +233,7 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                         style: parsed.style,
                         text: parsed.text || parsed.verdict,  // Analysis text
                         verdict: parsed.verdict,
-                        lines: parsed.lines,
+                        line: parsed.line,
                         tagline: parsed.tagline,
                         aesthetic: parsed.aesthetic,
                         celebMatch: parsed.celebMatch,
