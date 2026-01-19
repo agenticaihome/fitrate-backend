@@ -4,8 +4,9 @@
         "builder": "NIXPACKS"
     },
     "deploy": {
-        "startCommand": "node src/index.js",
+        "startCommand": "node --max-old-space-size=384 src/index.js",
         "healthcheckPath": "/health",
-        "restartPolicyType": "ON_FAILURE"
+        "restartPolicyType": "ON_FAILURE",
+        "numReplicas": 1
     }
 }
