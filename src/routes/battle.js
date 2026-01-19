@@ -3,9 +3,12 @@
  * 1v1 outfit battle rooms where two users compare scores
  *
  * Endpoints:
- * - POST   /api/battle          - Create new battle
- * - GET    /api/battle/:id      - Get battle data
- * - POST   /api/battle/:id/respond - Submit responder score
+ * - POST   /api/battle               - Create new battle
+ * - GET    /api/battle/:id           - Get battle data
+ * - POST   /api/battle/:id/join      - Mark opponent joined (for realtime updates)
+ * - POST   /api/battle/:id/respond   - Submit responder score
+ * - DELETE /api/battle/:id           - Delete/dismiss battle from user's view
+ * - POST   /api/battle/:id/compare   - Compare both outfits head-to-head
  */
 
 import express from 'express';
@@ -13,7 +16,11 @@ import rateLimit from 'express-rate-limit';
 import {
     createBattle,
     getBattle,
-    respondToBattle
+    respondToBattle,
+    joinBattle,
+    deleteBattle,
+    BATTLE_STATES,
+    logBattleEvent
 } from '../services/battleService.js';
 import { compareBattleOutfits } from '../services/battleAnalyzer.js';
 import { PushService } from '../services/pushService.js';
@@ -377,7 +384,118 @@ router.post('/:battleId/compare', respondLimiter, async (req, res) => {
             error: 'Failed to compare outfits. Please try again.'
         });
     }
-});
+    /**
+     * POST /api/battle/:battleId/join
+     * Mark opponent as joined (called when they open the battle link)
+     * Allows creator to see "Opponent joined!" in realtime
+     */
+    router.post('/:battleId/join', getLimiter, async (req, res) => {
+        const { battleId } = req.params;
+        const requestId = `battle_join_${Date.now()}`;
 
-export default router;
+        try {
+            console.log(`[${requestId}] POST /api/battle/${battleId}/join`);
+            const { userId } = req.body;
 
+            if (!userId) {
+                return res.status(400).json({
+                    error: 'userId is required'
+                });
+            }
+
+            // Validate battleId format
+            if (!battleId || !battleId.startsWith('ch_')) {
+                return res.status(404).json({
+                    error: true,
+                    code: 'BATTLE_NOT_FOUND',
+                    message: 'Battle not found'
+                });
+            }
+
+            const battle = await joinBattle(battleId, userId);
+            console.log(`[${requestId}] ✅ User ${userId.slice(0, 12)}... joined battle ${battleId}`);
+
+            // Notify creator that opponent joined (non-blocking)
+            if (battle.creatorId && battle.creatorId !== userId) {
+                PushService.sendNotification(battle.creatorId, {
+                    title: '⚔️ Opponent Joined!',
+                    body: 'Someone opened your battle link - they\'re taking their photo now!',
+                    data: {
+                        type: 'battle_joined',
+                        battleId,
+                        responderId: userId
+                    }
+                }).catch(err => console.log(`[${requestId}] Push notification failed (non-blocking):`, err.message));
+            }
+
+            return res.status(200).json({
+                battleId: battle.challengeId,
+                status: battle.status,
+                joined: true,
+                mode: battle.mode,
+                creatorId: battle.creatorId,
+                creatorScore: battle.creatorScore,
+                creatorThumb: battle.creatorThumb,
+                expiresAt: battle.expiresAt
+            });
+        } catch (error) {
+            console.error(`[${requestId}] Error joining battle:`, error.message);
+
+            if (error.message === 'Battle not found') {
+                return res.status(404).json({ error: 'Battle not found or expired', code: 'BATTLE_NOT_FOUND' });
+            }
+            if (error.message === 'Battle expired') {
+                return res.status(404).json({ error: 'Battle has expired', code: 'BATTLE_EXPIRED' });
+            }
+            if (error.message === 'This battle already has an opponent') {
+                return res.status(409).json({ error: 'This battle already has an opponent', code: 'ALREADY_HAS_OPPONENT' });
+            }
+
+            return res.status(500).json({ error: 'Failed to join battle. Please try again.' });
+        }
+    });
+
+    /**
+     * DELETE /api/battle/:battleId
+     * Delete/dismiss a battle from user's view
+     * Warns user that battle will be gone and they should save screenshot if wanted
+     */
+    router.delete('/:battleId', getLimiter, async (req, res) => {
+        const { battleId } = req.params;
+        const requestId = `battle_delete_${Date.now()}`;
+
+        try {
+            console.log(`[${requestId}] DELETE /api/battle/${battleId}`);
+            const { userId } = req.body;
+
+            if (!userId) {
+                return res.status(400).json({
+                    error: 'userId is required'
+                });
+            }
+
+            // Validate battleId format
+            if (!battleId || !battleId.startsWith('ch_')) {
+                return res.status(404).json({
+                    error: true,
+                    code: 'BATTLE_NOT_FOUND',
+                    message: 'Battle not found'
+                });
+            }
+
+            const result = await deleteBattle(battleId, userId);
+            console.log(`[${requestId}] ✅ Battle ${battleId} deleted by user ${userId.slice(0, 12)}...`);
+
+            return res.status(200).json(result);
+        } catch (error) {
+            console.error(`[${requestId}] Error deleting battle:`, error.message);
+
+            if (error.message === 'You can only delete your own battles') {
+                return res.status(403).json({ error: 'You can only delete your own battles', code: 'UNAUTHORIZED' });
+            }
+
+            return res.status(500).json({ error: 'Failed to delete battle. Please try again.' });
+        }
+    });
+
+    export default router;
