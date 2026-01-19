@@ -1,4 +1,3 @@
-import OpenAI from 'openai';
 import { config } from '../config/index.js';
 import {
   buildSystemPrompt,
@@ -8,16 +7,33 @@ import {
   getViralityHooks
 } from '../config/systemPrompt.js';
 
-// Only initialize OpenAI if API key is configured (Gemini is primary analyzer)
+// Lazy-loaded OpenAI client - only initialized on first Pro scan request
+// COST OPTIMIZATION: Saves ~5MB memory at startup when Pro tier is not in use
 let openai = null;
-try {
-  if (config.openai?.apiKey) {
+let openaiInitAttempted = false;
+
+async function getOpenAIClient() {
+  if (openai) return openai;
+  if (openaiInitAttempted) return null;
+
+  openaiInitAttempted = true;
+
+  if (!config.openai?.apiKey) {
+    console.warn('OpenAI client not initialized: OPENAI_API_KEY not configured');
+    return null;
+  }
+
+  try {
+    const OpenAI = (await import('openai')).default;
     openai = new OpenAI({
       apiKey: config.openai.apiKey,
     });
+    console.log('✅ OpenAI client initialized (lazy-loaded on first Pro request)');
+    return openai;
+  } catch (e) {
+    console.warn('OpenAI client initialization failed:', e.message);
+    return null;
   }
-} catch (e) {
-  console.warn('OpenAI client not initialized:', e.message);
 }
 
 // Create analysis prompt for Pro tier using centralized config
@@ -74,8 +90,9 @@ export async function analyzeOutfit(imageBase64, options = {}) {
   const mode = modeParam || (roastMode ? 'roast' : 'nice');
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  // Check if OpenAI is configured
-  if (!openai) {
+  // Lazy-load OpenAI client on first Pro scan request
+  const client = await getOpenAIClient();
+  if (!client) {
     console.error(`[${requestId}] ❌ CRITICAL: OpenAI not configured - OPENAI_API_KEY missing`);
     return {
       success: false,
@@ -100,7 +117,7 @@ export async function analyzeOutfit(imageBase64, options = {}) {
 
     // Race between OpenAI call and timeout
     const response = await Promise.race([
-      openai.chat.completions.create({
+      client.chat.completions.create({
         model: config.openai.model,
         max_tokens: 1000,  // Pro tier needs more tokens for rich analysis
         messages: [
