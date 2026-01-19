@@ -4,6 +4,13 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
+import sharp from 'sharp';
+
+// COST OPTIMIZATION: Limit Sharp's libvips memory cache
+// Default is unlimited which causes memory bloat over time
+// 50MB cache + 10 items + 1 concurrent operation = minimal footprint
+sharp.cache({ memory: 50, items: 10, files: 0 });
+sharp.concurrency(1); // Process one image at a time to limit memory spikes
 
 import { config } from './config/index.js';
 import analyzeRoutes from './routes/analyze.js';
@@ -172,10 +179,13 @@ const server = app.listen(config.port, () => {
   console.log(`🚀 FitRate API running on port ${config.port}`);
   console.log(`📍 Environment: ${config.nodeEnv}`);
   console.log(`⏱️  Request timeout: 30s`);
+  console.log(`💾 Sharp cache: 50MB, concurrency: 1`);
 });
 
-// Set server timeout to 30 seconds
-server.timeout = 30000;
+// COST OPTIMIZATION: Reduce idle connection memory
+server.timeout = 30000;           // 30s request timeout
+server.keepAliveTimeout = 5000;   // 5s keepalive (default is 5s, but explicit)
+server.headersTimeout = 6000;     // Must be > keepAliveTimeout
 
 // ============================================
 // REWARD DISTRIBUTION SCHEDULER
