@@ -317,6 +317,7 @@ export async function getBattle(battleId, includeExpired = false) {
  * @param {string} responderId - User ID of the responder
  * @param {string} responderThumb - Base64 thumbnail of responder's outfit (optional)
  * @returns {Object} Full battle object with updated data
+ */
 export async function respondToBattle(battleId, responderScore, responderId, responderThumb = null) {
     // Validate score
     if (typeof responderScore !== 'number' || responderScore < 0 || responderScore > 100) {
