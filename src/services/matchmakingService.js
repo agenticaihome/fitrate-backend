@@ -106,7 +106,16 @@ export async function joinQueue(userId, score, thumb, mode = 'nice') {
         // Get queue position and estimate wait time
         const position = await redis.zrank(queueKey, userId);
         const estimatedWait = Math.max(5, (position + 1) * 3); // ~3 seconds per position, min 5
-        return { status: 'queued', position: position + 1, estimatedWait };
+
+        // Get current queue count for instant ghost matching
+        const queueCount = await redis.zcard(queueKey) || 0;
+
+        return {
+            status: 'queued',
+            position: position + 1,
+            estimatedWait,
+            queueCount // Number of users in queue (0 = trigger instant ghost)
+        };
 
     } else {
         // In-memory fallback
@@ -131,7 +140,14 @@ export async function joinQueue(userId, score, thumb, mode = 'nice') {
 
         const position = inMemoryQueue.get(mode).size;
         const estimatedWait = Math.max(5, position * 3);
-        return { status: 'queued', position, estimatedWait };
+        const queueCount = position;
+
+        return {
+            status: 'queued',
+            position,
+            estimatedWait,
+            queueCount
+        };
     }
 }
 
