@@ -218,6 +218,24 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                     };
                 }
 
+                // 🧹 CLEANUP: Strip bracket placeholders that Gemini sometimes outputs
+                // e.g., "[style elementing]", "<5-9 words>", etc.
+                const cleanPlaceholders = (str) => {
+                    if (typeof str !== 'string') return str;
+                    return str
+                        .replace(/\[[\w\s-]+\]/g, '')  // [placeholder]
+                        .replace(/<[\w\s-]+>/g, '')   // <placeholder>
+                        .replace(/\s{2,}/g, ' ')      // Multiple spaces
+                        .trim();
+                };
+
+                // Clean text fields that might have placeholders
+                if (parsed.verdict) parsed.verdict = cleanPlaceholders(parsed.verdict);
+                if (parsed.line) parsed.line = cleanPlaceholders(parsed.line);
+                if (parsed.tagline) parsed.tagline = cleanPlaceholders(parsed.tagline);
+                if (parsed.text) parsed.text = cleanPlaceholders(parsed.text);
+                if (parsed.aesthetic) parsed.aesthetic = cleanPlaceholders(parsed.aesthetic);
+
                 console.log(`[${requestId}] Analysis successful with ${modelName} - Score: ${parsed.overall}`);
 
                 // Get virality hooks for this mode
