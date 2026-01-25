@@ -104,9 +104,9 @@ router.post('/', async (req, res) => {
         await linkEmailToUser(email, userId);
       }
 
-      // Differentiate between product types by amount
+      // Differentiate between product types
       if (mode === 'payment') {
-        // One-time purchases
+        // One-time purchases (scan packs)
         const targetUserId = userId || email;
 
         if (!targetUserId) {
@@ -114,37 +114,30 @@ router.post('/', async (req, res) => {
           break;
         }
 
-        // Scan Packs (amounts in cents) - New Optimized Pricing
-        const SCAN_PACK_AMOUNTS = {
-          99: 10,    // First-Time Offer OR Impulse Pack: $0.99 = 10 or 3 scans
-          299: 10,   // Starter Pack: $2.99 = 10 scans
-          499: 25,   // Popular Pack: $4.99 = 25 scans ⭐
-          699: 50,   // Value Pack: $6.99 = 50 scans
-          999: 100,  // Mega Pack: $9.99 = 100 scans
-        };
-
-        // Special handling for $0.99 - could be First-Time (10) or Impulse (3)
-        // Check metadata to differentiate
+        // Get product info from metadata (preferred) or fallback to amount-based lookup
         const productType = session.metadata?.product_type;
-        let scansAdded = 0;
+        const productName = session.metadata?.product || 'unknown';
+        
+        // PREFERRED: Read scans directly from metadata (set by checkout route)
+        let scansAdded = session.metadata?.scans ? parseInt(session.metadata.scans, 10) : 0;
 
-        if (amount === 99) {
-          if (productType === 'impulse_pack' || productType === 'scan_pack_3') {
-            console.log(`📦 Impulse Pack purchased: 3 scans for $0.99`);
-            await addPurchasedScans(targetUserId, 3);
-            scansAdded = 3;
-          } else {
-            // First-Time Offer: 10 scans for $0.99
-            console.log(`🎁 First-Time Offer purchased: 10 scans for $0.99`);
-            await addPurchasedScans(targetUserId, 10);
-            scansAdded = 10;
-          }
-        } else if (SCAN_PACK_AMOUNTS[amount]) {
-          scansAdded = SCAN_PACK_AMOUNTS[amount];
-          console.log(`📦 Scan Pack purchased: ${scansAdded} scans for $${amount / 100}`);
+        // FALLBACK: Amount-based lookup for legacy/external purchases
+        if (!scansAdded) {
+          const SCAN_PACK_AMOUNTS = {
+            99: productType === 'impulse_pack' ? 3 : 10,  // $0.99 = Impulse (3) or First-Time (10)
+            299: 10,   // Starter Pack: $2.99 = 10 scans
+            499: 25,   // Popular Pack: $4.99 = 25 scans
+            699: 50,   // Value Pack: $6.99 = 50 scans
+            999: 100,  // Mega Pack: $9.99 = 100 scans
+          };
+          scansAdded = SCAN_PACK_AMOUNTS[amount] || 0;
+        }
+
+        if (scansAdded > 0) {
           await addPurchasedScans(targetUserId, scansAdded);
+          console.log(`📦 ${productName}: ${scansAdded} scans for $${amount / 100}`);
         } else {
-          console.log(`⚠️ Unknown one-time purchase amount: $${amount / 100}`);
+          console.log(`⚠️ Unknown one-time purchase: $${amount / 100} | product:${productName}`);
         }
 
         // BACKUP: Also store scans under email if available (for double recovery)
