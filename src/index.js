@@ -133,8 +133,8 @@ app.get('/health', (req, res) => {
 
 // Origin validation for API routes (skip for webhooks, admin, diag, and event)
 app.use('/api/', (req, res, next) => {
-  // Skip origin check for public read-only endpoints
-  if (req.path.startsWith('/admin') || req.path.startsWith('/diag') || req.path.startsWith('/event') || req.path.startsWith('/show') || req.path.startsWith('/leaderboard')) {
+  // Skip origin check for webhooks (Stripe doesn't send Origin header) and public endpoints
+  if (req.path.startsWith('/webhook') || req.path.startsWith('/admin') || req.path.startsWith('/diag') || req.path.startsWith('/event') || req.path.startsWith('/show') || req.path.startsWith('/leaderboard')) {
     return next();
   }
   validateOrigin(req, res, next);
