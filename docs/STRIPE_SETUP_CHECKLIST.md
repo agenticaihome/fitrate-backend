@@ -136,7 +136,7 @@ The webhook uses `IdempotencyService` to prevent duplicate processing:
 
 ```bash
 # Check if webhook endpoint responds
-curl -X POST https://fitrate-backend-production.up.railway.app/api/webhook \
+curl -X POST https://fitrate-production.up.railway.app/api/webhook \
   -H "Content-Type: application/json" \
   -d '{"type":"test"}'
 # Should return 400 (missing signature) - this is correct!
