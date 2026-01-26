@@ -22,13 +22,12 @@ export const SCAN_LIMITS = {
 };
 
 // === FREE TIER DAILY LIMITS ===
-// These limits apply to free users only. Pro users have unlimited access.
+// These limits apply to free users only. Pro users get 100/day ("unlimited").
 export const FREE_TIER_LIMITS = {
-    ARENA_BATTLES_DAILY: 3,       // 3 arena battles per day
-    WARDROBE_BATTLES_DAILY: 1,    // 1 wardrobe war per day
-    KOTH_ATTEMPTS_DAILY: 3,       // 3 KOTH challenge attempts per day
-    DAILY_CHALLENGE_ENTRIES: 1    // 1 daily challenge entry per day
+    ARENA_BATTLES_DAILY: 3,       // 3 arena battles per day (free), 100 (pro)
+    DAILY_FITRATE_ENTRIES: 1      // 1 Daily FitRate entry for EVERYONE (fair competition)
 };
+// REMOVED: Wardrobe Wars, KOTH, Daily Challenge (simplified app)
 
 // === MODE ACCESS CONTROL ===
 // Defines which modes are available to free vs pro users

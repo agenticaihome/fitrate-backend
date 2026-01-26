@@ -2,12 +2,12 @@
  * Daily Limits Service
  *
  * Tracks daily usage limits for free tier users.
- * Pro users have unlimited access.
+ * Pro users get 100/day ("unlimited").
  *
- * Limits (free users only):
- * - Arena battles: 5/day
- * - Wardrobe wars: 1/day
- * - KOTH attempts: 3/day
+ * Limits:
+ * - Arena battles: 3/day (free), 100/day (pro)
+ * - Daily FitRate: 1/day for EVERYONE (fair competition)
+ * - Scans: 1/day (free), 100/day (pro)
  *
  * Redis Keys:
  * - fitrate:limits:{type}:{userId}:{YYYY-MM-DD} - Daily count
@@ -100,17 +100,15 @@ export async function incrementDailyUsage(type, userId) {
 
 /**
  * Get the daily limit for a specific type
- * @param {string} type - 'arena', 'wardrobe', or 'koth'
+ * @param {string} type - 'arena' or 'dailyfitrate'
  * @returns {number} Daily limit
  */
 function getDailyLimit(type) {
     switch (type) {
         case 'arena':
             return FREE_TIER_LIMITS.ARENA_BATTLES_DAILY;
-        case 'wardrobe':
-            return FREE_TIER_LIMITS.WARDROBE_BATTLES_DAILY;
-        case 'koth':
-            return FREE_TIER_LIMITS.KOTH_ATTEMPTS_DAILY;
+        case 'dailyfitrate':
+            return FREE_TIER_LIMITS.DAILY_FITRATE_ENTRIES;
         default:
             return 0;
     }
@@ -234,26 +232,31 @@ export async function getAllLimitsStatus(userId) {
         return {
             isPro: false,
             arena: { used: 0, limit: FREE_TIER_LIMITS.ARENA_BATTLES_DAILY, remaining: FREE_TIER_LIMITS.ARENA_BATTLES_DAILY },
-            wardrobe: { used: 0, limit: FREE_TIER_LIMITS.WARDROBE_BATTLES_DAILY, remaining: FREE_TIER_LIMITS.WARDROBE_BATTLES_DAILY },
-            koth: { used: 0, limit: FREE_TIER_LIMITS.KOTH_ATTEMPTS_DAILY, remaining: FREE_TIER_LIMITS.KOTH_ATTEMPTS_DAILY }
+            dailyfitrate: { used: 0, limit: FREE_TIER_LIMITS.DAILY_FITRATE_ENTRIES, remaining: FREE_TIER_LIMITS.DAILY_FITRATE_ENTRIES }
         };
     }
 
     const isPro = await checkIsPro(userId);
 
+    // Pro users get 100/day for arena ("unlimited"), but Daily FitRate is 1 for EVERYONE
+    const proArenaLimit = 100;
+
     if (isPro) {
+        const dailyFitrateUsed = await getDailyUsage('dailyfitrate', userId);
         return {
             isPro: true,
-            arena: { used: 0, limit: Infinity, remaining: Infinity },
-            wardrobe: { used: 0, limit: Infinity, remaining: Infinity },
-            koth: { used: 0, limit: Infinity, remaining: Infinity }
+            arena: { used: 0, limit: proArenaLimit, remaining: proArenaLimit },
+            dailyfitrate: {
+                used: dailyFitrateUsed,
+                limit: FREE_TIER_LIMITS.DAILY_FITRATE_ENTRIES,
+                remaining: Math.max(0, FREE_TIER_LIMITS.DAILY_FITRATE_ENTRIES - dailyFitrateUsed)
+            }
         };
     }
 
-    const [arenaUsed, wardrobeUsed, kothUsed] = await Promise.all([
+    const [arenaUsed, dailyFitrateUsed] = await Promise.all([
         getDailyUsage('arena', userId),
-        getDailyUsage('wardrobe', userId),
-        getDailyUsage('koth', userId)
+        getDailyUsage('dailyfitrate', userId)
     ]);
 
     return {
@@ -263,15 +266,10 @@ export async function getAllLimitsStatus(userId) {
             limit: FREE_TIER_LIMITS.ARENA_BATTLES_DAILY,
             remaining: Math.max(0, FREE_TIER_LIMITS.ARENA_BATTLES_DAILY - arenaUsed)
         },
-        wardrobe: {
-            used: wardrobeUsed,
-            limit: FREE_TIER_LIMITS.WARDROBE_BATTLES_DAILY,
-            remaining: Math.max(0, FREE_TIER_LIMITS.WARDROBE_BATTLES_DAILY - wardrobeUsed)
-        },
-        koth: {
-            used: kothUsed,
-            limit: FREE_TIER_LIMITS.KOTH_ATTEMPTS_DAILY,
-            remaining: Math.max(0, FREE_TIER_LIMITS.KOTH_ATTEMPTS_DAILY - kothUsed)
+        dailyfitrate: {
+            used: dailyFitrateUsed,
+            limit: FREE_TIER_LIMITS.DAILY_FITRATE_ENTRIES,
+            remaining: Math.max(0, FREE_TIER_LIMITS.DAILY_FITRATE_ENTRIES - dailyFitrateUsed)
         }
     };
 }

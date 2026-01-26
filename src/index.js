@@ -28,7 +28,8 @@ import leaderboardRoutes from './routes/leaderboard.js';
 import showRoutes from './routes/show.js';
 import battleRoutes from './routes/battle.js';
 import matchmakingRoutes from './routes/matchmaking.js';  // Global Arena
-import wardrobeRoutes from './routes/wardrobe.js';        // Wardrobe Wars
+// REMOVED: Wardrobe Wars (simplified app)
+// import wardrobeRoutes from './routes/wardrobe.js';
 import warRoutes from './routes/war.js';                  // Fashion Wars
 
 // Security middleware
@@ -160,7 +161,7 @@ app.use('/api/streak', streakRoutes);        // Daily streak system
 app.use('/api/leaderboard', leaderboardRoutes);  // Today's Top Fits
 app.use('/api/battle', battleRoutes);         // 1v1 Outfit Battles
 app.use('/api/arena', matchmakingRoutes);     // Global Arena Matchmaking
-app.use('/api/wardrobe', wardrobeRoutes);     // Wardrobe Wars
+// REMOVED: app.use('/api/wardrobe', wardrobeRoutes);  // Wardrobe Wars (simplified)
 app.use('/api/war', warRoutes);               // Fashion Wars
 
 // 404 handler
@@ -196,11 +197,11 @@ import {
   distributeRewards,
   wasDistributed,
   markDistributed,
-  DAILY_REWARDS,
   WEEKLY_REWARDS,
   ARENA_REWARDS
 } from './services/rewardService.js';
-import { getYesterdaysFinalLeaderboard, getYesterdayKey } from './services/dailyChallengeService.js';
+// REMOVED: Daily Challenge (simplified app)
+// import { getYesterdaysFinalLeaderboard, getYesterdayKey } from './services/dailyChallengeService.js';
 import { getWeeklyLeaderboard } from './services/arenaLeaderboardService.js';
 
 let lastRewardCheck = null;
@@ -225,35 +226,8 @@ async function checkAndDistributeRewards() {
   console.log(`🎁 REWARD DISTRIBUTION CHECK - ${now.toISOString()}`);
   console.log(`🎁 ============================================\n`);
 
-  // --- DAILY REWARDS (every day at midnight) ---
-  try {
-    const yesterdayKey = getYesterdayKey();
-    if (!(await wasDistributed(yesterdayKey, 'daily'))) {
-      console.log(`📅 Distributing DAILY rewards for ${yesterdayKey}...`);
-
-      const { leaderboard, totalParticipants } = await getYesterdaysFinalLeaderboard(100);
-
-      if (leaderboard.length > 0) {
-        const rewards = calculateRewards(leaderboard, DAILY_REWARDS);
-        const result = await distributeRewards(rewards);
-
-        await markDistributed(yesterdayKey, 'daily', {
-          totalParticipants,
-          winnersCount: rewards.length,
-          ...result
-        });
-
-        console.log(`✅ Daily rewards distributed: ${result.distributed} winners, ${result.totalScans} total scans`);
-      } else {
-        await markDistributed(yesterdayKey, 'daily', { totalParticipants: 0, winnersCount: 0, totalScans: 0 });
-        console.log(`📅 No daily challenge entries for ${yesterdayKey}`);
-      }
-    } else {
-      console.log(`📅 Daily rewards already distributed for ${yesterdayKey}`);
-    }
-  } catch (error) {
-    console.error('❌ Daily reward distribution failed:', error);
-  }
+  // REMOVED: Daily Challenge rewards (simplified app)
+  // Daily FitRate leaderboard now uses the main leaderboard system
 
   // --- FASHION WARS: Finalize daily battles (every day at midnight) ---
   try {
