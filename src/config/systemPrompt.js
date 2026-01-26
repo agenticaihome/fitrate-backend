@@ -17,17 +17,17 @@ export const ERROR_MESSAGES = {
 
 // === SCAN LIMITS ===
 export const SCAN_LIMITS = {
-    free: { base: 2, referral_bonus_per: 1, referral_cap: 5, milestone_3_referrals: 15 },
+    free: { base: 1, referral_bonus_per: 1, referral_cap: 5, milestone_3_referrals: 15 },
     pro: { base: 25, packs: [5, 15, 50] }
 };
 
 // === FREE TIER DAILY LIMITS ===
 // These limits apply to free users only. Pro users have unlimited access.
 export const FREE_TIER_LIMITS = {
-    ARENA_BATTLES_DAILY: 5,       // 5 arena battles per day
+    ARENA_BATTLES_DAILY: 3,       // 3 arena battles per day
     WARDROBE_BATTLES_DAILY: 1,    // 1 wardrobe war per day
     KOTH_ATTEMPTS_DAILY: 3,       // 3 KOTH challenge attempts per day
-    DAILY_CHALLENGE_ENTRIES: 3    // 3 daily challenge entries (currently 1, but prepared for future)
+    DAILY_CHALLENGE_ENTRIES: 1    // 1 daily challenge entry per day
 };
 
 // === MODE ACCESS CONTROL ===

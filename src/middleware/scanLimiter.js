@@ -19,7 +19,7 @@ const proPreviewStoreFallback = new Map(); // Track Pro Preview usage per user p
 
 // Pro = "Unlimited" (100/day fair use cap - 99% of users never hit this)
 const LIMITS = {
-    free: 2,   // Free tier daily limit
+    free: 1,   // Free tier daily limit (1 scan/day)
     pro: 100   // "Unlimited" with fair use cap (still 70%+ margin at $3.99/mo)
 };
 
