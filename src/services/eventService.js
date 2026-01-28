@@ -11,6 +11,7 @@
  */
 
 import { redis, isRedisAvailable } from './redisClient.js';
+import { getESTDate, getTodayKeyEST, EST_OFFSET } from '../utils/dateUtils.js';
 
 // Redis key patterns
 const CURRENT_EVENT_KEY = 'fitrate:event:current';
@@ -27,23 +28,16 @@ const EVENT_ENTRIES_WEEKLY = 1;        // All users get 1 entry per week (Pro in
 const TOP_5_THUMBNAIL_LIMIT = 5;       // Only store thumbnails for top 5
 
 /**
- * EST offset in hours (Eastern Standard Time = UTC-5)
+ * EST offset in hours - imported from dateUtils for consistency
  * All leaderboards reset at midnight EST
  */
-const EST_OFFSET_HOURS = 5;
-
-/**
- * Get the current time adjusted to EST
- */
-function getESTDate(date = new Date()) {
-    return new Date(date.getTime() - (EST_OFFSET_HOURS * 60 * 60 * 1000));
-}
+const EST_OFFSET_HOURS = EST_OFFSET;
 
 /**
  * Get today's date key (YYYY-MM-DD) in EST
  */
 function getTodayKey() {
-    return getESTDate().toISOString().split('T')[0];
+    return getTodayKeyEST();
 }
 
 // Default themes to rotate through

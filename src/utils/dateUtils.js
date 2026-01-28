@@ -12,11 +12,13 @@
 const EST_OFFSET_HOURS = 5;
 
 /**
- * Get the current time adjusted to EST
- * @returns {Date} Current time in EST as a Date object
+ * Get the current time (or provided time) adjusted to EST
+ * @param {Date} date - Optional date to convert to EST (defaults to now)
+ * @returns {Date} Time in EST as a Date object
  */
-export function getESTDate() {
-    return new Date(Date.now() - (EST_OFFSET_HOURS * 60 * 60 * 1000));
+export function getESTDate(date = new Date()) {
+    const timestamp = date instanceof Date ? date.getTime() : Date.now();
+    return new Date(timestamp - (EST_OFFSET_HOURS * 60 * 60 * 1000));
 }
 
 /**
