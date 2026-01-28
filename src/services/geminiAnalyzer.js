@@ -103,13 +103,18 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
     };
 
     // Models to try in order (fallback chain) - Use latest stable Gemini models
+    // NOTE: gemini-3-flash-preview removed — preview model was timing out (29s+)
+    // causing 499s before fallback could fire. Stable models only.
     const models = [
-        'gemini-3-flash-preview',                     // Primary - newest, best outputs (preview)
-        config.gemini.model || 'gemini-2.5-flash',    // Fallback 1 - stable
-        'gemini-2.0-flash'                            // Fallback 2 - legacy
+        config.gemini.model || 'gemini-2.5-flash',    // Primary - stable, fast
+        'gemini-2.0-flash'                             // Fallback - proven reliable
     ];
 
     // Try each model with retries
+    // TIMEOUT: 12s per attempt (was 25s) — leaves room for fallback within 30s client timeout
+    // Budget: 12s × 2 attempts × 2 models = 48s max, but usually succeeds on attempt 1
+    const PER_ATTEMPT_TIMEOUT = 12000;
+
     for (const modelName of models) {
         const maxRetries = 2;
 
@@ -119,7 +124,7 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                 console.log(`[${requestId}] Calling Gemini (model: ${modelName}, attempt: ${attempt})...`);
 
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 25000);
+                const timeoutId = setTimeout(() => controller.abort(), PER_ATTEMPT_TIMEOUT);
 
                 const response = await fetch(apiUrl, {
                     method: 'POST',
