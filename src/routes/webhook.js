@@ -84,6 +84,25 @@ router.post('/', async (req, res) => {
     return res.status(200).send({ received: true });
   }
 
+  // Filter: Only process FitRate events (skip HoopLog/DentDx/other app events)
+  // FitRate events have: userId, product_type, scans, product metadata
+  // HoopLog events have: flow="new_coach_registration", team_id, team_name
+  // DentDx events have: supabase_user_id, plan, one_time_purchase
+  const eventMetadata = event.data?.object?.metadata || {};
+  
+  const isOtherAppEvent = 
+    eventMetadata.flow === 'new_coach_registration' || 
+    eventMetadata.team_id || 
+    eventMetadata.team_name ||
+    eventMetadata.supabase_user_id ||
+    eventMetadata.plan ||
+    eventMetadata.one_time_purchase === 'true';
+
+  if (isOtherAppEvent) {
+    console.log(`Skipping non-FitRate event ${event.id} (${event.type}) - belongs to another app`);
+    return res.status(200).json({ received: true, skipped: 'not_fitrate' });
+  }
+
   // Handle the event
   switch (event.type) {
     case 'checkout.session.completed': {
