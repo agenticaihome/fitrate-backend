@@ -184,6 +184,37 @@ router.post('/', async (req, res) => {
       break;
     }
 
+    case 'customer.subscription.updated': {
+      const subscription = event.data.object;
+      const status = subscription.status;
+      console.log(`🔄 Subscription updated: ${subscription.id} | status: ${status}`);
+
+      // Handle status changes that affect Pro access
+      try {
+        const customer = await stripe.customers.retrieve(subscription.customer);
+        const email = customer.email;
+        const userId = subscription.metadata?.userId;
+
+        if (status === 'active' || status === 'trialing') {
+          // Subscription is active - ensure Pro access
+          if (userId || email) {
+            await EntitlementService.grantPro(userId, email, 'stripe_subscription');
+            console.log(`   ✅ Pro access confirmed for: ${email || userId}`);
+          }
+        } else if (status === 'past_due' || status === 'unpaid' || status === 'canceled') {
+          // Subscription is no longer active - revoke Pro
+          if (email) {
+            await EntitlementService.revokePro(email);
+            console.log(`   ❌ Pro access revoked (${status}) for: ${email}`);
+          }
+        }
+        // 'incomplete', 'incomplete_expired', 'paused' - log but don't change access yet
+      } catch (err) {
+        console.error('Error handling subscription update:', err.message);
+      }
+      break;
+    }
+
     case 'customer.subscription.deleted': {
       const subscription = event.data.object;
       console.log('❌ Subscription canceled:', subscription.id);
