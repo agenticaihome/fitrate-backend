@@ -10,60 +10,65 @@ const stripe = config.stripe.secretKey
     : null;
 
 /**
- * Product Catalog - Single Source of Truth
+ * Product Catalog - Using Stripe Price IDs
  * 
- * Two approaches:
- * 1. Use price_data (inline) - prices defined here, no Stripe Dashboard setup needed
- * 2. Use priceId - requires pre-created prices in Stripe Dashboard
- * 
- * We use inline pricing for simplicity. Products are auto-created in Stripe.
+ * All products are pre-created in Stripe Dashboard for:
+ * - Clean reporting & analytics
+ * - Easy price updates without code changes
+ * - Proper product management
  */
 const PRODUCTS = {
     // === ONE-TIME SCAN PACKS ===
     firstTime: {
-        name: 'First-Time Offer - 10 Scans',
+        name: 'First-Time Offer',
         description: 'Welcome gift! 10 outfit scans at 67% off',
-        amount: 99,  // $0.99 in cents
+        priceId: 'price_1SxZxtRxdgqzrHryrLHd55Zc',
+        amount: 99,  // $0.99 in cents (for display)
         scans: 10,
         mode: 'payment',
         metadata: { product_type: 'first_time_offer', scans: '10' }
     },
     impulse: {
-        name: 'Impulse Pack - 3 Scans',
+        name: 'Impulse Pack',
         description: 'Quick vibe check - 3 outfit scans',
-        amount: 99,  // $0.99 in cents
+        priceId: 'price_1SxZy4RxdgqzrHryEjCLss8n',
+        amount: 99,
         scans: 3,
         mode: 'payment',
         metadata: { product_type: 'impulse_pack', scans: '3' }
     },
     starter: {
-        name: 'Starter Pack - 10 Scans',
+        name: 'Starter Pack',
         description: 'A week of daily fits - 10 outfit scans',
-        amount: 299,  // $2.99 in cents
+        priceId: 'price_1SxZy4RxdgqzrHryJLrwyLAe',
+        amount: 299,
         scans: 10,
         mode: 'payment',
         metadata: { product_type: 'scan_pack_10', scans: '10' }
     },
     popular: {
-        name: 'Popular Pack - 25 Scans',
+        name: 'Popular Pack',
         description: 'Fan favorite - 25 outfit scans',
-        amount: 499,  // $4.99 in cents
+        priceId: 'price_1SxZy5RxdgqzrHryYnLh82iA',
+        amount: 499,
         scans: 25,
         mode: 'payment',
         metadata: { product_type: 'scan_pack_25', scans: '25' }
     },
     value: {
-        name: 'Value Pack - 50 Scans',
+        name: 'Value Pack',
         description: 'Style enthusiast - 50 outfit scans',
-        amount: 699,  // $6.99 in cents
+        priceId: 'price_1SxZyHRxdgqzrHryhDzNv9e1',
+        amount: 699,
         scans: 50,
         mode: 'payment',
         metadata: { product_type: 'scan_pack_50', scans: '50' }
     },
     mega: {
-        name: 'Mega Pack - 100 Scans',
+        name: 'Mega Pack',
         description: 'Fashionista pack - 100 outfit scans',
-        amount: 999,  // $9.99 in cents
+        priceId: 'price_1SxZyHRxdgqzrHry1n0Seyzz',
+        amount: 999,
         scans: 100,
         mode: 'payment',
         metadata: { product_type: 'scan_pack_100', scans: '100' }
@@ -73,7 +78,8 @@ const PRODUCTS = {
     monthly: {
         name: 'FitRate Pro Monthly',
         description: 'Unlimited scans, all AI judges, unlimited battles',
-        amount: 399,  // $3.99 in cents
+        priceId: 'price_1SxZyQRxdgqzrHrydQh595Hc',
+        amount: 399,
         mode: 'subscription',
         interval: 'month',
         metadata: { product_type: 'pro_monthly' }
@@ -81,7 +87,8 @@ const PRODUCTS = {
     yearly: {
         name: 'FitRate Pro Yearly',
         description: 'Unlimited everything - best value (2 months free)',
-        amount: 2999,  // $29.99 in cents
+        priceId: 'price_1SxZyRRxdgqzrHryuPVg0Ygy',
+        amount: 2999,
         mode: 'subscription',
         interval: 'year',
         metadata: { product_type: 'pro_yearly' }
@@ -118,30 +125,13 @@ router.post('/create-session', async (req, res) => {
     const isSubscription = productConfig.mode === 'subscription';
 
     try {
-        // Build line item with inline price_data
-        const lineItem = {
-            quantity: 1,
-            price_data: {
-                currency: 'usd',
-                unit_amount: productConfig.amount,
-                product_data: {
-                    name: productConfig.name,
-                    description: productConfig.description,
-                },
-            }
-        };
-
-        // Add recurring interval for subscriptions
-        if (isSubscription) {
-            lineItem.price_data.recurring = {
-                interval: productConfig.interval
-            };
-        }
-
-        // Create checkout session
+        // Create checkout session using price ID
         const session = await stripe.checkout.sessions.create({
             mode: productConfig.mode,
-            line_items: [lineItem],
+            line_items: [{
+                price: productConfig.priceId,
+                quantity: 1,
+            }],
             success_url: `${req.headers.origin || 'https://fitrate.app'}/?success=true&product=${product}`,
             cancel_url: `${req.headers.origin || 'https://fitrate.app'}/?canceled=true`,
             customer_email: email || undefined,
@@ -177,7 +167,7 @@ router.post('/create-session', async (req, res) => {
  * GET /api/checkout/products
  */
 router.get('/products', (req, res) => {
-    // Return products with public info only (no internal metadata)
+    // Return products with public info only (no internal metadata or priceIds)
     const catalog = {};
     
     for (const [key, product] of Object.entries(PRODUCTS)) {
