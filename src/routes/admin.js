@@ -99,68 +99,6 @@ router.post('/reset-tracking', async (req, res) => {
     }
 });
 
-// ============================================
-// GHOST POOL MANAGEMENT
-// ============================================
-import { addToGhostPool, getPoolStats } from '../services/ghostPool.js';
-
-// ADMIN: Get ghost pool stats
-// URL: /api/admin/ghost-pool/stats?key=YOUR_ADMIN_KEY
-router.get('/ghost-pool/stats', async (req, res) => {
-    const { key } = req.query;
-
-    if (!key || key !== process.env.ADMIN_KEY) {
-        return res.status(403).json({ error: 'Unauthorized' });
-    }
-
-    try {
-        const stats = await getPoolStats();
-        return res.json({
-            success: true,
-            ...stats,
-            note: 'Pool auto-populates from Arena battles. Synthetic fallback used if empty.'
-        });
-    } catch (error) {
-        console.error('Ghost pool stats error:', error);
-        return res.status(500).json({ error: 'Failed to get stats' });
-    }
-});
-
-// ADMIN: Seed ghost pool with an outfit
-// URL: /api/admin/ghost-pool/seed?key=YOUR_ADMIN_KEY
-// Body: { score, thumb (base64), displayName, mode }
-router.post('/ghost-pool/seed', async (req, res) => {
-    const { key } = req.query;
-
-    if (!key || key !== process.env.ADMIN_KEY) {
-        return res.status(403).json({ error: 'Unauthorized' });
-    }
-
-    try {
-        const { score, thumb, displayName, mode } = req.body;
-
-        if (!score || !thumb) {
-            return res.status(400).json({ error: 'score and thumb are required' });
-        }
-
-        await addToGhostPool({
-            userId: `seed_${Date.now()}`,
-            score: parseFloat(score),
-            thumb,
-            displayName: displayName || 'FitRate Star',
-            mode: mode || 'nice'
-        });
-
-        const stats = await getPoolStats();
-        return res.json({
-            success: true,
-            message: 'Outfit added to ghost pool',
-            poolStats: stats
-        });
-    } catch (error) {
-        console.error('Ghost pool seed error:', error);
-        return res.status(500).json({ error: 'Failed to seed ghost pool' });
-    }
-});
+// REMOVED: Ghost pool management (game modes removed)
 
 export default router;

@@ -25,12 +25,7 @@ import restoreRoutes from './routes/restore.js';
 import pushRoutes from './routes/push.js';
 import streakRoutes from './routes/streak.js';
 import leaderboardRoutes from './routes/leaderboard.js';
-import showRoutes from './routes/show.js';
-import battleRoutes from './routes/battle.js';
-import matchmakingRoutes from './routes/matchmaking.js';  // Global Arena
-// REMOVED: Wardrobe Wars (simplified app)
-// import wardrobeRoutes from './routes/wardrobe.js';
-import warRoutes from './routes/war.js';                  // Fashion Wars
+// REMOVED: show, battle, matchmaking, wardrobe, war routes (game modes removed)
 
 // Security middleware
 import { validateOrigin, costTracker } from './middleware/apiKeyAuth.js';
@@ -135,7 +130,7 @@ app.get('/health', (req, res) => {
 // Origin validation for API routes (skip for webhooks, admin, diag, and event)
 app.use('/api/', (req, res, next) => {
   // Skip origin check for webhooks (Stripe doesn't send Origin header) and public endpoints
-  if (req.path.startsWith('/webhook') || req.path.startsWith('/admin') || req.path.startsWith('/diag') || req.path.startsWith('/event') || req.path.startsWith('/show') || req.path.startsWith('/leaderboard')) {
+  if (req.path.startsWith('/webhook') || req.path.startsWith('/admin') || req.path.startsWith('/diag') || req.path.startsWith('/event') || req.path.startsWith('/leaderboard')) {
     return next();
   }
   validateOrigin(req, res, next);
@@ -156,13 +151,8 @@ app.use('/api/event', eventRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/restore', restoreRoutes);
 app.use('/api/push', pushRoutes);
-app.use('/api/show', showRoutes);            // Fashion Show
 app.use('/api/streak', streakRoutes);        // Daily streak system
 app.use('/api/leaderboard', leaderboardRoutes);  // Today's Top Fits
-app.use('/api/battle', battleRoutes);         // 1v1 Outfit Battles
-app.use('/api/arena', matchmakingRoutes);     // Global Arena Matchmaking
-// REMOVED: app.use('/api/wardrobe', wardrobeRoutes);  // Wardrobe Wars (simplified)
-app.use('/api/war', warRoutes);               // Fashion Wars
 
 // 404 handler
 app.use((req, res) => {
@@ -197,12 +187,10 @@ import {
   distributeRewards,
   wasDistributed,
   markDistributed,
-  WEEKLY_REWARDS,
-  ARENA_REWARDS
+  WEEKLY_REWARDS
 } from './services/rewardService.js';
 // REMOVED: Daily Challenge (simplified app)
 // import { getYesterdaysFinalLeaderboard, getYesterdayKey } from './services/dailyChallengeService.js';
-import { getWeeklyLeaderboard } from './services/arenaLeaderboardService.js';
 
 let lastRewardCheck = null;
 
@@ -228,19 +216,6 @@ async function checkAndDistributeRewards() {
 
   // REMOVED: Daily Challenge rewards (simplified app)
   // Daily FitRate leaderboard now uses the main leaderboard system
-
-  // --- FASHION WARS: Finalize daily battles (every day at midnight) ---
-  try {
-    const { finalizeDailyBattles, getWarDayNumber, getCurrentWarId } = await import('./services/warService.js');
-    const yesterdayDate = new Date(now);
-    yesterdayDate.setUTCDate(yesterdayDate.getUTCDate() - 1);
-    const yesterdayISO = yesterdayDate.toISOString().split('T')[0];
-
-    console.log(`⚔️ Fashion Wars: Finalizing battles for ${yesterdayISO} (War: ${getCurrentWarId()}, Day: ${getWarDayNumber()})`);
-    await finalizeDailyBattles(yesterdayISO);
-  } catch (error) {
-    console.error('❌ Fashion Wars daily finalization failed:', error);
-  }
 
   // --- WEEKLY REWARDS (Sunday at midnight) ---
   if (utcDay === 0) { // Sunday
@@ -296,47 +271,6 @@ async function checkAndDistributeRewards() {
       }
     } catch (error) {
       console.error('❌ Weekly reward distribution failed:', error);
-    }
-  }
-
-  // --- ARENA REWARDS (Monday at midnight) ---
-  if (utcDay === 1) { // Monday
-    try {
-      // Get last week's arena key
-      const lastWeek = new Date(now);
-      lastWeek.setUTCDate(lastWeek.getUTCDate() - 1);
-      const weekKey = `arena-${lastWeek.getUTCFullYear()}-W${String(Math.ceil((lastWeek.getTime() - new Date(lastWeek.getUTCFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000))).padStart(2, '0')}`;
-
-      if (!(await wasDistributed(weekKey, 'arena'))) {
-        console.log(`⚔️ Distributing ARENA rewards for ${weekKey}...`);
-
-        const { entries, totalEntries } = await getWeeklyLeaderboard(null, 100);
-
-        if (entries && entries.length > 0) {
-          // Transform arena entries to match reward format
-          const leaderboard = entries.map((e, i) => ({
-            userId: e.userId?.replace?.('...', '') || e.odlUserId || `user_${i}`,
-            score: e.points,
-            rank: i + 1
-          }));
-
-          const rewards = calculateRewards(leaderboard, ARENA_REWARDS);
-          const result = await distributeRewards(rewards);
-
-          await markDistributed(weekKey, 'arena', {
-            totalEntries,
-            winnersCount: rewards.length,
-            ...result
-          });
-
-          console.log(`✅ Arena rewards distributed: ${result.distributed} winners, ${result.totalScans} total scans`);
-        } else {
-          await markDistributed(weekKey, 'arena', { totalEntries: 0, winnersCount: 0, totalScans: 0 });
-          console.log(`⚔️ No arena entries for ${weekKey}`);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Arena reward distribution failed:', error);
     }
   }
 
