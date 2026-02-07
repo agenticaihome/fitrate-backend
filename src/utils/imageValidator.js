@@ -8,6 +8,9 @@
 
 import sharp from 'sharp';
 
+// Disable Sharp cache for one-shot analyze images (avoids caching overhead)
+sharp.cache(false);
+
 // Allowed image types with their magic bytes
 const MAGIC_BYTES = {
     'image/jpeg': [
@@ -61,16 +64,29 @@ export async function validateAndSanitizeImage(base64Image) {
             return { valid: false, error: `Image too small. Min ${MIN_DIMENSION}px.` };
         }
 
-        // Sanitize: resize for API cost optimization, convert to JPEG, strip EXIF
-        // 512px is sufficient for outfit analysis and reduces API costs by 60-80%
-        const sanitized = await image
-            .rotate() // Auto-rotate based on EXIF, then strips it
-            .resize(512, 512, {
-                fit: 'inside',           // Maintain aspect ratio
-                withoutEnlargement: true // Don't upscale small images
-            })
-            .jpeg({ quality: 80 }) // Convert to JPEG
-            .toBuffer();
+        // OPTIMIZATION: Skip resize if already ≤512px JPEG (frontend pre-compresses to 512)
+        // Just strip EXIF and auto-rotate. Saves ~50ms per request.
+        const alreadyOptimal = detectedType === 'image/jpeg' &&
+            metadata.width <= 512 && metadata.height <= 512;
+
+        let sanitized;
+        if (alreadyOptimal) {
+            // Fast path: just strip EXIF metadata via rotate() (no resize needed)
+            sanitized = await image
+                .rotate() // Auto-rotate based on EXIF, then strips it
+                .jpeg({ quality: 80 })
+                .toBuffer();
+        } else {
+            // Full path: resize + convert to JPEG + strip EXIF
+            sanitized = await image
+                .rotate()
+                .resize(512, 512, {
+                    fit: 'inside',
+                    withoutEnlargement: true
+                })
+                .jpeg({ quality: 80 })
+                .toBuffer();
+        }
 
         // Convert back to base64
         const sanitizedBase64 = sanitized.toString('base64');

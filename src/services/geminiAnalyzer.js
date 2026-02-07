@@ -75,9 +75,10 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
     }
 
     // Clean base64 data once
+    const timingStart = Date.now();
     const base64Data = imageBase64.replace(/^data:image\/\w+;base64,/, '');
     console.log(`[${requestId}] Starting Gemini analysis (mode: ${mode})`);
-    console.log(`[${requestId}] Image data length: ${base64Data.length}`);
+    console.log(`[${requestId}] Image data length: ${base64Data.length} (~${Math.round(base64Data.length * 0.75 / 1024)}KB)`);
 
     // Dynamic temperature based on mode (battle mode gets extra boost)
     const baseTemp = getDynamicTemperature(mode);
@@ -111,9 +112,8 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
     ];
 
     // Try each model with retries
-    // TIMEOUT: 12s per attempt (was 25s) — leaves room for fallback within 30s client timeout
-    // Budget: 12s × 2 attempts × 2 models = 48s max, but usually succeeds on attempt 1
-    const PER_ATTEMPT_TIMEOUT = 12000;
+    // TIMEOUT: 15s per attempt — graceful timeout before client gives up at 30s
+    const PER_ATTEMPT_TIMEOUT = 15000;
 
     for (const modelName of models) {
         const maxRetries = 2;
@@ -123,6 +123,7 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                 const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
                 console.log(`[${requestId}] Calling Gemini (model: ${modelName}, attempt: ${attempt})...`);
 
+                const apiCallStart = Date.now();
                 const controller = new AbortController();
                 const timeoutId = setTimeout(() => controller.abort(), PER_ATTEMPT_TIMEOUT);
 
@@ -137,7 +138,10 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                 });
 
                 clearTimeout(timeoutId);
+                const apiCallMs = Date.now() - apiCallStart;
                 const data = await response.json();
+                console.log(`[${requestId}] API call: ${apiCallMs}ms (${modelName})`);
+                const parseStart = Date.now();
 
                 // Check for 503/overload errors - retry with backoff
                 if (response.status === 503 || data.error?.status === 'UNAVAILABLE') {
@@ -241,7 +245,9 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                 if (parsed.text) parsed.text = cleanPlaceholders(parsed.text);
                 if (parsed.aesthetic) parsed.aesthetic = cleanPlaceholders(parsed.aesthetic);
 
-                console.log(`[${requestId}] Analysis successful with ${modelName} - Score: ${parsed.overall}`);
+                const parseMs = Date.now() - parseStart;
+                const totalMs = Date.now() - timingStart;
+                console.log(`[${requestId}] ⏱ Timing: API=${apiCallMs}ms parse=${parseMs}ms total=${totalMs}ms (${modelName})`);
 
                 // Get virality hooks for this mode
                 const viralityHooks = getViralityHooks(mode);
@@ -285,9 +291,9 @@ export async function analyzeWithGemini(imageBase64, options = {}) {
                 }
 
                 // For timeout errors, retry same model
-                if (error.name === 'AbortError' && attempt < maxRetries) {
-                    console.log(`[${requestId}] Timeout, retrying...`);
-                    continue;
+                if (error.name === 'AbortError') {
+                    console.log(`[${requestId}] Timeout after ${PER_ATTEMPT_TIMEOUT}ms (attempt ${attempt})`);
+                    if (attempt < maxRetries) continue;
                 }
 
                 // For other errors on last attempt/model, save the error

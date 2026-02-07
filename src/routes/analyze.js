@@ -1,5 +1,6 @@
 import express from 'express';
 import rateLimit from 'express-rate-limit';
+import multer from 'multer';
 import { analyzeWithGemini } from '../services/geminiAnalyzer.js';
 import { analyzeOutfit as analyzeWithOpenAI } from '../services/outfitAnalyzer.js';
 import { scanLimiter, incrementScanSimple, decrementScanSimple, getScanCount, getScanCountSecure, incrementScanCount, LIMITS, getProStatus, trackInvalidAttempt, isBlockedForInvalidAttempts } from '../middleware/scanLimiter.js';
@@ -17,6 +18,12 @@ import { hasEnteredToday as hasEnteredDailyChallenge } from '../services/dailyCh
 import { generateCardDNA } from '../services/cardDNA.js';
 
 const router = express.Router();
+
+// Multer for FormData image uploads (memory storage, 10MB limit)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }
+});
 
 // Rate limiter for Pro Roast - expensive OpenAI calls
 const proRoastLimiter = rateLimit({
@@ -128,12 +135,26 @@ router.post('/consume', scanLimiter, async (req, res) => {
 });
 
 // Main analyze endpoint with rate limiting
-router.post('/', scanLimiter, async (req, res) => {
+// Accept both JSON (legacy base64) and multipart FormData (optimized blob upload)
+router.post('/', upload.single('imageFile'), scanLimiter, async (req, res) => {
   const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
   try {
     console.log(`[${requestId}] POST /api/analyze - IP: ${req.ip || 'unknown'}`);
-    const { image, roastMode, mode: modeParam, occasion, eventMode, imageThumb, dailyChallenge, arenaMode } = req.body;
+
+    // Support both FormData (file upload) and JSON body (legacy base64)
+    let image;
+    if (req.file) {
+      // FormData upload: convert buffer to base64 data URL
+      const b64 = req.file.buffer.toString('base64');
+      const mime = req.file.mimetype || 'image/jpeg';
+      image = `data:${mime};base64,${b64}`;
+      console.log(`[${requestId}] FormData upload: ${Math.round(req.file.size / 1024)}KB ${mime}`);
+    } else {
+      image = req.body.image;
+    }
+
+    const { roastMode, mode: modeParam, occasion, eventMode, imageThumb, dailyChallenge, arenaMode } = req.body;
     // Support both new mode string and legacy roastMode boolean
     const mode = modeParam || (roastMode ? 'roast' : 'nice');
 
